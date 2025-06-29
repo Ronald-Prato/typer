@@ -1,6 +1,6 @@
 import { MainLayout } from "@/components/layouts";
 
-export default function HomeLayout({
+export default function FindTheBugLayout({
   children,
 }: {
   children: React.ReactNode;

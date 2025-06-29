@@ -5,7 +5,7 @@ export default async function HomePage() {
   const user = await currentUser();
 
   if (!user) {
-    redirect("/ingresar");
+    redirect("/login");
   }
 
   // const dbUser = await api.users.getUser({ id: user?.id ?? "" });

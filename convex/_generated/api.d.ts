@@ -13,6 +13,10 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as crons from "../crons.js";
+import type * as game from "../game.js";
+import type * as internal_ from "../internal.js";
+import type * as snippets from "../snippets.js";
 import type * as users from "../users.js";
 
 /**
@@ -24,6 +28,10 @@ import type * as users from "../users.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  crons: typeof crons;
+  game: typeof game;
+  internal: typeof internal_;
+  snippets: typeof snippets;
   users: typeof users;
 }>;
 export declare const api: FilterApi<
