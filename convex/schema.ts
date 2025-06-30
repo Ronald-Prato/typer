@@ -15,12 +15,18 @@ export default defineSchema({
     wpm: v.number(),
     accuracy: v.number(),
     time: v.number(),
+    errors: v.number(),
     date: v.number(),
   }),
 
   game: defineTable({
     phrase: v.string(),
     winner: v.optional(v.id("user")),
+    language: v.union(v.literal("en"), v.literal("es")),
+  }),
+
+  phrase: defineTable({
+    text: v.string(),
     language: v.union(v.literal("en"), v.literal("es")),
   }),
 });

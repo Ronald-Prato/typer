@@ -39,8 +39,6 @@ export function ResultsOverlay({
     roundsData.reduce((sum, round) => sum + round.accuracy, 0) / totalRounds;
   const averageWpm =
     roundsData.reduce((sum, round) => sum + round.wpm, 0) / totalRounds;
-  const bestTime = Math.min(...roundsData.map((round) => round.timeMs));
-  const bestWpm = Math.max(...roundsData.map((round) => round.wpm));
 
   const formatTime = (timeMs: number) => {
     const seconds = Math.floor(timeMs / 1000);
@@ -141,7 +139,7 @@ export function ResultsOverlay({
                 <div className="flex items-center justify-center mb-2">
                   <ClockIcon className="w-6 h-6 text-blue-400 mr-2" />
                   <Text variant="body2" className="text-blue-200 font-medium">
-                    Tiempo
+                    Tiempo promedio
                   </Text>
                 </div>
                 <Text variant="h5" className="text-blue-300 font-bold">

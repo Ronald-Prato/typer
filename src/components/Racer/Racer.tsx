@@ -74,7 +74,48 @@ export function Racer({ className = "", phrase, onCompleted }: RacerProps) {
     }
   }, [isActive]);
 
+  // Effect to maintain focus always
   useEffect(() => {
+    const handleFocusOut = () => {
+      // Re-focus the input after a small delay to allow for click events
+      setTimeout(() => {
+        if (inputRef.current && !hasCompleted) {
+          inputRef.current.focus();
+        }
+      }, 10);
+    };
+
+    const handleClickAnywhere = () => {
+      // Always focus the input when clicking anywhere
+      if (inputRef.current && !hasCompleted) {
+        inputRef.current.focus();
+      }
+    };
+
+    // Add event listeners to maintain focus
+    if (inputRef.current) {
+      inputRef.current.addEventListener("blur", handleFocusOut);
+    }
+
+    document.addEventListener("click", handleClickAnywhere);
+    document.addEventListener("mousedown", handleClickAnywhere);
+
+    return () => {
+      if (inputRef.current) {
+        inputRef.current.removeEventListener("blur", handleFocusOut);
+      }
+      document.removeEventListener("click", handleClickAnywhere);
+      document.removeEventListener("mousedown", handleClickAnywhere);
+    };
+  }, [hasCompleted]);
+
+  useEffect(() => {
+    // Reset errors when phrase changes
+    if (userInput === "") {
+      setErrors([]);
+      return;
+    }
+
     // Check for errors when user input changes
     if (userInput.length > 0 && phrase.length > 0) {
       const lastTypedIndex = userInput.length - 1;
@@ -190,9 +231,9 @@ export function Racer({ className = "", phrase, onCompleted }: RacerProps) {
           }
         }
       } else if (index === userInput.length) {
-        // Current character to type - cursor with glow
+        // Current character to type - cursor with improved visibility
         colorClass =
-          "text-gray-400 bg-gray-700/50 animate-pulse drop-shadow-lg shadow-gray-400/50 backdrop-blur-sm";
+          "text-gray-300 bg-gray-600/70 animate-pulse drop-shadow-lg shadow-gray-400/60 backdrop-blur-sm";
       } else {
         // Not yet typed - sunken clay effect
         colorClass = "text-gray-500 drop-shadow-sm shadow-gray-600/20";

@@ -4,13 +4,26 @@ import { useRouter } from "next/navigation";
 import { Text } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, useCallback } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { practiceAtom } from "@/states/practice.states";
+import { useSetAtom } from "jotai/react";
+import { useResetAtom } from "jotai/utils";
 
 export default function HomePage() {
   const [selectedMode, setSelectedMode] = useState("");
   const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
 
-  // const createGame = useMutation(api.game.createGame);
+  const setPractice = useSetAtom(practiceAtom);
+  const resetPractice = useResetAtom(practiceAtom);
+
+  const phrases = useQuery(api.phrase.getPhrases, {});
+
+  const getShuffledPhrases = useCallback(() => {
+    if (!phrases) return [];
+    return phrases.sort(() => Math.random() - 0.5).slice(0, 5);
+  }, [phrases]);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -18,8 +31,13 @@ export default function HomePage() {
     }
   }, [isLoaded, isSignedIn, router]);
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     if (selectedMode === "practice") {
+      if (!phrases) return;
+      resetPractice();
+      setPractice({
+        phrases: getShuffledPhrases().map((phrase) => phrase.text) as string[],
+      });
       router.push("/practice");
     } else if (selectedMode === "1v1") {
       router.push("/1v1");

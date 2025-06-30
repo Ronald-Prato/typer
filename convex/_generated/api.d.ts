@@ -14,6 +14,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as crons from "../crons.js";
+import type * as phrase from "../phrase.js";
 import type * as practice from "../practice.js";
 import type * as user from "../user.js";
 
@@ -27,6 +28,7 @@ import type * as user from "../user.js";
  */
 declare const fullApi: ApiFromModules<{
   crons: typeof crons;
+  phrase: typeof phrase;
   practice: typeof practice;
   user: typeof user;
 }>;

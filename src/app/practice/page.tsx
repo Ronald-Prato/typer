@@ -8,19 +8,8 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
-
-const practiceSet = [
-  "El tiempo es oro, pero la experiencia vale más",
-  // "La práctica hace al maestro en cualquier disciplina",
-  // "Cada día es una nueva oportunidad para mejorar",
-  // "La perseverancia es la clave del éxito verdadero",
-  // "Los sueños se hacen realidad con trabajo constante",
-  // "El conocimiento es poder cuando se aplica correctamente",
-  // "La paciencia es una virtud que pocos cultivan",
-  // "El esfuerzo continuo supera cualquier talento natural",
-  // "La dedicación transforma obstáculos en oportunidades",
-  // "El aprendizaje nunca termina para quien busca crecer",
-];
+import { practiceAtom } from "@/states/practice.states";
+import { useAtomValue } from "jotai/react";
 
 interface RoundData {
   phrase: string;
@@ -39,9 +28,11 @@ export default function PracticePage() {
   const [showStartOverlay, setShowStartOverlay] = useState(true);
   const [showResultsOverlay, setShowResultsOverlay] = useState(false);
 
+  const practiceSet = useAtomValue(practiceAtom);
+
   const createPractice = useMutation(api.practice.addPractice);
 
-  const currentPhrase = practiceSet[currentRound - 1];
+  const currentPhrase = practiceSet.phrases[currentRound - 1];
 
   const handleCompleted = (data: { errors: number; timeMs: number }) => {
     const phrase = currentPhrase;
@@ -68,7 +59,7 @@ export default function PracticePage() {
 
     // After animation, move to next round or finish practice
     setTimeout(() => {
-      if (currentRound < practiceSet.length) {
+      if (currentRound < practiceSet.phrases.length) {
         setCurrentRound((prev) => prev + 1);
         setShowCompleted(false);
       } else {
@@ -78,10 +69,28 @@ export default function PracticePage() {
 
         // Only save to database if user is signed in
         if (isSignedIn) {
+          // Calculate averages from all rounds (same as ResultsOverlay)
+          const allRounds = [...roundsData, roundData]; // Include current round
+          const totalRounds = allRounds.length;
+          const totalTime = allRounds.reduce(
+            (sum, round) => sum + round.timeMs,
+            0
+          );
+          const averageTime = totalTime / totalRounds;
+          const averageAccuracy =
+            allRounds.reduce((sum, round) => sum + round.accuracy, 0) /
+            totalRounds;
+          const averageWpm =
+            allRounds.reduce((sum, round) => sum + round.wpm, 0) / totalRounds;
+          const averageErrors =
+            allRounds.reduce((sum, round) => sum + round.errors, 0) /
+            totalRounds;
+
           createPractice({
-            wpm: wpm,
-            accuracy: accuracy,
-            time: timeInMinutes,
+            wpm: Math.round(averageWpm), // Same as displayed in ResultsOverlay
+            accuracy: averageAccuracy / 100, // Same as displayed in ResultsOverlay
+            time: averageTime / (1000 * 60), // Convert to minutes for DB
+            errors: Math.round(averageErrors), // Same as displayed in ResultsOverlay
           });
         }
       }
@@ -131,7 +140,7 @@ export default function PracticePage() {
           Práctica
         </Text>
         <Text variant="body1" className="text-gray-400 mt-2">
-          {currentRound} / {practiceSet.length}
+          {currentRound} / {practiceSet.phrases.length}
         </Text>
       </div>
 
@@ -210,7 +219,7 @@ export default function PracticePage() {
                     variant="h6"
                     className="font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent"
                   >
-                    {currentRound < practiceSet.length
+                    {currentRound < practiceSet.phrases.length
                       ? "¡Completado!"
                       : "¡Práctica terminada!"}
                   </Text>

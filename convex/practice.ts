@@ -1,12 +1,12 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
 
 export const addPractice = mutation({
   args: {
     wpm: v.number(),
     accuracy: v.number(),
     time: v.number(),
+    errors: v.number(),
   },
   handler: async (ctx, args) => {
     const clerkUser = await ctx.auth.getUserIdentity();
@@ -29,6 +29,7 @@ export const addPractice = mutation({
       wpm: args.wpm,
       accuracy: args.accuracy,
       time: args.time,
+      errors: args.errors,
       date: Date.now(),
     });
 
