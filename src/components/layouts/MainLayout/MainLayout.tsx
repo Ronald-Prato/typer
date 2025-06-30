@@ -1,11 +1,14 @@
-import { UserButton } from "@clerk/nextjs";
+"use client";
+import { useUser } from "@clerk/nextjs";
 import Image from "next/image";
+import { Avatar } from "@/components";
 
 export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { isSignedIn } = useUser();
   return (
     <div className="min-h-screen bg-gray-950 text-white relative grid grid-rows-[80px_1fr_100px]">
       <header className="bg-gray-950/95 backdrop-blur-sm border-b border-gray-800/50 relative z-20">
@@ -15,20 +18,9 @@ export default function MainLayout({
               <h1 className="text-2xl font-bold text-white">typer.io</h1>
             </div>
             <div className="flex items-center space-x-4">
-              {/* <span className="text-sm text-gray-300">
-                ¡Hola, {user?.firstName || user?.username}!
-              </span> */}
-              {/* <span className="text-sm text-gray-300">
-                2,437 developers practicando
-              </span> */}
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <UserButton
-                appearance={{
-                  elements: {
-                    avatarBox: "w-8 h-8",
-                  },
-                }}
-              />
+
+              {isSignedIn && <Avatar size="sm" />}
             </div>
           </div>
         </div>

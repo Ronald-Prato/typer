@@ -6,8 +6,17 @@ export default defineSchema({
     email: v.string(),
     authId: v.string(),
     nickname: v.string(),
+    avatar: v.optional(v.string()),
     games: v.array(v.id("game")),
   }).index("by_auth_id", ["authId"]),
+
+  practice: defineTable({
+    user: v.id("user"),
+    wpm: v.number(),
+    accuracy: v.number(),
+    time: v.number(),
+    date: v.number(),
+  }),
 
   game: defineTable({
     phrase: v.string(),

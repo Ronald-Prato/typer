@@ -1,11 +1,26 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+export const getUser = query({
+  args: {
+    authId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("user")
+      .withIndex("by_auth_id", (q) => q.eq("authId", args.authId))
+      .first();
+
+    return user;
+  },
+});
+
 export const createUser = mutation({
   args: {
     email: v.string(),
     authId: v.string(),
     nickname: v.string(),
+    avatar: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db

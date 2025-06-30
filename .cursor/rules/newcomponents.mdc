@@ -1,0 +1,24 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Every time i ask u to create a new component, create it from components folder. The structure should always match ComponentName/ComponentName.tsx & create ComponentName/index.ts so that it exports everything.
+
+Example
+
+// components/MyComponent
+
+// MyComponent/MyComponent.tsx 
+export function MyComponent() {
+  ...
+  return (<></>)
+}
+
+// MyComponent/index.ts
+export * from "./MyComponent.tsx"
+
+// components/index.ts
+
+... 
+export * from "./MyComponent"

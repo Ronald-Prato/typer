@@ -1,21 +1,14 @@
 "use client";
-
-import { useRef, useState, useCallback } from "react";
-import { useUser, UserButton } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { ModalRefProps } from "@/components";
 import { Text } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { useEffect, useState, useCallback } from "react";
 
 export default function HomePage() {
-  const [isStarting, setIsStarting] = useState(false);
   const [selectedMode, setSelectedMode] = useState("");
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
-  const modalRef = useRef<ModalRefProps>(null);
 
   // const createGame = useMutation(api.game.createGame);
 
@@ -178,7 +171,6 @@ export default function HomePage() {
 
       <div className="absolute bottom-0  w-full flex justify-center">
         <Button
-          loading={isStarting}
           onClick={handleStart}
           className="w-full py-8 relative"
           disabled={!selectedMode}

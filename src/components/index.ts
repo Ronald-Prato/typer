@@ -1,3 +1,4 @@
+export * from "./Avatar";
 export * from "./Modal";
 export * from "./overlays";
 export * from "./Racer";

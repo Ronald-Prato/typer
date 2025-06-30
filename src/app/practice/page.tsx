@@ -5,6 +5,9 @@ import { Text, Racer, PracticeOverlay, ResultsOverlay } from "@/components";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeftIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
+import { useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { useUser } from "@clerk/nextjs";
 
 const practiceSet = [
   "El tiempo es oro, pero la experiencia vale más",
@@ -29,11 +32,14 @@ interface RoundData {
 
 export default function PracticePage() {
   const router = useRouter();
+  const { isSignedIn } = useUser();
   const [currentRound, setCurrentRound] = useState(1);
   const [roundsData, setRoundsData] = useState<RoundData[]>([]);
   const [showCompleted, setShowCompleted] = useState(false);
   const [showStartOverlay, setShowStartOverlay] = useState(true);
   const [showResultsOverlay, setShowResultsOverlay] = useState(false);
+
+  const createPractice = useMutation(api.practice.addPractice);
 
   const currentPhrase = practiceSet[currentRound - 1];
 
@@ -69,6 +75,15 @@ export default function PracticePage() {
         // Practice completed - show results overlay
         setShowCompleted(false);
         setShowResultsOverlay(true);
+
+        // Only save to database if user is signed in
+        if (isSignedIn) {
+          createPractice({
+            wpm: wpm,
+            accuracy: accuracy,
+            time: timeInMinutes,
+          });
+        }
       }
     }, 700); // Show completion for 0.4 seconds + 300ms delay
   };

@@ -50,7 +50,7 @@ export default function LoginPage() {
       await signIn.authenticateWithRedirect({
         strategy,
         redirectUrl: "/callback",
-        redirectUrlComplete: "/home",
+        redirectUrlComplete: "/",
       });
     } catch (err: any) {
       setLoadingStates((prev) => ({ ...prev, [strategy]: false }));
@@ -146,54 +146,6 @@ export default function LoginPage() {
           {/* <p className="text-xs text-gray-500 text-center">Próximamente</p> */}
         </div>
 
-        {/* Features highlight */}
-        <div className="mt-12 pt-8 border-t border-gray-800">
-          <div className="grid gap-4">
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 w-6 h-6 bg-orange-500/20 rounded-full flex items-center justify-center mt-0.5">
-                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-white">
-                  Desafíos con código real
-                </h4>
-                <p className="text-xs text-gray-400">
-                  Escribe fragmentos de código auténticos en múltiples lenguajes
-                  de programación
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 w-6 h-6 bg-blue-500/20 rounded-full flex items-center justify-center mt-0.5">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-white">
-                  Leaderboards para developers
-                </h4>
-                <p className="text-xs text-gray-400">
-                  Compite con programmers de todo el mundo y rastrea tu progreso
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center mt-0.5">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-white">
-                  Competencias por equipos
-                </h4>
-                <p className="text-xs text-gray-400">
-                  Únete a bootcamps y empresas tech en desafíos grupales
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Stats */}
         {/* <div className="mt-8 pt-6 border-t border-gray-800">
           <div className="grid grid-cols-3 gap-4 text-center">
@@ -227,7 +179,7 @@ export default function LoginPage() {
         </div> */}
 
         {/* Clerk Captcha Container */}
-        <div id="clerk-captcha" className="hidden"></div>
+        <div id="clerk-captcha"></div>
       </div>
     </div>
   );

@@ -78,18 +78,19 @@ export default function LoginLayout({
       {/* Footer */}
       <footer className="fixed bottom-0 w-full relative z-10 border-t border-gray-800/50 bg-gray-950/80 backdrop-blur-sm mt-auto">
         <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between text-sm text-gray-400">
-            <div className="flex items-center space-x-6">
-              <span>© 2024 typer.io</span>
-              {/* <a href="#" className="hover:text-white transition-colors">
-                Privacidad
-              </a>
-              <a href="#" className="hover:text-white transition-colors">
-                Términos
-              </a> */}
-            </div>
-            <div className="flex items-center space-x-4">
-              <span>Made with ❤️ by @jotaidev</span>
+          <div className="flex items-center justify-center text-sm text-gray-400">
+            <div className="text-center text-gray-400 text-sm">
+              <p>© 2024 typer.io</p>
+              <p className="mt-2">
+                made with ❤️ by{" "}
+                <a
+                  href="https://github.com/Ronald-Prato"
+                  target="_blank"
+                  className="text-orange-500"
+                >
+                  Ronald Prato
+                </a>
+              </p>
             </div>
           </div>
         </div>
