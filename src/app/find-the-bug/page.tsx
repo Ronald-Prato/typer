@@ -12,7 +12,13 @@ export default function FindTheBugPage() {
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   // const createSnippet = useMutation(api.snippets.createSnippet);
-  // const createSnippets = useAction(api.snippets.createSnippetsAction);
+  const createSnippets = useAction(api.snippets.createSnippetsAction);
+
+  const handleCreateSnippets = async () => {
+    startTransition(async () => {
+      await createSnippets();
+    });
+  };
   const game = useQuery(api.game.getGameById, {
     id: searchParams.get("id") as Id<"game">,
   });
@@ -22,4 +28,9 @@ export default function FindTheBugPage() {
   }
 
   return <FindTheBugPageContent game={game} />;
+  // return (
+  //   <Button loading={isPending} onClick={handleCreateSnippets}>
+  //     Create Snippets
+  //   </Button>
+  // );
 }

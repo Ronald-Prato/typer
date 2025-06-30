@@ -269,7 +269,7 @@ console.log("Total:", calculateTotal(items));`,
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="w-full h-[400px] absolute top-0 left-0 z-50 bg-gray-700/5 backdrop-blur-md flex items-center justify-center"
+              className="w-full h-[300px] absolute top-0 left-0 z-50 bg-gray-700/5 backdrop-blur-md flex items-center justify-center"
             >
               <motion.div
                 initial={{ y: 100, opacity: 0 }}
@@ -334,7 +334,7 @@ console.log("Total:", calculateTotal(items));`,
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="w-full h-[400px] absolute top-0 left-0 z-50 bg-gray-700/5 backdrop-blur-md flex items-center justify-center"
+              className="w-full h-[300px] absolute top-0 left-0 z-50 bg-gray-700/5 backdrop-blur-md flex items-center justify-center"
             >
               <motion.div
                 initial={{ y: 100, opacity: 0 }}
@@ -396,7 +396,7 @@ console.log("Total:", calculateTotal(items));`,
         <CodeMirror
           autoFocus
           value={code}
-          height="400px"
+          height="300px"
           theme={oneDark}
           extensions={[
             javascript({ jsx: false }),

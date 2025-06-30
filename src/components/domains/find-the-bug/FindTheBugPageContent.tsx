@@ -58,14 +58,14 @@ export function FindTheBugPageContent({ game }: FindTheBugPageContentProps) {
       className="container mx-auto px-4 py-8"
     >
       <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
+        {/* <div className="text-center mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent mb-4">
             {game.name}
           </h1>
           <p className="text-gray-300 text-lg">
-            Revisa el código y encuentra el error que está causando problemas
+            Revis el código y encuentra el error que está causando problemas
           </p>
-        </div>
+        </div> */}
 
         {!isLoadingNewSnippet && (
           <FindTheBug

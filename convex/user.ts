@@ -1,7 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
-// Create or update user when they sign in with Clerk
 export const createUser = mutation({
   args: {
     authId: v.string(),
@@ -18,6 +17,7 @@ export const createUser = mutation({
     if (user) {
       return user;
     }
-    return ctx.db.insert("user", args);
+
+    return await ctx.db.insert("user", args);
   },
 });
