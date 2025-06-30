@@ -12,10 +12,7 @@ export default function MainLayout({
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center shadow-lg">
-                <span className="text-xl font-bold text-white">11</span>
-              </div>
-              <h1 className="text-2xl font-bold text-white">Dev 11</h1>
+              <h1 className="text-2xl font-bold text-white">typer.io</h1>
             </div>
             <div className="flex items-center space-x-4">
               {/* <span className="text-sm text-gray-300">
@@ -39,12 +36,12 @@ export default function MainLayout({
 
       {/* Fixed centered isometric image - behind everything */}
       <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0">
-        <div className="relative opacity-10">
+        <div className="relative opacity-20">
           <Image
-            src="/assets/img/dev11isometric.png"
-            alt="Dev 11 Isometric"
-            width={800}
-            height={600}
+            src="/assets/img/typerlogo.png"
+            alt="Typer.io Isometric"
+            width={400}
+            height={400}
             className="object-contain"
             priority
           />
@@ -60,7 +57,7 @@ export default function MainLayout({
       <footer className="bg-gray-950/95 backdrop-blur-sm border-t border-gray-800/50  relative z-20">
         <div className="container mx-auto px-6 py-6">
           <div className="text-center text-gray-400 text-sm">
-            <p>© 2024 Dev 11</p>
+            <p>© 2024 typer.io</p>
             <p className="mt-2">
               made with ❤️ by{" "}
               <a

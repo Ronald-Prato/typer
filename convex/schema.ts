@@ -3,10 +3,10 @@ import { defineSchema, defineTable } from "convex/server";
 
 export default defineSchema({
   user: defineTable({
-    authId: v.string(),
-    username: v.string(),
-    nickname: v.string(),
     email: v.string(),
+    authId: v.string(),
+    nickname: v.string(),
+    games: v.array(v.id("game")),
   }).index("by_auth_id", ["authId"]),
 
   game: defineTable({

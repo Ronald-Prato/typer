@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dev 11",
+  title: "Typer.io",
   description: "Retos de programación diarios",
 };
 

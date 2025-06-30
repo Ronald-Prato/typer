@@ -1,6 +1,6 @@
-import { MainLayout } from "@/components/layouts";
+import { MainLayout } from "@/components";
 
-export default function FindTheBugLayout({
+export default function PracticeLayout({
   children,
 }: {
   children: React.ReactNode;

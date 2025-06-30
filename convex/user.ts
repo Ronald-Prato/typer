@@ -3,10 +3,9 @@ import { v } from "convex/values";
 
 export const createUser = mutation({
   args: {
-    authId: v.string(),
-    username: v.string(),
-    nickname: v.string(),
     email: v.string(),
+    authId: v.string(),
+    nickname: v.string(),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
@@ -18,6 +17,9 @@ export const createUser = mutation({
       return user;
     }
 
-    return await ctx.db.insert("user", args);
+    return await ctx.db.insert("user", {
+      ...args,
+      games: [],
+    });
   },
 });

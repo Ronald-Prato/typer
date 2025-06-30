@@ -80,7 +80,7 @@ export default function LoginLayout({
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between text-sm text-gray-400">
             <div className="flex items-center space-x-6">
-              <span>© 2024 Dev 11</span>
+              <span>© 2024 typer.io</span>
               {/* <a href="#" className="hover:text-white transition-colors">
                 Privacidad
               </a>

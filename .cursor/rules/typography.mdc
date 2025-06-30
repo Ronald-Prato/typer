@@ -1,0 +1,7 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Every time u add text, use [Typography.tsx](mdc:src/components/Typography/Typography.tsx) component <Text> instead of <h1> <p> <span> etc...
+

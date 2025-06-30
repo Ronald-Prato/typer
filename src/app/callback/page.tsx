@@ -13,8 +13,8 @@ export default function CallbackPage() {
       </div>
 
       <Image
-        src="/assets/img/dev11isometric.png"
-        alt="Dev 11 Logo"
+        src="/assets/img/typerlogo.png"
+        alt="Typer.io Logo"
         width={250}
         height={250}
       />
