@@ -5,8 +5,10 @@ import { Avatar } from "@/components";
 
 export default function MainLayout({
   children,
+  withOutImage = false,
 }: {
   children: React.ReactNode;
+  withOutImage?: boolean;
 }) {
   const { isSignedIn } = useUser();
   return (
@@ -27,18 +29,20 @@ export default function MainLayout({
       </header>
 
       {/* Fixed centered isometric image - behind everything */}
-      <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0">
-        <div className="relative opacity-20">
-          <Image
-            src="/assets/img/typerlogo.png"
-            alt="Typer.io Isometric"
-            width={400}
-            height={400}
-            className="object-contain"
-            priority
-          />
+      {!withOutImage && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-0">
+          <div className="relative opacity-20">
+            <Image
+              src="/assets/img/typerlogo.png"
+              alt="Typer.io Isometric"
+              width={400}
+              height={400}
+              className="object-contain"
+              priority
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Page content - above the background image */}
       <div className="relative h-full z-10 px-12 py-12 flex flex-col items-center justify-center">

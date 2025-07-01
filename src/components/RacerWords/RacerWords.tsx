@@ -1,32 +1,28 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect } from "react";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { Text } from "../Typography";
-import { useRacer } from "@/hooks/useRacer";
+import { useRacerWords } from "@/hooks/useRacerWords";
 
-interface RacerProps {
-  phrase?: string;
+interface RacerWordsProps {
+  words: string[];
   className?: string;
   hideStats?: boolean;
-  withCompleteFeedback?: boolean;
   onCompleted?: (data: { errors: number; timeMs: number }) => void;
 }
 
-export function Racer({
-  phrase,
+export function RacerWords({
+  words,
   onCompleted,
   className = "",
   hideStats = false,
-  withCompleteFeedback = false,
-}: RacerProps) {
+}: RacerWordsProps) {
   const {
     userInput,
     errors,
     startTime,
     currentTime,
-    isComplete,
     inputRef,
     containerRef,
     handleInputChange,
@@ -36,14 +32,17 @@ export function Racer({
     accuracy,
     formatTime,
     getTextVariant,
-  } = useRacer({ phrase, onCompleted });
-
-  const targetText = phrase || "";
+    currentWordIndex,
+    currentWord,
+    totalWords,
+    allWordsCompleted,
+    isComplete,
+  } = useRacerWords({ words, onCompleted });
 
   const renderText = () => {
     const textVariant = getTextVariant();
 
-    return targetText.split("").map((char, index) => {
+    return currentWord.split("").map((char, index) => {
       let colorClass = "";
       let displayChar = char;
 
@@ -54,9 +53,9 @@ export function Racer({
           colorClass =
             "font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent drop-shadow-lg shadow-orange-500/50";
         } else {
-          // Incorrect character - show what user typed in light red with clay effect
+          // Incorrect character - show what user typed in gray-200 with clay effect
           colorClass =
-            "text-red-300 font-bold drop-shadow-md shadow-red-400/30";
+            "text-gray-200 font-bold drop-shadow-md shadow-gray-400/30";
           displayChar = userInput[index];
           // Make spaces visible when they're incorrect
           if (displayChar === " ") {
@@ -88,6 +87,29 @@ export function Racer({
     <div
       className={`flex flex-col items-center justify-center space-y-8 ${className}`}
     >
+      {/* Word Progress Indicator */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex justify-center"
+      >
+        <div className="flex space-x-1">
+          {Array.from({ length: totalWords }).map((_, index) => (
+            <div
+              key={index}
+              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                allWordsCompleted || index < currentWordIndex
+                  ? "bg-green-500" // Completed words
+                  : index === currentWordIndex
+                    ? "bg-orange-500" // Current word
+                    : "bg-gray-600" // Remaining words
+              }`}
+            />
+          ))}
+        </div>
+      </motion.div>
+
       {/* Floating text area with enhanced glass effect */}
       <motion.div
         ref={containerRef}
@@ -111,7 +133,7 @@ export function Racer({
         }}
       >
         <div className="text-center leading-relaxed break-words p-12 w-full">
-          {isComplete && withCompleteFeedback ? (
+          {allWordsCompleted ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -136,11 +158,11 @@ export function Racer({
                 </Text>
               </motion.div>
             </motion.div>
-          ) : targetText ? (
+          ) : currentWord ? (
             renderText()
           ) : (
             <Text variant="body1" className="text-gray-500">
-              Cargando frase...
+              Cargando palabras...
             </Text>
           )}
         </div>
@@ -149,7 +171,7 @@ export function Racer({
         <input
           ref={inputRef}
           type="text"
-          disabled={isComplete}
+          disabled={isComplete || allWordsCompleted}
           value={userInput}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -215,6 +237,14 @@ export function Racer({
             </Text>
             <Text variant="body2" className="text-gray-400">
               Tiempo
+            </Text>
+          </div>
+          <div className="flex flex-col justify-center min-w-[80px]">
+            <Text variant="h6" className="text-blue-500 font-bold">
+              {currentWordIndex + 1}/{totalWords}
+            </Text>
+            <Text variant="body2" className="text-gray-400">
+              Palabras
             </Text>
           </div>
         </motion.div>

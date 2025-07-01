@@ -1,14 +1,13 @@
 "use client";
 import { useUser } from "@clerk/nextjs";
+import { useSetAtom } from "jotai/react";
+import { useResetAtom } from "jotai/utils";
 import { useRouter } from "next/navigation";
+import { practicePhrases } from "@/constants";
 import { Text } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, useCallback } from "react";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { practiceAtom } from "@/states/practice.states";
-import { useSetAtom } from "jotai/react";
-import { useResetAtom } from "jotai/utils";
 
 export default function HomePage() {
   const [selectedMode, setSelectedMode] = useState("");
@@ -18,10 +17,9 @@ export default function HomePage() {
   const setPractice = useSetAtom(practiceAtom);
   const resetPractice = useResetAtom(practiceAtom);
 
-  const phrases = useQuery(api.phrase.getPhrases, {});
+  const phrases = practicePhrases;
 
   const getShuffledPhrases = useCallback(() => {
-    if (!phrases) return [];
     return phrases.sort(() => Math.random() - 0.5).slice(0, 5);
   }, [phrases]);
 
@@ -33,10 +31,9 @@ export default function HomePage() {
 
   const handleStart = useCallback(async () => {
     if (selectedMode === "practice") {
-      if (!phrases) return;
       resetPractice();
       setPractice({
-        phrases: getShuffledPhrases().map((phrase) => phrase.text) as string[],
+        phrases: getShuffledPhrases().map((phrase) => phrase) as string[],
       });
       router.push("/practice");
     } else if (selectedMode === "1v1") {

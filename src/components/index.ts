@@ -2,5 +2,6 @@ export * from "./Avatar";
 export * from "./Modal";
 export * from "./overlays";
 export * from "./Racer";
+export * from "./RacerWords";
 export * from "./Typography";
 export * from "./layouts";
