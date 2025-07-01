@@ -21,6 +21,7 @@ export default defineSchema({
 
   game: defineTable({
     phrase: v.string(),
+    players: v.array(v.id("user")),
     winner: v.optional(v.id("user")),
     language: v.union(v.literal("en"), v.literal("es")),
   }),

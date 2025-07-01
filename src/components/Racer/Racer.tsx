@@ -54,9 +54,8 @@ export function Racer({
           colorClass =
             "font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent drop-shadow-lg shadow-orange-500/50";
         } else {
-          // Incorrect character - show what user typed in light red with clay effect
-          colorClass =
-            "text-red-300 font-bold drop-shadow-md shadow-red-400/30";
+          // Incorrect character - show what user typed in white
+          colorClass = "text-white font-bold drop-shadow-md shadow-white/30";
           displayChar = userInput[index];
           // Make spaces visible when they're incorrect
           if (displayChar === " ") {

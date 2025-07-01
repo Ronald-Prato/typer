@@ -80,7 +80,7 @@ export default function LoginLayout({
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-center text-sm text-gray-400">
             <div className="text-center text-gray-400 text-sm">
-              <p>© 2024 typer.io</p>
+              <p>© 2024 Typeala</p>
               <p className="mt-2">
                 made with ❤️ by{" "}
                 <a

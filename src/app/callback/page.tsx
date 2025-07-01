@@ -14,7 +14,7 @@ export default function CallbackPage() {
 
       <Image
         src="/assets/img/typerlogo.png"
-        alt="Typer.io Logo"
+        alt="Typeala Logo"
         width={250}
         height={250}
       />

@@ -2,6 +2,7 @@
 import { useUser } from "@clerk/nextjs";
 import Image from "next/image";
 import { Avatar } from "@/components";
+import Link from "next/link";
 
 export default function MainLayout({
   children,
@@ -16,9 +17,11 @@ export default function MainLayout({
       <header className="bg-gray-950/95 backdrop-blur-sm border-b border-gray-800/50 relative z-20">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <h1 className="text-2xl font-bold text-white">typer.io</h1>
-            </div>
+            <Link href="/home">
+              <div className="flex items-center space-x-3">
+                <h1 className="text-2xl font-bold text-white">Typeala</h1>
+              </div>
+            </Link>
             <div className="flex items-center space-x-4">
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
 
@@ -34,7 +37,7 @@ export default function MainLayout({
           <div className="relative opacity-20">
             <Image
               src="/assets/img/typerlogo.png"
-              alt="Typer.io Isometric"
+              alt="Typeala Isometric"
               width={400}
               height={400}
               className="object-contain"
@@ -53,7 +56,7 @@ export default function MainLayout({
       <footer className="bg-gray-950/95 backdrop-blur-sm border-t border-gray-800/50  relative z-20">
         <div className="container mx-auto px-6 py-6">
           <div className="text-center text-gray-400 text-sm">
-            <p>© 2024 typer.io</p>
+            <p>© 2024 Typeala</p>
             <p className="mt-2">
               made with ❤️ by{" "}
               <a
