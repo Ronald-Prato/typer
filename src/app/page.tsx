@@ -10,13 +10,10 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  const dbUser = await fetchQuery(api.user.getUser, {
+  const dbUser = await fetchQuery(api.user.getUserByAuthId, {
     authId: user.id,
   });
 
-  if (dbUser) {
-    redirect("/home");
-  } else {
-    redirect("/welcome");
-  }
+  if (dbUser) redirect("/home");
+  redirect("/welcome");
 }

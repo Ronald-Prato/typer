@@ -9,4 +9,10 @@ const crons = cronJobs();
 //   internal.snippets.updateSnippetsScheduled // tu mutation o función server
 // );
 
+crons.interval(
+  "match-queued-users-each-minute",
+  { minutes: 1 },
+  internal.queue.matchQueuedUsers
+);
+
 export default crons;

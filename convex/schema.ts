@@ -6,8 +6,14 @@ export default defineSchema({
     email: v.string(),
     authId: v.string(),
     nickname: v.string(),
-    avatar: v.optional(v.string()),
     games: v.array(v.id("game")),
+    avatar: v.optional(v.string()),
+    queueId: v.optional(v.string()),
+    queuedAt: v.optional(v.number()),
+    activeGame: v.optional(v.id("game")),
+    status: v.optional(
+      v.union(v.literal("online"), v.literal("in_queue"), v.literal("in_game"))
+    ),
   }).index("by_auth_id", ["authId"]),
 
   practice: defineTable({
@@ -20,14 +26,22 @@ export default defineSchema({
   }),
 
   game: defineTable({
-    phrase: v.string(),
     players: v.array(v.id("user")),
+    phrase: v.string(),
+    words: v.array(v.string()),
+    holds: v.array(
+      v.object({
+        word: v.string(),
+        number: v.number(),
+      })
+    ),
+    lettersAndSymbols: v.array(
+      v.object({
+        letter: v.string(),
+        position: v.number(),
+      })
+    ),
     winner: v.optional(v.id("user")),
-    language: v.union(v.literal("en"), v.literal("es")),
-  }),
-
-  phrase: defineTable({
-    text: v.string(),
     language: v.union(v.literal("en"), v.literal("es")),
   }),
 });

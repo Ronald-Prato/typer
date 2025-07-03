@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Text } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,8 @@ export default function WelcomePage() {
 
   const createUser = useMutation(api.user.createUser);
 
+  const dbUser = useQuery(api.user.getOwnUser);
+
   const generateAvatar = (seed: string) => {
     const avatar = createAvatar(avataaars, {
       seed: seed,
@@ -35,6 +37,12 @@ export default function WelcomePage() {
     setAvatarSeed(newSeed);
     generateAvatar(newSeed);
   };
+
+  useEffect(() => {
+    if (dbUser?.nickname) {
+      router.push("/home");
+    }
+  }, [dbUser]);
 
   useEffect(() => {
     // Generate initial avatar
@@ -61,6 +69,19 @@ export default function WelcomePage() {
       setIsLoading(false);
     }
   };
+
+  // Listen for Enter key
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === "Enter" && nickname.trim() && !isLoading) {
+        event.preventDefault();
+        handleCreateProfile();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyPress);
+    return () => document.removeEventListener("keydown", handleKeyPress);
+  }, [nickname, isLoading]);
 
   if (!user) {
     return (
@@ -135,20 +156,34 @@ export default function WelcomePage() {
             />
           </div>
 
-          <Button
-            onClick={handleCreateProfile}
-            disabled={!nickname.trim() || isLoading}
-            className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-medium py-3"
-          >
-            {isLoading ? (
-              <div className="flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
-                Creando perfil...
+          <div className="w-full flex justify-center">
+            <Button
+              onClick={handleCreateProfile}
+              disabled={!nickname.trim() || isLoading}
+              className="w-full py-8 relative"
+            >
+              <div className="flex items-center space-x-4">
+                <Text variant="h6" className="text-white font-bold">
+                  {isLoading ? "Creando perfil..." : "Comenzar"}
+                </Text>
+                {/* Enter Key */}
+                <div
+                  className="w-12 h-6 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
+                  style={{
+                    boxShadow:
+                      "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                  }}
+                >
+                  ↵
+                </div>
               </div>
-            ) : (
-              "Comenzar"
-            )}
-          </Button>
+              {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* User Info */}

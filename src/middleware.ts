@@ -3,7 +3,13 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // 1. Detectamos si es ruta pública
-const isPublicRoute = createRouteMatcher(["/login(.*)", "/$", "/api/trpc(.*)"]);
+const isPublicRoute = createRouteMatcher([
+  "/login(.*)",
+  "/$",
+  "/callback",
+  "/welcome",
+  "/api/trpc(.*)",
+]);
 
 // 2. Definimos el prefijo del proxy
 const proxyPrefix = "/analytics";

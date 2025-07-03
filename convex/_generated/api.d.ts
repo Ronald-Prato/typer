@@ -14,8 +14,10 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as crons from "../crons.js";
-import type * as phrase from "../phrase.js";
+import type * as game from "../game.js";
+import type * as helpers_getCurrentUser from "../helpers/getCurrentUser.js";
 import type * as practice from "../practice.js";
+import type * as queue from "../queue.js";
 import type * as user from "../user.js";
 
 /**
@@ -28,8 +30,10 @@ import type * as user from "../user.js";
  */
 declare const fullApi: ApiFromModules<{
   crons: typeof crons;
-  phrase: typeof phrase;
+  game: typeof game;
+  "helpers/getCurrentUser": typeof helpers_getCurrentUser;
   practice: typeof practice;
+  queue: typeof queue;
   user: typeof user;
 }>;
 export declare const api: FilterApi<

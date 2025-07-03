@@ -1,0 +1,18 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+El modal debe ser de esta manera:
+
+<Modal ref={modalRef}>
+  <Modal.Content>
+    content
+  </Modal.Content>
+</Modal>
+
+recuerda crear un modalRefProps así:
+const modalRef = useRef<ModalRefProps>()
+
+
+importalo desde [Modal.tsx](mdc:src/components/Modal/Modal.tsx)

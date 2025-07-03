@@ -47,10 +47,12 @@ export default function LoginPage() {
     setLoadingStates((prev) => ({ ...prev, [strategy]: true }));
 
     try {
+      // This will automatically create a new account if the user doesn't exist
+      // Clerk handles this automatically when using OAuth strategies
       await signIn.authenticateWithRedirect({
         strategy,
         redirectUrl: "/callback",
-        redirectUrlComplete: "/",
+        redirectUrlComplete: "/home",
       });
     } catch (err: any) {
       setLoadingStates((prev) => ({ ...prev, [strategy]: false }));
@@ -63,10 +65,6 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl mb-6 shadow-lg">
-            <span className="text-2xl font-bold text-white">11</span>
-          </div>
-
           <h1 className="text-4xl font-bold text-white mb-2">
             <span className="bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
               Typeala
@@ -179,7 +177,7 @@ export default function LoginPage() {
         </div> */}
 
         {/* Clerk Captcha Container */}
-        <div id="clerk-captcha"></div>
+        <div id="clerk-captcha" className="mt-4"></div>
       </div>
     </div>
   );

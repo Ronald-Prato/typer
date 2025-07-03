@@ -6,16 +6,22 @@ import { useRouter } from "next/navigation";
 import { practicePhrases } from "@/constants";
 import { Text } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useTransition } from "react";
 import { practiceAtom } from "@/states/practice.states";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 
 export default function HomePage() {
-  const [selectedMode, setSelectedMode] = useState("");
-  const { isLoaded, isSignedIn } = useUser();
+  const ownUser = useQuery(api.user.getOwnUser);
+
   const router = useRouter();
+  const { isLoaded, isSignedIn } = useUser();
+  const [selectedMode, setSelectedMode] = useState("");
+  const [isPending, startTransition] = useTransition();
 
   const setPractice = useSetAtom(practiceAtom);
   const resetPractice = useResetAtom(practiceAtom);
+  const getInQueue = useMutation(api.queue.getInQueue);
 
   const phrases = practicePhrases;
 
@@ -37,7 +43,12 @@ export default function HomePage() {
       });
       router.push("/practice");
     } else if (selectedMode === "1v1") {
-      router.push("/1v1");
+      startTransition(async () => {
+        await getInQueue({
+          queueId: Math.random().toString(36).substring(2, 15),
+        });
+      });
+      // router.push("/1v1");
     } else if (selectedMode === "tournament") {
       router.push("/tournament");
     }
@@ -52,7 +63,11 @@ export default function HomePage() {
         setSelectedMode("1v1");
       } else if (event.key === "3") {
         setSelectedMode("tournament");
-      } else if (event.key === " " && selectedMode) {
+      } else if (
+        event.key === " " &&
+        selectedMode &&
+        (selectedMode !== "1v1" || !ownUser?.queueId)
+      ) {
         event.preventDefault(); // Prevent page scroll
         handleStart();
       }
@@ -60,7 +75,7 @@ export default function HomePage() {
 
     document.addEventListener("keydown", handleKeyPress);
     return () => document.removeEventListener("keydown", handleKeyPress);
-  }, [selectedMode, handleStart]);
+  }, [selectedMode, handleStart, ownUser?.queueId]);
 
   if (!isLoaded) {
     return (
@@ -133,10 +148,13 @@ export default function HomePage() {
               selectedMode === "1v1"
                 ? "border-orange-500 bg-gray-800/90"
                 : "border-gray-700 hover:border-gray-600"
-            }`}
+            } ${ownUser?.queueId ? "opacity-50 cursor-not-allowed" : ""}`}
             onClick={() => {
-              setSelectedMode("1v1");
+              if (!ownUser?.queueId) {
+                setSelectedMode("1v1");
+              }
             }}
+            disabled={!!ownUser?.queueId}
           >
             {/* Keyboard Key */}
             <div
@@ -186,9 +204,12 @@ export default function HomePage() {
 
       <div className="absolute bottom-0  w-full flex justify-center">
         <Button
+          loading={isPending}
           onClick={handleStart}
+          disabled={
+            !selectedMode || (selectedMode === "1v1" && !!ownUser?.queueId)
+          }
           className="w-full py-8 relative"
-          disabled={!selectedMode}
         >
           <div className="flex items-center space-x-4">
             <Text variant="h6" className="text-white font-bold">
@@ -198,7 +219,11 @@ export default function HomePage() {
             </Text>
             {/* Space Key */}
             <div
-              className="w-12 h-6 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
+              className={`w-12 h-6 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30 ${
+                !selectedMode || (selectedMode === "1v1" && !!ownUser?.queueId)
+                  ? "bg-white/10 opacity-50"
+                  : "bg-white/20"
+              }`}
               style={{
                 boxShadow:
                   "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",

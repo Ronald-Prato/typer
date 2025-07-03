@@ -38,6 +38,7 @@ type ModalProps = {
 export type ModalRefProps = {
   openModal: () => void;
   closeModal: () => void;
+  isOpen: boolean;
 };
 
 // Compound components
@@ -80,7 +81,7 @@ const Modal = forwardRef<ModalRefProps, ModalProps>(
       title,
       bottomContent,
     }: ModalProps,
-    ref: ForwardedRef<ModalRefProps>,
+    ref: ForwardedRef<ModalRefProps>
   ) => {
     const [showDrawer, setShowDrawer] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);
@@ -98,6 +99,7 @@ const Modal = forwardRef<ModalRefProps, ModalProps>(
       closeModal: () => {
         handleCloseLocally();
       },
+      isOpen: showDrawer,
     }));
 
     // Add escape key listener
@@ -148,9 +150,9 @@ const Modal = forwardRef<ModalRefProps, ModalProps>(
     }
 
     return showDrawer ? (
-      <div className="fixed bottom-0 left-0 top-0 z-50 flex h-screen w-screen items-center justify-center">
+      <div className="fixed bottom-0 left-0 top-0 z-50 flex h-screen w-screen items-center justify-center overflow-hidden">
         <div
-          className="absolute h-full w-full bg-black/40 backdrop-blur-xs"
+          className="absolute h-full w-full bg-black/70 backdrop-blur-2xl backdrop-saturate-150 backdrop-brightness-50"
           onClick={handleCloseLocally}
         />
 
@@ -160,7 +162,7 @@ const Modal = forwardRef<ModalRefProps, ModalProps>(
           exit="exit"
           variants={isAnimating ? slideInVariants : slideOutVariants}
           transition={{ duration: 0.2, type: "spring" }}
-          className={`mobile:max-w-[320px] relative z-20 box-border flex flex-col min-h-[150px] rounded-lg desktop:min-h-[250px] desktop:min-w-[300px] ${
+          className={`mobile:max-w-[320px] relative z-20 box-border flex flex-col min-h-[150px] rounded-lg desktop:min-h-[250px] desktop:min-w-[300px] max-h-[90vh] ${
             className || "bg-white"
           }`}
         >
@@ -180,7 +182,7 @@ const Modal = forwardRef<ModalRefProps, ModalProps>(
           )}
 
           <div
-            className={`mt-10 px-6  overflow-hidden ${modalContentClassName || ""}`}
+            className={`${modalTitle ? "mt-10" : "pt-10"} px-6 overflow-hidden min-w-[30rem] ${modalContentClassName || ""}`}
           >
             {modalContent}
           </div>
@@ -193,7 +195,7 @@ const Modal = forwardRef<ModalRefProps, ModalProps>(
         </motion.main>
       </div>
     ) : null;
-  },
+  }
 ) as ModalComponent;
 
 Modal.displayName = "Modal";

@@ -1,0 +1,35 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+El botón debe tener los estilos de
+ <div className="absolute bottom-0  w-full flex justify-center">
+        <Button
+          loading={isPending}
+          onClick={handleStart}
+          disabled={!selectedMode || !!ownUser?.queueId}
+          className="w-full py-8 relative"
+        >
+          <div className="flex items-center space-x-4">
+            <Text variant="h6" className="text-white font-bold">
+              {selectedMode === "practice"
+                ? "Empezar Práctica"
+                : "Buscar Partida"}
+            </Text>
+            {/* Space Key */}
+            <div
+              className="w-12 h-6 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
+              style={{
+                boxShadow:
+                  "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+              }}
+            >
+              SPACE
+            </div>
+          </div>
+        </Button>
+      </div>
+
+
+      Revisa [page.tsx](mdc:src/app/home/page.tsx) para encontrar una referencia más clara, Recuerda incluir el nombre de la tecla justo como en el archivo y el ejemplo de código.
