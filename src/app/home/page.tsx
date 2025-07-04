@@ -9,6 +9,8 @@ import { api } from "../../../convex/_generated/api";
 import { motion } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MatchHistory } from "@/components/domains/MatchHistory";
+import { useResetAtom } from "jotai/utils";
+import { practiceAtom } from "@/states/practice.states";
 
 export default function HomePage() {
   const ownUser = useQuery(api.user.getOwnUser);
@@ -19,6 +21,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState("partida");
   const [isPending, startTransition] = useTransition();
 
+  const resetPractice = useResetAtom(practiceAtom);
   const getInQueue = useMutation(api.queue.getInQueue);
 
   useEffect(() => {
@@ -29,6 +32,7 @@ export default function HomePage() {
 
   const handleStart = useCallback(async () => {
     if (selectedMode === "practice") {
+      resetPractice();
       router.push("/practice");
     } else if (selectedMode === "1v1") {
       startTransition(async () => {
@@ -148,7 +152,7 @@ export default function HomePage() {
                       : "text-gray-400"
                   }`}
                 >
-                  Mejora tus habilidades de escritura practicando solo
+                  Mejora tus tiempos practicando por tu cuenta
                 </p>
               </motion.button>
 

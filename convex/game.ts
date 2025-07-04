@@ -236,7 +236,7 @@ export const setStepDoneBot = mutation({
     const ownUser = await getCurrentUser(ctx);
 
     if (!ownUser?.activeGame) {
-      throw new Error("No tienes un juego activo");
+      return null;
     }
 
     const bot = await ctx.db

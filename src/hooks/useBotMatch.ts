@@ -9,7 +9,7 @@ export const useBotMatch = () => {
   const currentStepRef = useRef<number>(0);
 
   const steps = ["phrase", "words", "lettersAndSymbols", "holds"];
-  const stepDelays = [10000, 12000, 8000, 16000]; // Tiempos específicos para cada step
+  const stepDelays = [10000, 12000, 8000, 18000]; // Tiempos específicos para cada step
 
   useEffect(() => {
     // Verificar si es un match contra bot

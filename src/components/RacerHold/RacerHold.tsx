@@ -75,6 +75,8 @@ export function RacerHold({
   // Keyboard event listeners for number holding
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!currentWord) return;
+
       // Only handle the specific required key
       if (e.key === currentWord.number.toString() && !e.repeat) {
         console.log("Required key pressed:", currentWord.number); // Debug log
@@ -84,6 +86,8 @@ export function RacerHold({
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (!currentWord) return;
+
       // Only handle the specific required key
       if (e.key === currentWord.number.toString()) {
         console.log("Required key released:", currentWord.number); // Debug log

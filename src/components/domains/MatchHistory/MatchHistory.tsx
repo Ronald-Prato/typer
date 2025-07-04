@@ -14,6 +14,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 import { format, isThisYear } from "date-fns";
 import { es } from "date-fns/locale";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
 interface GameHistoryItem {
   _id: string;
@@ -124,17 +127,30 @@ const formatAccuracy = (accuracy?: number) => {
 };
 
 export const MatchHistory = () => {
-  const gameHistory = useQuery(api.history.getGameHistory);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+
+  const gameHistoryData = useQuery(api.history.getGameHistory, {
+    page: currentPage,
+    limit: 5,
+  });
   const currentUser = useQuery(api.user.getOwnUser);
 
-  if (gameHistory === undefined) {
+  // Track if this is the first load
+  useEffect(() => {
+    if (gameHistoryData !== undefined && isFirstLoad) {
+      setIsFirstLoad(false);
+    }
+  }, [gameHistoryData, isFirstLoad]);
+
+  if (gameHistoryData === undefined) {
     return (
       <div className="w-full max-w-4xl mx-auto space-y-4">
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="mb-6"
+          transition={{ duration: 0.1 }}
+          className="mb-6 flex flex-col items-start"
         >
           <Text variant="h5" className="text-center text-white font-medium">
             Historial de Partidas
@@ -142,12 +158,12 @@ export const MatchHistory = () => {
         </motion.div>
 
         {/* Loading Skeletons */}
-        {Array.from({ length: 5 }).map((_, index) => (
+        {Array.from({ length: 4 }).map((_, index) => (
           <motion.div
             key={index}
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.1 }}
+            transition={{ duration: 0.1, delay: index * 0.02 }}
             className="border border-gray-700 rounded-lg p-4"
           >
             <div className="flex items-center justify-between mb-3">
@@ -166,16 +182,30 @@ export const MatchHistory = () => {
     );
   }
 
+  const {
+    results: gameHistory,
+    hasMore,
+    totalCount,
+    currentPage: page,
+    totalPages,
+  } = gameHistoryData;
+
   if (gameHistory.length === 0) {
     return (
       <div className="w-full max-w-4xl mx-auto">
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.1 }}
           className="text-center py-12"
         >
-          <div className="text-6xl mb-4">📊</div>
+          <motion.div
+            className="text-6xl mb-4"
+            animate={{ y: [0, -5, 0] }}
+            transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+          >
+            📊
+          </motion.div>
           <Text variant="h6" className="text-gray-400 mb-2">
             No hay partidas jugadas
           </Text>
@@ -190,18 +220,21 @@ export const MatchHistory = () => {
   return (
     <div className="w-full max-w-4xl mx-auto">
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={isFirstLoad ? { opacity: 0, y: 5 } : false}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="mb-6"
+        transition={{ duration: 0.1 }}
+        className="mb-6 flex flex-col items-start"
       >
         <Text variant="h5" className="text-center text-white font-medium">
           Historial de Partidas
         </Text>
+        <Text variant="body2" className="text-center text-gray-400 mt-2">
+          Página {page + 1} de {totalPages} • {totalCount} partidas en total
+        </Text>
       </motion.div>
 
       <Accordion type="single" collapsible className="space-y-2">
-        {gameHistory.map((game, index) => {
+        {gameHistory.map((game: GameHistoryItem, index: number) => {
           const userId = currentUser?._id;
           if (!userId) return null;
 
@@ -211,23 +244,28 @@ export const MatchHistory = () => {
           return (
             <motion.div
               key={game._id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
+              initial={isFirstLoad ? { opacity: 0, x: -10 } : false}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{
+                duration: 0.1,
+                delay: isFirstLoad ? index * 0.01 : 0,
+              }}
             >
               <AccordionItem
                 value={game._id}
-                className="border border-gray-700 rounded-lg overflow-hidden"
+                className="border border-gray-700 rounded-lg overflow-hidden hover:border-gray-600 transition-all duration-150"
               >
-                <AccordionTrigger className="px-4 py-3 hover:bg-gray-800/50 transition-colors cursor-pointer">
+                <AccordionTrigger className="px-4 py-3 hover:bg-gray-800/50 transition-colors duration-150 cursor-pointer">
                   <div className="flex items-center justify-between w-full pr-4">
                     {/* Game Info */}
                     <div className="flex items-center space-x-4">
-                      <div
+                      <motion.div
                         className={`text-2xl ${isWinner ? "text-yellow-400" : "text-red-400"}`}
+                        whileHover={{ scale: 1.1 }}
+                        transition={{ duration: 0.1 }}
                       >
                         {isWinner ? "🏆" : "❌"}
-                      </div>
+                      </motion.div>
                       <div className="text-left flex flex-col items-start">
                         <Text
                           variant="body2"
@@ -307,6 +345,50 @@ export const MatchHistory = () => {
           );
         })}
       </Accordion>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <motion.div
+          initial={isFirstLoad ? { opacity: 0, y: 10 } : false}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.1 }}
+          className="flex items-center justify-center space-x-4 mt-8"
+        >
+          <Button
+            onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+            disabled={currentPage === 0}
+            variant="outline"
+            className="flex items-center space-x-2"
+          >
+            <ChevronLeftIcon className="size-4" />
+            <Text variant="body2">Anterior</Text>
+          </Button>
+
+          <div className="flex items-center space-x-2">
+            {Array.from({ length: totalPages }, (_, i) => (
+              <Button
+                key={i}
+                onClick={() => setCurrentPage(i)}
+                variant={currentPage === i ? "default" : "outline"}
+                size="sm"
+                className="w-8 h-8 p-0"
+              >
+                <Text variant="caption">{i + 1}</Text>
+              </Button>
+            ))}
+          </div>
+
+          <Button
+            onClick={() => setCurrentPage(currentPage + 1)}
+            disabled={!hasMore}
+            variant="outline"
+            className="flex items-center space-x-2"
+          >
+            <Text variant="body2">Siguiente</Text>
+            <ChevronRightIcon className="size-4" />
+          </Button>
+        </motion.div>
+      )}
     </div>
   );
 };

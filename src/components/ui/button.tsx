@@ -33,22 +33,132 @@ const buttonVariants = cva(
   }
 );
 
+interface ButtonProps
+  extends React.ComponentProps<"button">,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean;
+  loading?: boolean;
+  shortcut?: string;
+  onShortcutPress?: () => void;
+}
+
+// Component to display keyboard shortcut indicator
+interface KeyIndicatorProps {
+  shortcut: string;
+  size?: "sm" | "base" | "lg";
+  className?: string;
+}
+
+const keyIndicatorVariants = cva(
+  "bg-white/20 backdrop-blur-sm text-white font-medium rounded flex items-center justify-center border border-white/30",
+  {
+    variants: {
+      size: {
+        sm: "w-9 h-4.5 text-[10px]",
+        base: "w-12 h-6 text-xs",
+        lg: "w-16 h-8 text-sm",
+      },
+    },
+    defaultVariants: {
+      size: "base",
+    },
+  }
+);
+
+function KeyIndicator({
+  shortcut,
+  size = "base",
+  className,
+}: KeyIndicatorProps) {
+  const [isMacOS, setIsMacOS] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsMacOS(
+      typeof window !== "undefined" &&
+        navigator.platform.toUpperCase().indexOf("MAC") >= 0
+    );
+  }, []);
+
+  const formatShortcut = (shortcut: string) => {
+    const keys = shortcut.toLowerCase().split("+");
+    const isMacOS =
+      typeof window !== "undefined" &&
+      navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+
+    return keys
+      .map((key) => {
+        if (key === "cmd" && isMacOS) return "⌘";
+        if (key === "ctrl" && !isMacOS) return "Ctrl";
+        if (key === "shift") return "Shift";
+        if (key === "alt") return "Alt";
+        return key.toUpperCase();
+      })
+      .join(" ");
+  };
+
+  return (
+    <div
+      className={cn(keyIndicatorVariants({ size }), className)}
+      style={{
+        boxShadow:
+          "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+      }}
+    >
+      {formatShortcut(shortcut)}
+    </div>
+  );
+}
+
 function Button({
   className,
   variant,
   size,
   asChild = false,
   loading = false,
+  shortcut,
+  onShortcutPress,
   children,
   ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean;
-    loading?: boolean;
-  }) {
+}: ButtonProps) {
   const Comp = asChild ? Slot : "button";
-
   const isDisabled = loading || props.disabled;
+
+  // Handle keyboard shortcuts
+  React.useEffect(() => {
+    if (!shortcut || !onShortcutPress) return;
+
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Parse shortcut (e.g., "Cmd+J", "Ctrl+K", "Enter")
+      const keys = shortcut.toLowerCase().split("+");
+      const isMacOS =
+        typeof window !== "undefined" &&
+        navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+
+      // Check modifier keys
+      const hasCmd = keys.includes("cmd") && event.metaKey;
+      const hasCtrl = keys.includes("ctrl") && event.ctrlKey;
+      const hasShift = keys.includes("shift") && event.shiftKey;
+      const hasAlt = keys.includes("alt") && event.altKey;
+
+      // Check main key
+      const mainKey = keys.find(
+        (key) => !["cmd", "ctrl", "shift", "alt"].includes(key)
+      );
+      const keyMatches = mainKey && event.key.toLowerCase() === mainKey;
+
+      // Handle platform-specific modifiers
+      const modifierMatches = isMacOS ? hasCmd : hasCtrl;
+
+      if (keyMatches && modifierMatches && !hasShift && !hasAlt) {
+        event.preventDefault();
+        event.stopPropagation();
+        onShortcutPress();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyPress);
+    return () => document.removeEventListener("keydown", handleKeyPress);
+  }, [shortcut, onShortcutPress]);
 
   return (
     <Comp
@@ -71,4 +181,5 @@ function Button({
   );
 }
 
-export { Button, buttonVariants };
+export { Button, buttonVariants, KeyIndicator };
+export type { ButtonProps, KeyIndicatorProps };
