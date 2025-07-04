@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Text, Racer, PracticeOverlay, ResultsOverlay } from "@/components";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeftIcon } from "@heroicons/react/24/outline";
@@ -9,7 +9,8 @@ import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { practiceAtom } from "@/states/practice.states";
-import { useAtomValue } from "jotai/react";
+import { useAtomValue, useSetAtom } from "jotai/react";
+import { practicePhrases } from "@/constants";
 
 interface RoundData {
   phrase: string;
@@ -29,10 +30,25 @@ export default function PracticePage() {
   const [showResultsOverlay, setShowResultsOverlay] = useState(false);
 
   const practiceSet = useAtomValue(practiceAtom);
+  const setPractice = useSetAtom(practiceAtom);
 
   const createPractice = useMutation(api.practice.addPractice);
 
-  const currentPhrase = practiceSet.phrases[currentRound - 1];
+  // Initialize practice state when component loads
+  useEffect(() => {
+    const getShuffledPhrases = () => {
+      return practicePhrases.sort(() => Math.random() - 0.5).slice(0, 5);
+    };
+
+    // Only initialize if practiceSet is empty or doesn't exist
+    if (!practiceSet?.phrases || practiceSet.phrases.length === 0) {
+      setPractice({
+        phrases: getShuffledPhrases().map((phrase) => phrase) as string[],
+      });
+    }
+  }, [practiceSet?.phrases, setPractice]);
+
+  const currentPhrase = practiceSet?.phrases?.[currentRound - 1];
 
   const handleCompleted = (data: { errors: number; timeMs: number }) => {
     const phrase = currentPhrase;
@@ -59,7 +75,7 @@ export default function PracticePage() {
 
     // After animation, move to next round or finish practice
     setTimeout(() => {
-      if (currentRound < practiceSet.phrases.length) {
+      if (currentRound < (practiceSet?.phrases?.length || 0)) {
         setCurrentRound((prev) => prev + 1);
         setShowCompleted(false);
       } else {
@@ -107,14 +123,22 @@ export default function PracticePage() {
     router.push("/home");
   };
 
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Cmd/Ctrl + J to go back
+      if ((event.metaKey || event.ctrlKey) && event.key === "j") {
+        event.preventDefault();
+        router.push("/home");
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyPress);
+    return () => document.removeEventListener("keydown", handleKeyPress);
+  }, [router]);
+
   return (
     <div className="h-full bg-gray-950 text-white flex flex-col items-center justify-center p-8">
-      {/* Practice Start Overlay */}
-      <PracticeOverlay
-        isVisible={showStartOverlay}
-        onStart={handleStartPractice}
-      />
-
       {/* Results Overlay */}
       <ResultsOverlay
         isVisible={showResultsOverlay}
@@ -126,10 +150,20 @@ export default function PracticePage() {
         onClick={() => router.push("/home")}
         className="cursor-pointer absolute top-8 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 px-4 py-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors duration-200 text-gray-300 hover:text-white"
       >
-        <ChevronLeftIcon className="size-4" />
+        <ChevronLeftIcon className="size-3" />
         <Text variant="body2" className="font-medium">
           Volver
         </Text>
+        {/* Shortcut Key */}
+        <div
+          className="w-12 h-6 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
+          style={{
+            boxShadow:
+              "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+          }}
+        >
+          {navigator.platform.includes("Mac") ? "⌘J" : "Ctrl+J"}
+        </div>
       </button>
 
       <div className="text-center mb-8 flex flex-col items-center">
@@ -140,16 +174,29 @@ export default function PracticePage() {
           Práctica
         </Text>
         <Text variant="body1" className="text-gray-400 mt-2">
-          {currentRound} / {practiceSet.phrases.length}
+          {currentRound} / {practiceSet?.phrases?.length || 0}
         </Text>
       </div>
 
-      {/* Container for Racer with completion overlay */}
+      {/* Container for Racer with overlays */}
       <div className="relative w-full">
-        <Racer
-          className="w-full"
-          phrase={currentPhrase}
-          onCompleted={handleCompleted}
+        {currentPhrase ? (
+          <Racer
+            className="w-full"
+            phrase={currentPhrase}
+            onCompleted={handleCompleted}
+            disabled={showStartOverlay}
+          />
+        ) : (
+          <div className="w-full h-32 flex items-center justify-center">
+            <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
+
+        {/* Practice Start Overlay */}
+        <PracticeOverlay
+          isVisible={showStartOverlay}
+          onStart={handleStartPractice}
         />
 
         {/* Completion Overlay */}
@@ -219,7 +266,7 @@ export default function PracticePage() {
                     variant="h6"
                     className="font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent"
                   >
-                    {currentRound < practiceSet.phrases.length
+                    {currentRound < (practiceSet?.phrases?.length || 0)
                       ? "¡Completado!"
                       : "¡Práctica terminada!"}
                   </Text>

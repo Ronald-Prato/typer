@@ -14,7 +14,7 @@ export default function CallbackPage() {
 
       <h1 className="text-2xl font-bold text-white">
         <span className="bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-          Typeala
+          typewars.io
         </span>
       </h1>
 

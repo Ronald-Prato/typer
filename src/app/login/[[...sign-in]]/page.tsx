@@ -67,7 +67,7 @@ export default function LoginPage() {
         <div className="text-center">
           <h1 className="text-4xl font-bold text-white mb-2">
             <span className="bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-              Typeala
+              typewars.io
             </span>
           </h1>
 

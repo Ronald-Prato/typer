@@ -97,7 +97,7 @@ export default function WelcomePage() {
         {/* Header */}
         <div className="text-center">
           <Text variant="h4" className="text-white mb-2">
-            Typeala
+            typewars.io
           </Text>
         </div>
 

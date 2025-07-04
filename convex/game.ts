@@ -164,8 +164,44 @@ export const setStepDone = mutation({
     };
 
     // Winner 🎉
-    if (args.step === "holds" && !game.winner) {
-      await ctx.db.patch(game._id, {
+    if (args.step === "holds" && !game.winner && theOtherPlayerId) {
+      const gameWithWinner = {
+        ...game,
+        progress: newProgress,
+        winner: ownUser._id,
+      };
+
+      // Save game history for both players
+      await Promise.all([
+        ctx.db.insert("gameHistory", {
+          userId: ownUser._id,
+          players: game.players,
+          phrase: game.phrase,
+          words: game.words,
+          holds: game.holds,
+          lettersAndSymbols: game.lettersAndSymbols,
+          playersAccepted: game.playersAccepted,
+          winner: ownUser._id,
+          language: game.language,
+          progress: newProgress,
+          createdAt: Date.now(),
+        }),
+        ctx.db.insert("gameHistory", {
+          userId: theOtherPlayerId,
+          players: game.players,
+          phrase: game.phrase,
+          words: game.words,
+          holds: game.holds,
+          lettersAndSymbols: game.lettersAndSymbols,
+          playersAccepted: game.playersAccepted,
+          winner: ownUser._id,
+          language: game.language,
+          progress: newProgress,
+          createdAt: Date.now(),
+        }),
+      ]);
+
+      return await ctx.db.patch(game._id, {
         progress: newProgress,
         winner: ownUser._id,
       });

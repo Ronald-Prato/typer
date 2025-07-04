@@ -51,6 +51,7 @@ export const matchQueuedUsers = internalMutation({
       )
       .collect();
 
+    // Ordenar por fecha de cola
     const queuedUsers = filteredUsers.sort(
       (a, b) => (a.queuedAt || 0) - (b.queuedAt || 0)
     );

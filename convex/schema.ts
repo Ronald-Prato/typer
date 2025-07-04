@@ -88,4 +88,65 @@ export default defineSchema({
       )
     ),
   }),
+
+  gameHistory: defineTable({
+    userId: v.id("user"),
+    players: v.array(v.id("user")),
+    phrase: v.string(),
+    words: v.array(v.string()),
+    holds: v.array(
+      v.object({
+        word: v.string(),
+        number: v.number(),
+      })
+    ),
+    lettersAndSymbols: v.array(v.string()),
+    playersAccepted: v.array(v.id("user")),
+    winner: v.optional(v.id("user")),
+    language: v.union(v.literal("en"), v.literal("es")),
+    progress: v.optional(
+      v.record(
+        v.id("user"),
+        v.object({
+          phraseDone: v.optional(v.boolean()),
+          wordsDone: v.optional(v.boolean()),
+          lettersAndSymbolsDone: v.optional(v.boolean()),
+          holdsDone: v.optional(v.boolean()),
+          phraseMetrics: v.optional(
+            v.object({
+              errors: v.number(),
+              timeMs: v.number(),
+              accuracy: v.optional(v.number()),
+              wpm: v.optional(v.number()),
+            })
+          ),
+          wordsMetrics: v.optional(
+            v.object({
+              errors: v.number(),
+              timeMs: v.number(),
+              accuracy: v.optional(v.number()),
+              wpm: v.optional(v.number()),
+            })
+          ),
+          lettersAndSymbolsMetrics: v.optional(
+            v.object({
+              errors: v.number(),
+              timeMs: v.number(),
+              accuracy: v.optional(v.number()),
+              wpm: v.optional(v.number()),
+            })
+          ),
+          holdsMetrics: v.optional(
+            v.object({
+              errors: v.number(),
+              timeMs: v.number(),
+              accuracy: v.optional(v.number()),
+              wpm: v.optional(v.number()),
+            })
+          ),
+        })
+      )
+    ),
+    createdAt: v.number(),
+  }).index("by_user_id", ["userId"]),
 });

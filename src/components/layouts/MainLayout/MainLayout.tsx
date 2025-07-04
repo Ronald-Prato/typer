@@ -144,7 +144,7 @@ export default function MainLayout({
           <div className="flex items-center justify-between h-full">
             <Link href="/home">
               <div className="flex items-center space-x-3">
-                <h1 className="text-2xl font-bold text-white">Typeala</h1>
+                <h1 className="text-2xl font-bold text-white">typewars.io</h1>
               </div>
             </Link>
 
@@ -166,7 +166,7 @@ export default function MainLayout({
       {/* Fixed centered isometric image - behind everything */}
 
       {/* Page content - above the background image */}
-      <div className="relative h-full z-10 px-12 py-12 flex flex-col items-center justify-center">
+      <div className="relative h-full z-10 px-12 py-8 flex flex-col items-center justify-center">
         <div className="w-full h-full max-w-[60rem] mx-auto">{children}</div>
       </div>
 
@@ -174,7 +174,7 @@ export default function MainLayout({
       <footer className="bg-gray-950/95 backdrop-blur-sm border-t border-gray-800/50  relative z-20">
         <div className="container mx-auto px-6 py-6">
           <div className="text-center text-gray-400 text-sm">
-            <p>© 2024 Typeala</p>
+            <p>© 2025 typewars.io</p>
             <p className="mt-2">
               made with ❤️ by{" "}
               <a

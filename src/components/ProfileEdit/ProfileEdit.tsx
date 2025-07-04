@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Text } from "../Typography";
@@ -73,7 +73,7 @@ export function ProfileEdit({
     return () => clearInterval(checkModalState);
   }, [onClose]);
 
-  const handleUpdateProfile = async () => {
+  const handleUpdateProfile = useCallback(async () => {
     if (!nickname.trim()) return;
 
     setIsLoading(true);
@@ -90,7 +90,7 @@ export function ProfileEdit({
       console.error("Error updating user:", error);
       setIsLoading(false);
     }
-  };
+  }, [nickname.trim(), avatarSvg, updateUser, onUpdate, onClose]);
 
   const handleClose = () => {
     modalRef.current?.closeModal();
@@ -102,13 +102,14 @@ export function ProfileEdit({
     const handleKeyPress = (event: KeyboardEvent) => {
       if (event.key === "Enter" && nickname.trim() && !isLoading) {
         event.preventDefault();
+        event.stopPropagation();
         handleUpdateProfile();
       }
     };
 
     document.addEventListener("keydown", handleKeyPress);
     return () => document.removeEventListener("keydown", handleKeyPress);
-  }, [nickname, isLoading]);
+  }, [nickname, isLoading, handleUpdateProfile]);
 
   return (
     <Modal

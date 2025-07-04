@@ -16,6 +16,7 @@ import type {
 import type * as crons from "../crons.js";
 import type * as game from "../game.js";
 import type * as helpers_getCurrentUser from "../helpers/getCurrentUser.js";
+import type * as history from "../history.js";
 import type * as practice from "../practice.js";
 import type * as queue from "../queue.js";
 import type * as user from "../user.js";
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   game: typeof game;
   "helpers/getCurrentUser": typeof helpers_getCurrentUser;
+  history: typeof history;
   practice: typeof practice;
   queue: typeof queue;
   user: typeof user;

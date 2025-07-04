@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { Text } from "../Typography";
 import { useRacer } from "@/hooks/useRacer";
@@ -11,6 +11,7 @@ interface RacerProps {
   className?: string;
   hideStats?: boolean;
   withCompleteFeedback?: boolean;
+  disabled?: boolean;
   onCompleted?: (data: { errors: number; timeMs: number }) => void;
 }
 
@@ -20,6 +21,7 @@ export function Racer({
   className = "",
   hideStats = false,
   withCompleteFeedback = false,
+  disabled = false,
 }: RacerProps) {
   const {
     userInput,
@@ -39,6 +41,16 @@ export function Racer({
   } = useRacer({ phrase, onCompleted });
 
   const targetText = phrase || "";
+
+  // Auto-focus when disabled changes to false
+  useEffect(() => {
+    if (!disabled && inputRef.current) {
+      // Small delay to ensure the component is fully rendered
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [disabled]);
 
   const renderText = () => {
     const textVariant = getTextVariant();
@@ -90,7 +102,7 @@ export function Racer({
       {/* Floating text area with enhanced glass effect */}
       <motion.div
         ref={containerRef}
-        onClick={handleContainerClick}
+        onClick={disabled ? undefined : handleContainerClick}
         initial={{
           opacity: 0,
           scale: 0.5,
@@ -103,7 +115,9 @@ export function Racer({
           duration: 0.3,
           ease: [0.25, 0.46, 0.45, 0.94],
         }}
-        className="relative cursor-text flex items-center justify-center w-full max-w-4xl"
+        className={`relative flex items-center justify-center w-full max-w-4xl ${
+          disabled ? "cursor-default" : "cursor-text"
+        }`}
         style={{
           minHeight: "200px",
           height: "200px",
@@ -148,7 +162,7 @@ export function Racer({
         <input
           ref={inputRef}
           type="text"
-          disabled={isComplete}
+          disabled={isComplete || disabled}
           value={userInput}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}

@@ -201,7 +201,9 @@ export const Stage1 = ({ onStageCompleted }: Stage1Props) => {
   };
 
   const handleFinishGame = async () => {
-    void finishGame();
+    setTimeout(() => {
+      void finishGame();
+    }, 100);
     router.push("/home");
   };
 
@@ -366,7 +368,7 @@ export const Stage1 = ({ onStageCompleted }: Stage1Props) => {
             words={gameData?.game?.lettersAndSymbols || []}
             onCompleted={handleRacerCompleted}
           />
-        ) : step === "4" ? (
+        ) : step === "4" && !gameData?.game?.winner ? (
           <RacerHold
             hideBullets
             holds={gameData?.game?.holds || []}

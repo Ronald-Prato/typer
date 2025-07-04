@@ -241,14 +241,6 @@ export function RacerHold({
         className={`flex flex-col items-center justify-center space-y-6 ${className}`}
       >
         <motion.div
-          initial={{ scale: 0.5 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.2, duration: 0.3 }}
-          className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-full flex items-center justify-center shadow-lg shadow-orange-500/50"
-        >
-          <CheckIcon className="w-8 h-8 text-white" />
-        </motion.div>
-        <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.1, ease: "easeOut" }}
