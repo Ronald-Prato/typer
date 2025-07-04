@@ -25,10 +25,12 @@ export const acceptGame = mutation({
     }
 
     const theOtherPlayer = await ctx.db.get(theOtherPlayerId);
+    const againstBot = game.againstBot;
 
     if (
-      theOtherPlayer?.status !== "game_found" ||
-      theOtherPlayer.activeGame !== ownUser.activeGame
+      !againstBot &&
+      (theOtherPlayer?.status !== "game_found" ||
+        theOtherPlayer.activeGame !== ownUser.activeGame)
     ) {
       throw new Error("Oponente no está en la partida");
     }
@@ -36,14 +38,20 @@ export const acceptGame = mutation({
     const newPlayersAccepted = [...game.playersAccepted, ownUser._id];
 
     if (newPlayersAccepted.length >= 2) {
-      await Promise.all([
-        ctx.db.patch(ownUser._id, {
-          status: "in_game",
-        }),
-        ctx.db.patch(theOtherPlayerId, {
-          status: "in_game",
-        }),
-      ]);
+      !againstBot
+        ? await Promise.all([
+            ctx.db.patch(ownUser._id, {
+              status: "in_game",
+            }),
+            ctx.db.patch(theOtherPlayerId, {
+              status: "in_game",
+            }),
+          ])
+        : await Promise.all([
+            ctx.db.patch(ownUser._id, {
+              status: "in_game",
+            }),
+          ]);
     }
 
     return await ctx.db.patch(game._id, {
@@ -165,12 +173,6 @@ export const setStepDone = mutation({
 
     // Winner 🎉
     if (args.step === "holds" && !game.winner && theOtherPlayerId) {
-      const gameWithWinner = {
-        ...game,
-        progress: newProgress,
-        winner: ownUser._id,
-      };
-
       // Save game history for both players
       await Promise.all([
         ctx.db.insert("gameHistory", {
@@ -205,6 +207,103 @@ export const setStepDone = mutation({
         progress: newProgress,
         winner: ownUser._id,
       });
+    }
+
+    return await ctx.db.patch(game._id, {
+      progress: newProgress,
+    });
+  },
+});
+
+export const setStepDoneBot = mutation({
+  args: {
+    step: v.union(
+      v.literal("phrase"),
+      v.literal("words"),
+      v.literal("lettersAndSymbols"),
+      v.literal("holds")
+    ),
+    metrics: v.optional(
+      v.object({
+        errors: v.number(),
+        timeMs: v.number(),
+        accuracy: v.optional(v.number()),
+        wpm: v.optional(v.number()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const ownUser = await getCurrentUser(ctx);
+
+    if (!ownUser?.activeGame) {
+      throw new Error("No tienes un juego activo");
+    }
+
+    const bot = await ctx.db
+      .query("user")
+      .filter((q) => q.eq(q.field("authId"), "imabot"))
+      .first();
+
+    if (!bot) {
+      throw new Error("Bot not found");
+    }
+
+    const game = await ctx.db.get(ownUser.activeGame);
+
+    if (!game) {
+      throw new Error("Juego no encontrado");
+    }
+
+    const stepFieldMap: Record<string, string> = {
+      phrase: "phraseDone",
+      words: "wordsDone",
+      lettersAndSymbols: "lettersAndSymbolsDone",
+      holds: "holdsDone",
+    };
+
+    const metricsFieldMap: Record<string, string> = {
+      phrase: "phraseMetrics",
+      words: "wordsMetrics",
+      lettersAndSymbols: "lettersAndSymbolsMetrics",
+      holds: "holdsMetrics",
+    };
+
+    const newProgress = {
+      ...game.progress,
+      [bot._id]: {
+        ...game.progress?.[bot._id],
+        [stepFieldMap[args.step]]: true,
+        ...(args.metrics && { [metricsFieldMap[args.step]]: args.metrics }),
+      },
+    };
+
+    // Winner 🎉
+    if (args.step === "holds" && !game.winner && bot._id) {
+      // Save game history for both players
+      await Promise.all([
+        ctx.db.insert("gameHistory", {
+          userId: ownUser._id,
+          players: game.players,
+          phrase: game.phrase,
+          words: game.words,
+          holds: game.holds,
+          lettersAndSymbols: game.lettersAndSymbols,
+          playersAccepted: game.playersAccepted,
+          winner: bot._id,
+          language: game.language,
+          progress: newProgress,
+          createdAt: Date.now(),
+        }),
+      ]);
+
+      return await ctx.db.patch(game._id, {
+        progress: newProgress,
+        winner: bot._id,
+      });
+    }
+
+    if (game.winner) {
+      return;
     }
 
     return await ctx.db.patch(game._id, {

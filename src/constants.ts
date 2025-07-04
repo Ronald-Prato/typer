@@ -645,3 +645,25 @@ export const practiceWords = [
   "pez",
   "subluz",
 ];
+
+export const botNicknames = [
+  "dom",
+  "joel",
+  "richard",
+  "juan22",
+  "pedro8",
+  "joseB2",
+  "mari4_b",
+  "rita.p",
+  "elon.m4",
+  "ana19",
+  "luca_p9",
+  "sofiax3",
+  "mike007",
+  "carlito5",
+  "gaby.l2",
+  "tomas_k",
+  "@vic.thor",
+  "roberT4",
+  "poulCTZz",
+];

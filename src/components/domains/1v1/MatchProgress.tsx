@@ -6,6 +6,7 @@ import ReactConfetti from "react-confetti";
 import { Text } from "@/components/Typography";
 import { api } from "../../../../convex/_generated/api";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 
 export const MatchProgress = () => {
   const { width, height } = useWindowSize();
@@ -37,7 +38,15 @@ export const MatchProgress = () => {
       );
     }
 
-    return (
+    return user?.authId === "imabot" ? (
+      <img
+        alt="Bot"
+        src={opponent?.avatar || ""}
+        width={48}
+        height={48}
+        className="rounded-full"
+      />
+    ) : (
       <div
         className={`${size} rounded-full bg-gray-800 border-2 border-gray-600 overflow-hidden flex items-center justify-center relative`}
       >
@@ -160,7 +169,20 @@ export const MatchProgress = () => {
 
         {/* Opponent */}
         <div className="flex flex-col items-center space-y-2">
-          {renderAvatar(opponent)}
+          <div className="relative">
+            {renderAvatar(opponent)}
+            {/* Trophy emoji when user loses */}
+            {isGameFinished && !isWinner && (
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="absolute -top-2 -right-2 text-2xl"
+              >
+                🏆
+              </motion.div>
+            )}
+          </div>
           <Text variant="body2" className="text-white font-medium">
             {opponent?.nickname || "Oponente"}
           </Text>

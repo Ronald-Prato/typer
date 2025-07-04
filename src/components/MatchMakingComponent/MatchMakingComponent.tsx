@@ -98,9 +98,10 @@ export function MatchMakingComponent() {
         event.preventDefault();
         event.stopPropagation();
 
-        startTransition(async () => {
-          await exitQueue();
-        });
+        ownUser?.status !== "in_game" &&
+          startTransition(async () => {
+            await exitQueue();
+          });
       }
 
       // Handle Cmd+Enter for accepting game
@@ -110,16 +111,17 @@ export function MatchMakingComponent() {
         event.stopPropagation();
 
         setIsAccepting(true);
-        startTransition(async () => {
-          try {
-            await acceptGame({});
-          } catch (error) {
-            console.error("Error accepting game:", error);
-            alert("Error al aceptar la partida");
-          } finally {
-            setIsAccepting(false);
-          }
-        });
+        ownUser?.status !== "in_game" &&
+          startTransition(async () => {
+            try {
+              await acceptGame({});
+            } catch (error) {
+              console.error("Error accepting game:", error);
+              alert("Error al aceptar la partida");
+            } finally {
+              setIsAccepting(false);
+            }
+          });
       }
 
       // Handle Cmd+X for rejecting game
@@ -132,21 +134,28 @@ export function MatchMakingComponent() {
         event.preventDefault();
         event.stopPropagation();
 
-        startTransition(async () => {
-          try {
-            await rejectGame();
-          } catch (error) {
-            console.error("Error rejecting game:", error);
-            alert("Error al rechazar la partida");
-          }
-        });
+        ownUser?.status !== "in_game" &&
+          startTransition(async () => {
+            try {
+              await rejectGame();
+            } catch (error) {
+              console.error("Error rejecting game:", error);
+              alert("Error al rechazar la partida");
+            }
+          });
       }
     };
 
     // Use capture phase to ensure we catch the event first
     document.addEventListener("keydown", handleKeyDown, true);
     return () => document.removeEventListener("keydown", handleKeyDown, true);
-  }, [ownUser?.queueId, ownUser?.activeGame, exitQueue, rejectGame]);
+  }, [
+    ownUser?.queueId,
+    ownUser?.activeGame,
+    exitQueue,
+    rejectGame,
+    ownUser?.status,
+  ]);
 
   // Check if user has already accepted the game
   const hasAccepted = currentGame?.game?.playersAccepted?.includes(

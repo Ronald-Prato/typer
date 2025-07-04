@@ -26,7 +26,6 @@ export default function PracticePage() {
   const [currentRound, setCurrentRound] = useState(1);
   const [roundsData, setRoundsData] = useState<RoundData[]>([]);
   const [showCompleted, setShowCompleted] = useState(false);
-  const [showStartOverlay, setShowStartOverlay] = useState(true);
   const [showResultsOverlay, setShowResultsOverlay] = useState(false);
 
   const practiceSet = useAtomValue(practiceAtom);
@@ -113,10 +112,6 @@ export default function PracticePage() {
     }, 700); // Show completion for 0.4 seconds + 300ms delay
   };
 
-  const handleStartPractice = () => {
-    setShowStartOverlay(false);
-  };
-
   const handleCloseResults = () => {
     setShowResultsOverlay(false);
     // Redirect back to home or reset practice
@@ -185,19 +180,12 @@ export default function PracticePage() {
             className="w-full"
             phrase={currentPhrase}
             onCompleted={handleCompleted}
-            disabled={showStartOverlay}
           />
         ) : (
           <div className="w-full h-32 flex items-center justify-center">
             <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
         )}
-
-        {/* Practice Start Overlay */}
-        <PracticeOverlay
-          isVisible={showStartOverlay}
-          onStart={handleStartPractice}
-        />
 
         {/* Completion Overlay */}
         <AnimatePresence>

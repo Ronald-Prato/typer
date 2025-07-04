@@ -267,7 +267,9 @@ export default function HomePage() {
               loading={isPending}
               onClick={handleStart}
               disabled={
-                !selectedMode || (selectedMode === "1v1" && !!ownUser?.queueId)
+                ownUser?.status === "game_found" ||
+                !selectedMode ||
+                (selectedMode === "1v1" && !!ownUser?.queueId)
               }
               className="w-full py-8 relative"
             >

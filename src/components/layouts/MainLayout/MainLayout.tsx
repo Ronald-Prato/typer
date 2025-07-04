@@ -149,9 +149,11 @@ export default function MainLayout({
             </Link>
 
             {/* Fixed position for MatchMakingComponent */}
-            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <MatchMakingComponent />
-            </div>
+            {
+              <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <MatchMakingComponent />
+              </div>
+            }
 
             <div className="flex items-center space-x-4">
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>

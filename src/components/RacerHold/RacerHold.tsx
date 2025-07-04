@@ -195,6 +195,8 @@ export function RacerHold({
   };
 
   const renderCurrentWord = () => {
+    if (!currentWord || !currentWord.word) return null;
+
     return currentWord.word.split("").map((char, index) => {
       let colorClass = "";
       let displayChar = char;

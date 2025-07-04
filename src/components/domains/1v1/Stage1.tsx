@@ -3,7 +3,14 @@
 import { Racer } from "@/components/Racer";
 import { RacerHold } from "@/components/RacerHold";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect, useRef, useTransition } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useTransition,
+  useMemo,
+  useCallback,
+} from "react";
 import { motion } from "framer-motion";
 import { RacerWords } from "@/components/RacerWords";
 import { Text } from "@/components/Typography";
@@ -21,6 +28,10 @@ import {
   getCharacterCountFromHolds,
 } from "@/utils/metrics";
 import { finishGame } from "../../../../convex/game";
+import {
+  ArrowRightEndOnRectangleIcon,
+  ArrowRightOnRectangleIcon,
+} from "@heroicons/react/24/outline";
 
 interface Stage1Props {
   onStageCompleted: () => void;
@@ -73,6 +84,14 @@ export const Stage1 = ({ onStageCompleted }: Stage1Props) => {
         return;
       }
 
+      // Handle Cmd/Ctrl+X for abandoning game
+      if (event.key === "x" && isCmdOrCtrl) {
+        event.preventDefault();
+        event.stopPropagation();
+        handleFinishGame();
+        return;
+      }
+
       // Handle regular Enter for game progression (only when game is not finished)
       if (event.key === "Enter" && canContinue && !isGameFinished) {
         event.preventDefault(); // Prevent default enter navigation
@@ -97,27 +116,30 @@ export const Stage1 = ({ onStageCompleted }: Stage1Props) => {
     }
   }, [ownProgress]);
 
-  const handleRacerCompleted = (data: { errors: number; timeMs: number }) => {
-    setCurrentStepMetrics(data);
-    setCanContinue(true);
-  };
-
-  const handleRacerHoldSuccess = (data?: {
-    errors: number;
-    timeMs: number;
-  }) => {
-    // Use actual metrics from RacerHold if provided, otherwise use defaults
-    if (data) {
+  const handleRacerCompleted = useCallback(
+    (data: { errors: number; timeMs: number }) => {
       setCurrentStepMetrics(data);
-    } else {
-      // Fallback to default values if no metrics provided
-      const holds = gameData?.game?.holds || [];
-      const totalChars = getCharacterCountFromHolds(holds);
-      const defaultMetrics = { errors: 0, timeMs: 5000 }; // Default values
-      setCurrentStepMetrics(defaultMetrics);
-    }
-    setCanContinue(true);
-  };
+      setCanContinue(true);
+    },
+    []
+  );
+
+  const handleRacerHoldSuccess = useCallback(
+    (data?: { errors: number; timeMs: number }) => {
+      // Use actual metrics from RacerHold if provided, otherwise use defaults
+      if (data) {
+        setCurrentStepMetrics(data);
+      } else {
+        // Fallback to default values if no metrics provided
+        const holds = gameData?.game?.holds || [];
+        const totalChars = getCharacterCountFromHolds(holds);
+        const defaultMetrics = { errors: 0, timeMs: 5000 }; // Default values
+        setCurrentStepMetrics(defaultMetrics);
+      }
+      setCanContinue(true);
+    },
+    [gameData?.game?.holds]
+  );
 
   const handleNextStep = () => {
     if (!currentStepMetrics) return;
@@ -200,12 +222,76 @@ export const Stage1 = ({ onStageCompleted }: Stage1Props) => {
     }
   };
 
-  const handleFinishGame = async () => {
-    setTimeout(() => {
-      void finishGame();
-    }, 100);
+  const handleFinishGame = useCallback(async () => {
+    void finishGame();
     router.push("/home");
-  };
+  }, [finishGame, router]);
+
+  // Memoize arrays to prevent re-renders when bot progress changes
+  const memoWords = useMemo(
+    () => gameData?.game?.words || [],
+    [gameData?.game?.words?.join(",")]
+  );
+
+  const memoLettersAndSymbols = useMemo(
+    () => gameData?.game?.lettersAndSymbols || [],
+    [gameData?.game?.lettersAndSymbols?.join(",")]
+  );
+
+  const memoHolds = useMemo(
+    () => gameData?.game?.holds || [],
+    [gameData?.game?.holds?.map((h) => `${h.word}-${h.number}`).join(",")]
+  );
+
+  // Memoize the game content to prevent re-renders when bot progress changes
+  const gameContent = useMemo(() => {
+    if (step === "1") {
+      return (
+        <Racer
+          hideStats
+          phrase={gameData?.game?.phrase || ""}
+          withCompleteFeedback
+          onCompleted={handleRacerCompleted}
+        />
+      );
+    } else if (step === "2") {
+      return (
+        <RacerWords
+          hideBullets
+          words={memoWords}
+          hideStats
+          onCompleted={handleRacerCompleted}
+        />
+      );
+    } else if (step === "3") {
+      return (
+        <RacerWords
+          hideBullets
+          hideStats
+          words={memoLettersAndSymbols}
+          onCompleted={handleRacerCompleted}
+        />
+      );
+    } else if (step === "4" && !gameData?.game?.winner) {
+      return (
+        <RacerHold
+          hideBullets
+          holds={memoHolds}
+          onSuccess={handleRacerHoldSuccess}
+        />
+      );
+    }
+    return null;
+  }, [
+    step,
+    gameData?.game?.phrase,
+    memoWords,
+    memoLettersAndSymbols,
+    memoHolds,
+    gameData?.game?.winner,
+    handleRacerCompleted,
+    handleRacerHoldSuccess,
+  ]);
 
   // If game is finished, show metrics instead of game components
   if (isGameFinished) {
@@ -337,6 +423,28 @@ export const Stage1 = ({ onStageCompleted }: Stage1Props) => {
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-start space-y-6">
+      <Button onClick={handleFinishGame}>
+        <div className="flex items-center space-x-3">
+          <ArrowRightOnRectangleIcon className="size-3 text-white" />
+          <Text variant="body2" className="text-white font-bold">
+            Abandonar
+          </Text>
+          {/* Cmd/Ctrl + X Key */}
+          <div
+            className="w-12 h-6 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
+            style={{
+              boxShadow:
+                "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            {typeof window !== "undefined" &&
+            navigator.platform.toUpperCase().indexOf("MAC") >= 0
+              ? "⌘ X"
+              : "Ctrl X"}
+          </div>
+        </div>
+      </Button>
+
       <MatchProgress />
 
       {/* Content */}
@@ -347,34 +455,7 @@ export const Stage1 = ({ onStageCompleted }: Stage1Props) => {
         transition={{ duration: 0.3 }}
         className="mt-10"
       >
-        {step === "1" ? (
-          <Racer
-            hideStats
-            phrase={gameData?.game?.phrase || ""}
-            withCompleteFeedback
-            onCompleted={handleRacerCompleted}
-          />
-        ) : step === "2" ? (
-          <RacerWords
-            hideBullets
-            words={gameData?.game?.words || []}
-            hideStats
-            onCompleted={handleRacerCompleted}
-          />
-        ) : step === "3" ? (
-          <RacerWords
-            hideBullets
-            hideStats
-            words={gameData?.game?.lettersAndSymbols || []}
-            onCompleted={handleRacerCompleted}
-          />
-        ) : step === "4" && !gameData?.game?.winner ? (
-          <RacerHold
-            hideBullets
-            holds={gameData?.game?.holds || []}
-            onSuccess={handleRacerHoldSuccess}
-          />
-        ) : null}
+        {gameContent}
       </motion.div>
 
       {/* Button */}

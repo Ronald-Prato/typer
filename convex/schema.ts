@@ -40,6 +40,7 @@ export default defineSchema({
         number: v.number(),
       })
     ),
+    againstBot: v.optional(v.boolean()),
     lettersAndSymbols: v.array(v.string()),
     playersAccepted: v.array(v.id("user")),
     winner: v.optional(v.id("user")),
@@ -92,6 +93,7 @@ export default defineSchema({
   gameHistory: defineTable({
     userId: v.id("user"),
     players: v.array(v.id("user")),
+    againstBot: v.optional(v.boolean()),
     phrase: v.string(),
     words: v.array(v.string()),
     holds: v.array(
