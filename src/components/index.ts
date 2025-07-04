@@ -8,3 +8,4 @@ export * from "./RacerHold";
 export * from "./RacerWords";
 export * from "./Typography";
 export * from "./layouts";
+export * from "./GameMetrics";

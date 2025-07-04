@@ -1,9 +1,4 @@
 import { v } from "convex/values";
-import {
-  practiceLettersAndSymbols,
-  practicePhrases,
-  practiceWords,
-} from "../src/constants";
 import { mutation, internalMutation } from "./_generated/server";
 import {
   getCurrentUser,
@@ -21,6 +16,7 @@ export const getInQueue = mutation({
       queueId: args.queueId,
       queuedAt: Date.now(),
       status: "in_queue",
+      activeGame: undefined,
     });
 
     return updatedUser;
@@ -74,7 +70,12 @@ export const matchQueuedUsers = internalMutation({
       const { phrase, words, lettersAndSymbols, holdsWords } =
         getRandomGameSettings();
 
-      if (user1.status === "in_game" || user2.status === "in_game") {
+      if (
+        user1.status === "in_game" ||
+        user2.status === "in_game" ||
+        user1.status === "game_found" ||
+        user2.status === "game_found"
+      ) {
         continue;
       }
 
@@ -85,17 +86,18 @@ export const matchQueuedUsers = internalMutation({
         words: words,
         holds: holdsWords,
         lettersAndSymbols: lettersAndSymbols,
+        playersAccepted: [],
       });
 
       await Promise.all([
         ctx.db.patch(user1._id, {
-          status: "in_game",
+          status: "game_found",
           queueId: undefined,
           queuedAt: undefined,
           activeGame: gameId,
         }),
         ctx.db.patch(user2._id, {
-          status: "in_game",
+          status: "game_found",
           queueId: undefined,
           queuedAt: undefined,
           activeGame: gameId,

@@ -3,103 +3,339 @@
 import { Racer } from "@/components/Racer";
 import { RacerHold } from "@/components/RacerHold";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef, useTransition } from "react";
 import { motion } from "framer-motion";
 import { RacerWords } from "@/components/RacerWords";
 import { Text } from "@/components/Typography";
+import { api } from "../../../../convex/_generated/api";
+import { useMutation, useQuery } from "convex/react";
+import { MatchProgress } from "./MatchProgress";
+import { GameMetrics } from "@/components/GameMetrics";
+import { useRouter } from "next/navigation";
+import { Modal, type ModalRefProps } from "@/components/Modal/Modal";
 import {
-  practiceLettersAndSymbols,
-  practicePhrases,
-  practiceWords,
-} from "@/constants";
+  calculateWPM,
+  calculateAccuracy,
+  getCharacterCount,
+  getCharacterCountFromWords,
+  getCharacterCountFromHolds,
+} from "@/utils/metrics";
+import { finishGame } from "../../../../convex/game";
 
 interface Stage1Props {
   onStageCompleted: () => void;
 }
 
 export const Stage1 = ({ onStageCompleted }: Stage1Props) => {
-  const [step, setStep] = useState<"1" | "2" | "3" | "4" | "5" | "6">("1");
+  const router = useRouter();
+  const [step, setStep] = useState<"1" | "2" | "3" | "4">("1");
+  const [isPending, startTransition] = useTransition();
   const [canContinue, setCanContinue] = useState(false);
+  const [currentStepMetrics, setCurrentStepMetrics] = useState<{
+    errors: number;
+    timeMs: number;
+  } | null>(null);
 
-  // Initialize with first items to avoid hydration mismatch
-  const [phrase, setPhrase] = useState(practicePhrases[0]);
-  const [words, setWords] = useState(practiceWords.slice(0, 5));
-  const [lettersAndSymbols, setLettersAndSymbols] = useState(
-    practiceLettersAndSymbols.slice(0, 5)
-  );
-  const [holdWords, setHoldWords] = useState(practiceWords.slice(5, 10));
-  const [words2, setWords2] = useState(practiceWords.slice(10, 15));
-  const [lettersAndSymbols2, setLettersAndSymbols2] = useState(
-    practiceLettersAndSymbols.slice(5, 10)
-  );
+  const modalRef = useRef<ModalRefProps>(null);
 
-  // Randomize content only on client side after hydration
-  useEffect(() => {
-    const shuffledWords = practiceWords.sort(() => Math.random() - 0.5);
-    const shuffledLetters = practiceLettersAndSymbols.sort(
-      () => Math.random() - 0.5
-    );
-    const shuffledPhrases = practicePhrases.sort(() => Math.random() - 0.5);
+  const ownUser = useQuery(api.user.getOwnUser);
+  const gameData = useQuery(api.game.getGameData);
+  const setStepDone = useMutation(api.game.setStepDone);
+  const finishGame = useMutation(api.game.finishGame);
 
-    setPhrase(shuffledPhrases[0]);
-    setWords(shuffledWords.slice(0, 5));
-    setLettersAndSymbols(shuffledLetters.slice(0, 5));
-    setHoldWords(shuffledWords.slice(5, 10));
-    setWords2(shuffledWords.slice(10, 15));
-    setLettersAndSymbols2(shuffledLetters.slice(5, 10));
-  }, []);
+  const ownProgress = gameData?.game?.progress?.[ownUser?._id!];
 
-  // Listen for Tab key
+  // Check if game is finished
+  const isGameFinished = !!gameData?.game?.winner;
+
+  // Listen for Enter key for game progression and keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === "Tab" && canContinue) {
-        event.preventDefault(); // Prevent default tab navigation
-        if (step === "6") {
-          // Only complete stage on final step
-          onStageCompleted();
-        } else {
-          // Move to next step
-          handleNextStep();
-        }
+      // Detect OS more reliably
+      const isMacOS =
+        typeof window !== "undefined" &&
+        navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+      const isCmdOrCtrl = isMacOS ? event.metaKey : event.ctrlKey;
+
+      // Handle Cmd/Ctrl+K for statistics modal
+      if (event.key === "j" && isCmdOrCtrl && isGameFinished) {
+        event.preventDefault();
+        event.stopPropagation();
+        modalRef.current?.openModal();
+        return;
+      }
+
+      // Handle Cmd/Ctrl+Enter for navigation to home
+      if (event.key === "k" && isCmdOrCtrl && isGameFinished) {
+        event.preventDefault();
+        event.stopPropagation();
+        handleFinishGame();
+        return;
+      }
+
+      // Handle regular Enter for game progression (only when game is not finished)
+      if (event.key === "Enter" && canContinue && !isGameFinished) {
+        event.preventDefault(); // Prevent default enter navigation
+        // Move to next step
+        handleNextStep();
       }
     };
 
     document.addEventListener("keydown", handleKeyPress);
     return () => document.removeEventListener("keydown", handleKeyPress);
-  }, [canContinue, onStageCompleted, step]);
+  }, [canContinue, onStageCompleted, step, isGameFinished, router]);
+
+  useEffect(() => {
+    if (!ownProgress) return;
+
+    if (ownProgress?.lettersAndSymbolsDone) {
+      setStep("4");
+    } else if (ownProgress?.wordsDone) {
+      setStep("3");
+    } else if (ownProgress?.phraseDone) {
+      setStep("2");
+    }
+  }, [ownProgress]);
 
   const handleRacerCompleted = (data: { errors: number; timeMs: number }) => {
+    setCurrentStepMetrics(data);
     setCanContinue(true);
   };
 
-  const handleRacerHoldSuccess = () => {
+  const handleRacerHoldSuccess = (data?: {
+    errors: number;
+    timeMs: number;
+  }) => {
+    // Use actual metrics from RacerHold if provided, otherwise use defaults
+    if (data) {
+      setCurrentStepMetrics(data);
+    } else {
+      // Fallback to default values if no metrics provided
+      const holds = gameData?.game?.holds || [];
+      const totalChars = getCharacterCountFromHolds(holds);
+      const defaultMetrics = { errors: 0, timeMs: 5000 }; // Default values
+      setCurrentStepMetrics(defaultMetrics);
+    }
     setCanContinue(true);
   };
 
   const handleNextStep = () => {
+    if (!currentStepMetrics) return;
+
     if (step === "1") {
       setStep("2");
+      // Calculate metrics for phrase step
+      const phrase = gameData?.game?.phrase || "";
+      const totalChars = getCharacterCount(phrase);
+      const wpm = calculateWPM(totalChars, currentStepMetrics.timeMs);
+      const accuracy = calculateAccuracy(totalChars, currentStepMetrics.errors);
+
+      void setStepDone({
+        step: "phrase",
+        metrics: {
+          errors: currentStepMetrics.errors,
+          timeMs: currentStepMetrics.timeMs,
+          accuracy,
+          wpm,
+        },
+      });
       setCanContinue(false); // Reset for next step
+      setCurrentStepMetrics(null);
     } else if (step === "2") {
       setStep("3");
+      // Calculate metrics for words step
+      const words = gameData?.game?.words || [];
+      const totalChars = getCharacterCountFromWords(words);
+      const wpm = calculateWPM(totalChars, currentStepMetrics.timeMs);
+      const accuracy = calculateAccuracy(totalChars, currentStepMetrics.errors);
+
+      void setStepDone({
+        step: "words",
+        metrics: {
+          errors: currentStepMetrics.errors,
+          timeMs: currentStepMetrics.timeMs,
+          accuracy,
+          wpm,
+        },
+      });
       setCanContinue(false); // Reset for next step
+      setCurrentStepMetrics(null);
     } else if (step === "3") {
       setStep("4");
+      // Calculate metrics for lettersAndSymbols step
+      const lettersAndSymbols = gameData?.game?.lettersAndSymbols || [];
+      const totalChars = getCharacterCountFromWords(lettersAndSymbols);
+      const wpm = calculateWPM(totalChars, currentStepMetrics.timeMs);
+      const accuracy = calculateAccuracy(totalChars, currentStepMetrics.errors);
+
+      void setStepDone({
+        step: "lettersAndSymbols",
+        metrics: {
+          errors: currentStepMetrics.errors,
+          timeMs: currentStepMetrics.timeMs,
+          accuracy,
+          wpm,
+        },
+      });
       setCanContinue(false); // Reset for next step
+      setCurrentStepMetrics(null);
     } else if (step === "4") {
-      setStep("5");
+      // Calculate metrics for holds step
+      const holds = gameData?.game?.holds || [];
+      const totalChars = getCharacterCountFromHolds(holds);
+      const wpm = calculateWPM(totalChars, currentStepMetrics.timeMs);
+      const accuracy = calculateAccuracy(totalChars, currentStepMetrics.errors);
+
+      void setStepDone({
+        step: "holds",
+        metrics: {
+          errors: currentStepMetrics.errors,
+          timeMs: currentStepMetrics.timeMs,
+          accuracy,
+          wpm,
+        },
+      });
       setCanContinue(false); // Reset for next step
-    } else if (step === "5") {
-      setStep("6");
-      setCanContinue(false); // Reset for next step
-    } else if (step === "6") {
-      onStageCompleted();
+      setCurrentStepMetrics(null);
     }
   };
 
+  const handleFinishGame = async () => {
+    void finishGame();
+    router.push("/home");
+  };
+
+  // If game is finished, show metrics instead of game components
+  if (isGameFinished) {
+    const metrics = ownProgress;
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-start space-y-6">
+        <MatchProgress />
+
+        <div className="w-full h-full flex flex-col items-center justify-start space-y-6"></div>
+
+        {/* Action Buttons */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+          className="flex items-center space-x-4 mt-6"
+        >
+          {/* Estadísticas Button - Glassmorphism */}
+          <Button
+            onClick={() => modalRef.current?.openModal()}
+            className="w-48 py-3 relative bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-200"
+          >
+            <div className="flex items-center space-x-3">
+              <Text variant="body2" className="text-white font-bold">
+                Estadísticas
+              </Text>
+              {/* Cmd/Ctrl + K Key */}
+              <div
+                className="w-12 h-6 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
+                style={{
+                  boxShadow:
+                    "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                }}
+              >
+                {typeof window !== "undefined" &&
+                navigator.platform.toUpperCase().indexOf("MAC") >= 0
+                  ? "⌘ J"
+                  : "Ctrl J"}
+              </div>
+            </div>
+          </Button>
+
+          {/* Continuar Button */}
+          <Button
+            onClick={handleFinishGame}
+            disabled={isPending}
+            className="w-48 py-3 relative"
+          >
+            <div className="flex items-center space-x-3">
+              <Text variant="body2" className="text-white font-bold">
+                Continuar
+              </Text>
+              {/* Cmd/Ctrl + Enter Key */}
+              <div
+                className="w-12 h-6 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
+                style={{
+                  boxShadow:
+                    "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                }}
+              >
+                {typeof window !== "undefined" &&
+                navigator.platform.toUpperCase().indexOf("MAC") >= 0
+                  ? "⌘ K"
+                  : "Ctrl K"}
+              </div>
+            </div>
+          </Button>
+        </motion.div>
+
+        {/* Statistics Modal */}
+        <Modal ref={modalRef} className="bg-gray-900 border border-gray-700">
+          <Modal.Content>
+            <GameMetrics
+              phraseMetrics={metrics?.phraseMetrics}
+              wordsMetrics={metrics?.wordsMetrics}
+              lettersAndSymbolsMetrics={metrics?.lettersAndSymbolsMetrics}
+              holdsMetrics={metrics?.holdsMetrics}
+            />
+          </Modal.Content>
+          <Modal.Bottom>
+            <div className="flex items-center justify-between space-x-4">
+              <Button
+                onClick={() => modalRef.current?.closeModal()}
+                variant="outline"
+                className="flex-1"
+              >
+                <div className="flex items-center space-x-4">
+                  <Text variant="body2">Cerrar</Text>
+                  {/* ESC Key */}
+                  <div
+                    className="w-12 h-6 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
+                    style={{
+                      boxShadow:
+                        "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                    }}
+                  >
+                    ESC
+                  </div>
+                </div>
+              </Button>
+              <Button
+                onClick={handleFinishGame}
+                disabled={isPending}
+                className="flex-1"
+              >
+                <div className="flex items-center space-x-4">
+                  <Text variant="body2">Continuar</Text>
+                  {/* Cmd/Ctrl + Enter Key */}
+                  <div
+                    className="w-12 h-6 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
+                    style={{
+                      boxShadow:
+                        "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                    }}
+                  >
+                    {typeof window !== "undefined" &&
+                    navigator.platform.toUpperCase().indexOf("MAC") >= 0
+                      ? "⌘ K"
+                      : "Ctrl K"}
+                  </div>
+                </div>
+              </Button>
+            </div>
+          </Modal.Bottom>
+        </Modal>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center space-y-6">
-      {/* Step Title */}
+    <div className="w-full h-full flex flex-col items-center justify-start space-y-6">
+      <MatchProgress />
 
       {/* Content */}
       <motion.div
@@ -107,41 +343,36 @@ export const Stage1 = ({ onStageCompleted }: Stage1Props) => {
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3 }}
+        className="mt-10"
       >
         {step === "1" ? (
           <Racer
             hideStats
-            phrase={phrase}
+            phrase={gameData?.game?.phrase || ""}
             withCompleteFeedback
             onCompleted={handleRacerCompleted}
           />
         ) : step === "2" ? (
           <RacerWords
-            words={words}
+            hideBullets
+            words={gameData?.game?.words || []}
             hideStats
             onCompleted={handleRacerCompleted}
           />
         ) : step === "3" ? (
           <RacerWords
+            hideBullets
             hideStats
-            words={lettersAndSymbols}
+            words={gameData?.game?.lettersAndSymbols || []}
             onCompleted={handleRacerCompleted}
           />
         ) : step === "4" ? (
-          <RacerHold words={holdWords} onSuccess={handleRacerHoldSuccess} />
-        ) : step === "5" ? (
-          <RacerWords
-            words={words2}
-            hideStats
-            onCompleted={handleRacerCompleted}
+          <RacerHold
+            hideBullets
+            holds={gameData?.game?.holds || []}
+            onSuccess={handleRacerHoldSuccess}
           />
-        ) : (
-          <RacerWords
-            hideStats
-            words={lettersAndSymbols2}
-            onCompleted={handleRacerCompleted}
-          />
-        )}
+        ) : null}
       </motion.div>
 
       {/* Button */}
@@ -164,9 +395,9 @@ export const Stage1 = ({ onStageCompleted }: Stage1Props) => {
 
           <div className="flex items-center space-x-4 relative z-10">
             <Text variant="body1">Avanzar</Text>
-            {/* Tab Key */}
+            {/* Enter Key */}
             <div
-              className={`w-8 h-6 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border transition-all duration-100 ${
+              className={`w-12 h-6 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border transition-all duration-100 ${
                 canContinue
                   ? "bg-orange-500/80 border-orange-400 shadow-lg shadow-orange-500/90 animate-pulse"
                   : "bg-white/20 border-white/30"
@@ -177,7 +408,7 @@ export const Stage1 = ({ onStageCompleted }: Stage1Props) => {
                   : "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
               }}
             >
-              TAB
+              ENTER
             </div>
           </div>
         </Button>

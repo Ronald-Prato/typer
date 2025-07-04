@@ -6,38 +6,32 @@ import { CheckIcon } from "@heroicons/react/24/outline";
 import { Text } from "../Typography";
 
 interface RacerHoldProps {
-  words: string[];
-  onSuccess?: () => void;
+  holds: { word: string; number: number }[];
+  onSuccess?: (data?: { errors: number; timeMs: number }) => void;
   className?: string;
+  hideBullets?: boolean;
 }
 
 export function RacerHold({
-  words,
+  holds,
   onSuccess,
   className = "",
+  hideBullets = false,
 }: RacerHoldProps) {
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [userInput, setUserInput] = useState("");
   const [errors, setErrors] = useState<number[]>([]);
   const [isKeyPressed, setIsKeyPressed] = useState(false);
-  const [requiredKey, setRequiredKey] = useState<string>("0");
   const [isComplete, setIsComplete] = useState(false);
   const [completedWords, setCompletedWords] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [totalErrors, setTotalErrors] = useState(0);
+  const totalErrorsRef = useRef(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const keyListenerRef = useRef<boolean>(false);
 
-  const currentWord = words[currentWordIndex] || "";
-
-  // Generate random number for current word
-  useEffect(() => {
-    if (currentWordIndex < words.length) {
-      setRequiredKey(Math.floor(Math.random() * 10).toString());
-      setUserInput("");
-      setErrors([]);
-      setIsKeyPressed(false);
-    }
-  }, [currentWordIndex, words.length]);
+  const currentWord = holds[currentWordIndex] || "";
 
   // Auto focus input
   useEffect(() => {
@@ -53,6 +47,13 @@ export function RacerHold({
 
     return () => clearTimeout(timeoutId);
   }, [isComplete, currentWordIndex]);
+
+  // Start timer when first key is pressed
+  useEffect(() => {
+    if (isKeyPressed && !startTime) {
+      setStartTime(Date.now());
+    }
+  }, [isKeyPressed, startTime]);
 
   // Maintain focus
   useEffect(() => {
@@ -75,8 +76,8 @@ export function RacerHold({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only handle the specific required key
-      if (e.key === requiredKey && !e.repeat) {
-        console.log("Required key pressed:", requiredKey); // Debug log
+      if (e.key === currentWord.number.toString() && !e.repeat) {
+        console.log("Required key pressed:", currentWord.number); // Debug log
         e.preventDefault(); // Prevent default behavior for the number key
         setIsKeyPressed(true);
       }
@@ -84,8 +85,8 @@ export function RacerHold({
 
     const handleKeyUp = (e: KeyboardEvent) => {
       // Only handle the specific required key
-      if (e.key === requiredKey) {
-        console.log("Required key released:", requiredKey); // Debug log
+      if (e.key === currentWord.number.toString()) {
+        console.log("Required key released:", currentWord.number); // Debug log
         e.preventDefault(); // Prevent default behavior for the number key
         setIsKeyPressed(false);
         // Reset word when key is released
@@ -103,26 +104,46 @@ export function RacerHold({
       document.removeEventListener("keydown", handleKeyDown, { capture: true });
       document.removeEventListener("keyup", handleKeyUp, { capture: true });
     };
-  }, [requiredKey, userInput.length]);
+  }, [currentWord.number, userInput.length]);
 
   // Check for word completion
   useEffect(() => {
-    if (userInput === currentWord && userInput.length > 0) {
+    if (userInput === currentWord.word && userInput.length > 0) {
       // Word completed successfully
       setCompletedWords((prev) => prev + 1);
+      totalErrorsRef.current += errors.length;
 
       setTimeout(() => {
-        if (currentWordIndex + 1 >= words.length) {
+        if (currentWordIndex + 1 >= holds.length) {
           // All words completed
           setIsComplete(true);
-          onSuccess?.();
+          if (onSuccess && startTime) {
+            const endTime = Date.now();
+            const totalTime = endTime - startTime;
+            onSuccess({
+              errors: totalErrorsRef.current,
+              timeMs: totalTime,
+            });
+          } else {
+            onSuccess?.();
+          }
         } else {
-          // Move to next word
+          // Move to next word and reset key press state
           setCurrentWordIndex((prev) => prev + 1);
+          setIsKeyPressed(false); // Reset key press when changing words
+          setUserInput(""); // Reset input for the new word
+          setErrors([]); // Reset errors for the new word
         }
       }, 500);
     }
-  }, [userInput, currentWord, currentWordIndex, words.length, onSuccess]);
+  }, [
+    userInput,
+    currentWord,
+    currentWordIndex,
+    holds.length,
+    onSuccess,
+    startTime,
+  ]);
 
   // Handle input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,7 +159,7 @@ export function RacerHold({
     const value = e.target.value;
 
     // Only allow typing if we haven't exceeded the word length
-    if (value.length <= currentWord.length) {
+    if (value.length <= currentWord.word.length) {
       console.log("Setting user input:", value); // Debug log
       setUserInput(value);
 
@@ -146,7 +167,7 @@ export function RacerHold({
       if (value.length > 0) {
         const lastCharIndex = value.length - 1;
         const lastChar = value[lastCharIndex];
-        const expectedChar = currentWord[lastCharIndex];
+        const expectedChar = currentWord.word[lastCharIndex];
 
         if (lastChar !== expectedChar) {
           setErrors((prev) => [...prev, lastCharIndex]);
@@ -174,7 +195,7 @@ export function RacerHold({
   };
 
   const renderCurrentWord = () => {
-    return currentWord.split("").map((char, index) => {
+    return currentWord.word.split("").map((char, index) => {
       let colorClass = "";
       let displayChar = char;
 
@@ -228,16 +249,28 @@ export function RacerHold({
           <CheckIcon className="w-8 h-8 text-white" />
         </motion.div>
         <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.4, duration: 0.3 }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.1, ease: "easeOut" }}
+          className="flex flex-col items-center space-y-2"
         >
-          <Text
-            variant="h3"
-            className="font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent text-center"
+          <motion.div
+            initial={{ scale: 0.5 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.05, duration: 0.1 }}
+            className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center"
           >
-            ¡Todas las palabras completadas!
-          </Text>
+            <CheckIcon className="w-5 h-5 text-white" />
+          </motion.div>
+          <motion.div
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.1, duration: 0.1 }}
+          >
+            <Text variant="h6" className="text-green-500 font-bold">
+              ¡Completado!
+            </Text>
+          </motion.div>
         </motion.div>
       </motion.div>
     );
@@ -249,27 +282,29 @@ export function RacerHold({
       onClick={handleContainerClick}
     >
       {/* Word Progress Indicator */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex justify-center"
-      >
-        <div className="flex space-x-1">
-          {Array.from({ length: words.length }).map((_, index) => (
-            <div
-              key={index}
-              className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                isComplete || index < completedWords
-                  ? "bg-orange-500" // Completed words
-                  : index === completedWords
-                    ? "bg-orange-500" // Current word
-                    : "bg-gray-600" // Remaining words
-              }`}
-            />
-          ))}
-        </div>
-      </motion.div>
+      {!hideBullets && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex justify-center"
+        >
+          <div className="flex space-x-1">
+            {Array.from({ length: holds.length }).map((_, index) => (
+              <div
+                key={index}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  isComplete || index < completedWords
+                    ? "bg-orange-500" // Completed words
+                    : index === completedWords
+                      ? "bg-orange-500" // Current word
+                      : "bg-gray-600" // Remaining words
+                }`}
+              />
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Game Box */}
       <motion.div
@@ -301,7 +336,7 @@ export function RacerHold({
                   : "bg-gray-800 border-gray-100 opacity-50"
               }`}
             >
-              {requiredKey}
+              {currentWord.number}
             </motion.div>
             <Text variant="caption" className="text-gray-400 opacity-50">
               MANTÉN

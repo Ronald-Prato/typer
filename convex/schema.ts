@@ -12,7 +12,12 @@ export default defineSchema({
     queuedAt: v.optional(v.number()),
     activeGame: v.optional(v.id("game")),
     status: v.optional(
-      v.union(v.literal("online"), v.literal("in_queue"), v.literal("in_game"))
+      v.union(
+        v.literal("online"),
+        v.literal("in_queue"),
+        v.literal("game_found"),
+        v.literal("in_game")
+      )
     ),
   }).index("by_auth_id", ["authId"]),
 
@@ -35,13 +40,52 @@ export default defineSchema({
         number: v.number(),
       })
     ),
-    lettersAndSymbols: v.array(
-      v.object({
-        letter: v.string(),
-        position: v.number(),
-      })
-    ),
+    lettersAndSymbols: v.array(v.string()),
+    playersAccepted: v.array(v.id("user")),
     winner: v.optional(v.id("user")),
     language: v.union(v.literal("en"), v.literal("es")),
+    progress: v.optional(
+      v.record(
+        v.id("user"),
+        v.object({
+          phraseDone: v.optional(v.boolean()),
+          wordsDone: v.optional(v.boolean()),
+          lettersAndSymbolsDone: v.optional(v.boolean()),
+          holdsDone: v.optional(v.boolean()),
+          phraseMetrics: v.optional(
+            v.object({
+              errors: v.number(),
+              timeMs: v.number(),
+              accuracy: v.optional(v.number()),
+              wpm: v.optional(v.number()),
+            })
+          ),
+          wordsMetrics: v.optional(
+            v.object({
+              errors: v.number(),
+              timeMs: v.number(),
+              accuracy: v.optional(v.number()),
+              wpm: v.optional(v.number()),
+            })
+          ),
+          lettersAndSymbolsMetrics: v.optional(
+            v.object({
+              errors: v.number(),
+              timeMs: v.number(),
+              accuracy: v.optional(v.number()),
+              wpm: v.optional(v.number()),
+            })
+          ),
+          holdsMetrics: v.optional(
+            v.object({
+              errors: v.number(),
+              timeMs: v.number(),
+              accuracy: v.optional(v.number()),
+              wpm: v.optional(v.number()),
+            })
+          ),
+        })
+      )
+    ),
   }),
 });

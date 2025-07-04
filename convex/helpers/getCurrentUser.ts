@@ -26,13 +26,13 @@ export const getRandomGameSettings = () => {
     { length: 6 },
     () => practiceWords[Math.floor(Math.random() * practiceWords.length)]
   );
-  const lettersAndSymbols = Array.from({ length: 6 }, (_, index) => ({
-    letter:
+  const lettersAndSymbols = Array.from(
+    { length: 6 },
+    () =>
       practiceLettersAndSymbols[
         Math.floor(Math.random() * practiceLettersAndSymbols.length)
-      ],
-    position: index,
-  }));
+      ]
+  );
   const holdsWords = Array.from({ length: 6 }, () => ({
     word: practiceWords[Math.floor(Math.random() * practiceWords.length)],
     number: Math.floor(Math.random() * 10),

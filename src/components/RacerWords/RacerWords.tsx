@@ -9,6 +9,7 @@ interface RacerWordsProps {
   words: string[];
   className?: string;
   hideStats?: boolean;
+  hideBullets?: boolean;
   onCompleted?: (data: { errors: number; timeMs: number }) => void;
 }
 
@@ -17,6 +18,7 @@ export function RacerWords({
   onCompleted,
   className = "",
   hideStats = false,
+  hideBullets = false,
 }: RacerWordsProps) {
   const {
     userInput,
@@ -88,27 +90,29 @@ export function RacerWords({
       className={`flex flex-col items-center justify-center space-y-8 ${className}`}
     >
       {/* Word Progress Indicator */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex justify-center"
-      >
-        <div className="flex space-x-1">
-          {Array.from({ length: totalWords }).map((_, index) => (
-            <div
-              key={index}
-              className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                allWordsCompleted || index < currentWordIndex
-                  ? "bg-green-500" // Completed words
-                  : index === currentWordIndex
-                    ? "bg-orange-500" // Current word
-                    : "bg-gray-600" // Remaining words
-              }`}
-            />
-          ))}
-        </div>
-      </motion.div>
+      {!hideBullets && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex justify-center"
+        >
+          <div className="flex space-x-1">
+            {Array.from({ length: totalWords }).map((_, index) => (
+              <div
+                key={index}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  allWordsCompleted || index < currentWordIndex
+                    ? "bg-green-500" // Completed words
+                    : index === currentWordIndex
+                      ? "bg-orange-500" // Current word
+                      : "bg-gray-600" // Remaining words
+                }`}
+              />
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Floating text area with enhanced glass effect */}
       <motion.div

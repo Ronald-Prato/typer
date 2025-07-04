@@ -3,18 +3,24 @@
 import { useState, useEffect, useTransition } from "react";
 import { motion } from "framer-motion";
 import { Text } from "../Typography";
-import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { CheckIcon, Loader, Loader2 } from "lucide-react";
+import { Loader2, Loader2Icon } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export function MatchMakingComponent() {
+  const router = useRouter();
   const ownUser = useQuery(api.user.getOwnUser);
   const exitQueue = useMutation(api.queue.exitQueue);
   const rejectGame = useMutation(api.game.rejectGame);
+  const acceptGame = useMutation(api.game.acceptGame);
+
+  // Get current game data
+  const currentGame = useQuery(api.game.getGameData);
 
   const [seconds, setSeconds] = useState(0);
   const [isPending, startTransition] = useTransition();
+  const [isAccepting, setIsAccepting] = useState(false);
 
   useEffect(() => {
     if (!ownUser?.queuedAt) return;
@@ -49,14 +55,26 @@ export function MatchMakingComponent() {
   };
 
   const handleAcceptGame = () => {
-    alert("¡Partida aceptada!");
+    if (ownUser?.activeGame) {
+      setIsAccepting(true);
+      startTransition(async () => {
+        try {
+          await acceptGame({});
+        } catch (error) {
+          console.error("Error accepting game:", error);
+          alert("Error al aceptar la partida");
+        } finally {
+          setIsAccepting(false);
+        }
+      });
+    }
   };
 
   const handleRejectGame = () => {
     if (ownUser?.activeGame) {
       startTransition(async () => {
         try {
-          await rejectGame({ gameId: ownUser.activeGame as any });
+          await rejectGame();
         } catch (error) {
           console.error("Error rejecting game:", error);
           alert("Error al rechazar la partida");
@@ -90,7 +108,18 @@ export function MatchMakingComponent() {
         console.log("Cmd/Ctrl+Enter detected - accepting game");
         event.preventDefault();
         event.stopPropagation();
-        alert("¡Partida aceptada!");
+
+        setIsAccepting(true);
+        startTransition(async () => {
+          try {
+            await acceptGame({});
+          } catch (error) {
+            console.error("Error accepting game:", error);
+            alert("Error al aceptar la partida");
+          } finally {
+            setIsAccepting(false);
+          }
+        });
       }
 
       // Handle Cmd+X for rejecting game
@@ -105,7 +134,7 @@ export function MatchMakingComponent() {
 
         startTransition(async () => {
           try {
-            await rejectGame({ gameId: ownUser.activeGame as any });
+            await rejectGame();
           } catch (error) {
             console.error("Error rejecting game:", error);
             alert("Error al rechazar la partida");
@@ -119,7 +148,23 @@ export function MatchMakingComponent() {
     return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, [ownUser?.queueId, ownUser?.activeGame, exitQueue, rejectGame]);
 
-  return !ownUser ? null : ownUser.activeGame ? (
+  // Check if user has already accepted the game
+  const hasAccepted = currentGame?.game?.playersAccepted?.includes(
+    ownUser?._id as any
+  );
+
+  // Effect to redirect when both players accept
+  useEffect(() => {
+    if (
+      currentGame?.game?.playersAccepted &&
+      currentGame.game.playersAccepted.length >= 2
+    ) {
+      router.push("/1v1");
+    }
+  }, [currentGame?.game?.playersAccepted, router]);
+
+  return !ownUser ? null : ownUser.activeGame &&
+    ownUser.status === "game_found" ? (
     // Game Found Component
     <motion.div
       className="fixed top-10 inset-0 flex items-center justify-center z-50"
@@ -246,95 +291,127 @@ export function MatchMakingComponent() {
                 ease: "easeInOut",
               }}
             >
-              <Text variant="subtitle2" className="text-white font-bold">
-                ¡Partida Encontrada!
-              </Text>
+              {!hasAccepted && (
+                <Text variant="subtitle2" className="text-white font-bold">
+                  ¡Partida Encontrada!
+                </Text>
+              )}
             </motion.div>
 
-            {/* Buttons */}
-            <motion.div
-              className="flex space-x-3 w-full"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.5 }}
-            >
-              {/* Reject Button */}
-              <motion.button
-                onClick={handleRejectGame}
-                className="flex-1 bg-black/20 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 hover:bg-black/30 transition-all duration-200 cursor-pointer px-2 flex items-center justify-center space-x-2"
-                style={{
-                  boxShadow:
-                    "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
-                }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                animate={{
-                  boxShadow: [
-                    "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
-                    "0 4px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
-                    "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
-                  ],
-                }}
-                transition={{
-                  boxShadow: {
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  },
-                }}
+            {/* Content based on acceptance status */}
+            {hasAccepted ? (
+              // Accepted state
+              <motion.div
+                className="flex flex-col items-center space-y-3"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
               >
-                <Text
-                  variant="caption"
-                  className="text-white font-bold scale-95"
-                >
-                  Rechazar
-                </Text>
-                <Text variant="caption" className="text-white font-bold">
-                  {typeof window !== "undefined" &&
-                  navigator.platform.toUpperCase().indexOf("MAC") >= 0
-                    ? "⌘X"
-                    : "Ctrl X"}
-                </Text>
-              </motion.button>
-              {/* Accept Button */}
-              <motion.button
-                onClick={handleAcceptGame}
-                className="py-2 flex-1 bg-white/20 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 hover:bg-white/30 transition-all duration-200 cursor-pointer px-2 flex items-center justify-center space-x-2"
-                style={{
-                  boxShadow:
-                    "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
-                }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                animate={{
-                  boxShadow: [
-                    "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
-                    "0 4px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
-                    "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
-                  ],
-                }}
-                transition={{
-                  boxShadow: {
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  },
-                }}
+                <Loader2Icon className="size-4 text-white animate-spin" />
+                <div className="text-center flex flex-col items-center">
+                  <Text variant="subtitle2" className="text-white font-bold">
+                    Partida aceptada
+                  </Text>
+                  <Text variant="caption" className="text-white/80">
+                    Esperando oponente
+                  </Text>
+                </div>
+              </motion.div>
+            ) : (
+              // Buttons for accepting/rejecting
+              <motion.div
+                className="flex space-x-3 w-full"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
               >
-                <Text
-                  variant="caption"
-                  className="text-white font-bold scale-95"
+                {/* Reject Button */}
+                <motion.button
+                  onClick={handleRejectGame}
+                  className="flex-1 bg-black/20 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 hover:bg-black/30 transition-all duration-200 cursor-pointer px-2 flex items-center justify-center space-x-2"
+                  style={{
+                    boxShadow:
+                      "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                  }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  animate={{
+                    boxShadow: [
+                      "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                      "0 4px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                      "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                    ],
+                  }}
+                  transition={{
+                    boxShadow: {
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    },
+                  }}
                 >
-                  Aceptar
-                </Text>
-                <Text variant="caption" className="text-white font-bold">
-                  {typeof window !== "undefined" &&
-                  navigator.platform.toUpperCase().indexOf("MAC") >= 0
-                    ? "⌘ ↵"
-                    : "Ctrl ↵"}
-                </Text>
-              </motion.button>
-            </motion.div>
+                  <Text
+                    variant="caption"
+                    className="text-white font-bold scale-95"
+                  >
+                    Rechazar
+                  </Text>
+                  <Text variant="caption" className="text-white font-bold">
+                    {typeof window !== "undefined" &&
+                    navigator.platform.toUpperCase().indexOf("MAC") >= 0
+                      ? "⌘X"
+                      : "Ctrl X"}
+                  </Text>
+                </motion.button>
+                {/* Accept Button */}
+                <motion.button
+                  onClick={handleAcceptGame}
+                  disabled={isAccepting}
+                  className="py-2 flex-1 bg-white/20 backdrop-blur-sm text-white font-medium rounded-lg border border-white/30 hover:bg-white/30 transition-all duration-200 cursor-pointer px-2 flex items-center justify-center space-x-2"
+                  style={{
+                    boxShadow:
+                      "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                  }}
+                  whileHover={{ scale: isAccepting ? 1 : 1.05 }}
+                  whileTap={{ scale: isAccepting ? 1 : 0.95 }}
+                  animate={{
+                    boxShadow: [
+                      "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                      "0 4px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                      "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                    ],
+                  }}
+                  transition={{
+                    boxShadow: {
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    },
+                  }}
+                >
+                  {isAccepting ? (
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    </div>
+                  ) : (
+                    <>
+                      <Text
+                        variant="caption"
+                        className="text-white font-bold scale-95"
+                      >
+                        Aceptar
+                      </Text>
+                      <Text variant="caption" className="text-white font-bold">
+                        {typeof window !== "undefined" &&
+                        navigator.platform.toUpperCase().indexOf("MAC") >= 0
+                          ? "⌘ ↵"
+                          : "Ctrl ↵"}
+                      </Text>
+                    </>
+                  )}
+                </motion.button>
+              </motion.div>
+            )}
           </div>
         </motion.div>
       </motion.div>
