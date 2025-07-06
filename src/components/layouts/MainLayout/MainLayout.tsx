@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { GameDrawer } from "@/components/GameDrawer";
 import { useRouter } from "next/navigation";
 import { useOS } from "@/hooks";
+import { Bell } from "lucide-react";
+import { Notifications } from "@/components/Notifications";
 
 export default function MainLayout({
   children,
@@ -170,8 +172,10 @@ export default function MainLayout({
               }
 
               <div className="flex items-center justify-end space-x-4">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <Text variant="caption">{dbUser?.nickname}</Text>
+                {/* <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div> */}
+
+                <Notifications />
+
                 <AvatarDisplay />
                 <div
                   className="px-2 py-1 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"

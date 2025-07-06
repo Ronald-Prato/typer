@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowRightOnRectangleIcon,
   Cog6ToothIcon,
+  UserPlusIcon,
 } from "@heroicons/react/24/outline";
 import { truncateEmail } from "@/lib/utils";
 import { useUser, useClerk } from "@clerk/nextjs";
@@ -15,6 +16,8 @@ import { api } from "../../../convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { ProfileEdit } from "@/components/ProfileEdit";
 import { useOS } from "@/hooks";
+import { FriendList } from "../FriendList/FriendList";
+import { AddFriendsModal } from "../AddFriendsModal";
 
 interface GameDrawerProps {
   isOpen: boolean;
@@ -27,6 +30,7 @@ export function GameDrawer({ isOpen, onOpenChange }: GameDrawerProps) {
   const router = useRouter();
   const dbUser = useQuery(api.user.getOwnUser);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
+  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
 
   const { isMacOS } = useOS();
   const keyboardShortcut = isMacOS ? "⌘ I" : "Ctrl I";
@@ -38,6 +42,10 @@ export function GameDrawer({ isOpen, onOpenChange }: GameDrawerProps) {
 
   const handleProfileUpdate = () => {
     // This will trigger a re-render and update the user data
+  };
+
+  const handleAddFriend = () => {
+    setIsAddFriendModalOpen(true);
   };
 
   const handleSignOut = async () => {
@@ -116,24 +124,15 @@ export function GameDrawer({ isOpen, onOpenChange }: GameDrawerProps) {
                   {truncateEmail(dbUser.email)}
                 </Text>
               </div>
-            </div>
-          </div>
 
-          {/* Actions Section */}
-          <div className="space-y-3">
-            {/* Edit Profile Button */}
-            <Button
-              onClick={handleProfileEdit}
-              variant="outline"
-              className="w-full justify-start bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-300"
-            >
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center space-x-3">
-                  <Cog6ToothIcon className="size-4" />
-                  <Text variant="body2" className="text-gray-300">
-                    Editar perfil
-                  </Text>
-                </div>
+              <button
+                onClick={handleProfileEdit}
+                className="flex items-center space-x-3 hover:bg-gray-700 rounded-md p-2 cursor-pointer"
+              >
+                <Cog6ToothIcon className="size-4" />
+                <Text variant="body2" className="text-gray-300">
+                  Editar perfil
+                </Text>
                 <div
                   className="px-2 py-1 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
                   style={{
@@ -145,8 +144,23 @@ export function GameDrawer({ isOpen, onOpenChange }: GameDrawerProps) {
                     E
                   </Text>
                 </div>
-              </div>
-            </Button>
+              </button>
+            </div>
+          </div>
+
+          {/* Friends Section */}
+          <div className="space-y-3 mt-10 ">
+            <div className="w-full flex items-center justify-between">
+              <Text variant="h6" className="font-extrabold">
+                Amigos
+              </Text>
+
+              <Button variant="ghost" onClick={handleAddFriend}>
+                <UserPlusIcon className="size-4 mr-2" />
+                Agregar amigo
+              </Button>
+            </div>
+            <FriendList onAddFriend={handleAddFriend} />
           </div>
 
           {/* Keyboard Shortcut Info */}
@@ -203,6 +217,11 @@ export function GameDrawer({ isOpen, onOpenChange }: GameDrawerProps) {
           onClose={() => setIsProfileEditOpen(false)}
           onUpdate={handleProfileUpdate}
         />
+      )}
+
+      {/* Add Friend Modal */}
+      {isAddFriendModalOpen && (
+        <AddFriendsModal onClose={() => setIsAddFriendModalOpen(false)} />
       )}
     </>
   );

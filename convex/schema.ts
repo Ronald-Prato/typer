@@ -7,6 +7,8 @@ export default defineSchema({
     authId: v.string(),
     nickname: v.string(),
     games: v.array(v.id("game")),
+    friends: v.optional(v.array(v.id("user"))),
+    friendRequests: v.optional(v.array(v.id("user"))),
     avatar: v.optional(v.string()),
     queueId: v.optional(v.string()),
     queuedAt: v.optional(v.number()),

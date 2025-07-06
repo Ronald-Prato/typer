@@ -113,7 +113,7 @@ const DrawerContent = ({
     <div
       data-slot="drawer-content"
       className={cn(
-        "min-w-[475px] group/drawer-content bg-background fixed z-50 flex h-full flex-col rounded-l-md overflow-hidden pointer-events-auto",
+        "min-w-[30rem] group/drawer-content bg-background fixed z-50 flex h-full flex-col rounded-l-md overflow-hidden pointer-events-auto",
         "inset-y-0 right-0 w-3/4 sm:max-w-sm",
         "transform transition-all ease-in-out duration-300",
         isAnimatingIn && !isClosing

@@ -1,6 +1,7 @@
 import "../styles/globals.css";
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { Toaster } from "@/components/ui/sonner";
 import { Geist, Geist_Mono } from "next/font/google";
 import ConvexClientProvider from "./convex.client.provider";
 import { AuthProvider } from "../components/providers/AuthProvider";
@@ -32,7 +33,10 @@ export default function RootLayout({
       >
         <ClerkProvider afterSignOutUrl="/login">
           <ConvexClientProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>
+              {children}
+              <Toaster />
+            </AuthProvider>
           </ConvexClientProvider>
         </ClerkProvider>
       </body>
