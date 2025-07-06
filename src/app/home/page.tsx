@@ -1,12 +1,12 @@
 "use client";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { MatchHistory } from "@/components/domains/MatchHistory";
 import { Profile } from "@/components/domains/home";
 import { Home } from "@/components/domains/home/Home";
 
-export default function HomePage() {
+function HomePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoaded, isSignedIn } = useUser();
@@ -48,5 +48,19 @@ export default function HomePage() {
         <Home />
       )}
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+          <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      }
+    >
+      <HomePageContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
@@ -10,7 +10,7 @@ const TABS = [
   { key: "history", label: "HISTORIAL", shortcut: "3" },
 ];
 
-export const MainTabs: React.FC = () => {
+function MainTabsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -89,5 +89,29 @@ export const MainTabs: React.FC = () => {
         </div>
       ))}
     </div>
+  );
+}
+
+export const MainTabs: React.FC = () => {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full flex items-center justify-center bg-transparent py-2 space-x-8">
+          {TABS.map((tab) => (
+            <div
+              key={tab.key}
+              className="w-fit relative px-10 py-1 text-lg font-extrabold tracking-wide text-center select-none border border-transparent bg-gray-800 text-gray-400"
+            >
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 bg-gray-700 text-xs font-medium rounded flex items-center justify-center border border-gray-600">
+                {tab.shortcut}
+              </div>
+              {tab.label}
+            </div>
+          ))}
+        </div>
+      }
+    >
+      <MainTabsContent />
+    </Suspense>
   );
 };
