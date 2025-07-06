@@ -72,7 +72,7 @@ export default function LoginPage() {
           </h1>
 
           <p className="text-lg text-gray-400 mb-8">
-            La plataforma de<b> práctica de conocimiento </b>para developers
+            La mejor plataforma para practicar typing
           </p>
         </div>
 

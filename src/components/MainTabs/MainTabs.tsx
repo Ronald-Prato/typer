@@ -20,12 +20,12 @@ function MainTabsContent() {
   const [activeTab, setActiveTab] = useState(currentTabFromURL);
 
   // Sync activeTab with URL changes
-  useEffect(() => {
-    const currentTabFromURL = searchParams.get("tab") || "home";
-    if (currentTabFromURL !== activeTab) {
-      setActiveTab(currentTabFromURL);
-    }
-  }, [searchParams, activeTab]);
+  // useEffect(() => {
+  //   const currentTabFromURL = searchParams.get("tab") || "home";
+  //   if (currentTabFromURL !== activeTab) {
+  //     setActiveTab(currentTabFromURL);
+  //   }
+  // }, [searchParams, activeTab]);
 
   // Internal function to handle tab changes and URL updates
   const handleTabChange = (tab: string) => {
