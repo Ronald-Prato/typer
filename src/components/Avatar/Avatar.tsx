@@ -18,9 +18,14 @@ import { ProfileEdit } from "../ProfileEdit";
 interface AvatarProps {
   size?: "sm" | "md" | "lg";
   className?: string;
+  hideShortcut?: boolean;
 }
 
-export function Avatar({ size = "md", className = "" }: AvatarProps) {
+export function Avatar({
+  size = "md",
+  className = "",
+  hideShortcut = false,
+}: AvatarProps) {
   const { user: clerkUser } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
@@ -141,17 +146,19 @@ export function Avatar({ size = "md", className = "" }: AvatarProps) {
       <div className="flex items-center space-x-2">
         {avatarContent}
 
-        <div
-          className="w-10 h-5 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
-          style={{
-            boxShadow:
-              "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
-          }}
-        >
-          <Text variant="caption" className="!text-xs">
-            {keyboardShortcut}
-          </Text>
-        </div>
+        {!hideShortcut && (
+          <div
+            className="w-10 h-5 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
+            style={{
+              boxShadow:
+                "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <Text variant="caption" className="!text-xs">
+              {keyboardShortcut}
+            </Text>
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
@@ -174,12 +181,13 @@ export function Avatar({ size = "md", className = "" }: AvatarProps) {
               <Text className="text-xs text-gray-400">
                 {truncateEmail(clerkUser.emailAddresses[0]?.emailAddress)}
               </Text>
+
               {/* Gear icon in top right corner */}
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleProfileEdit}
-                className="absolute top-2 right-6 w-6 h-6 text-gray-400 hover:text-white hover:bg-gray-800"
+                className="absolute top-2 right-2 w-fit px-2 h-6 text-gray-400 hover:text-white hover:bg-gray-800"
               >
                 <Cog6ToothIcon className="size-3" />
 

@@ -1,13 +1,19 @@
 "use client";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useClerk } from "@clerk/nextjs";
 import Image from "next/image";
-import { Avatar, Text } from "@/components";
+import { Text } from "@/components";
 import Link from "next/link";
 import { MatchMakingComponent } from "@/components/MatchMakingComponent/MatchMakingComponent";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { motion, useAnimation } from "framer-motion";
 import { useEffect, useState } from "react";
+import { MainTabs } from "@/components/MainTabs/MainTabs";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { GameDrawer } from "@/components/GameDrawer";
+import { useRouter } from "next/navigation";
+import { useOS } from "@/hooks";
 
 export default function MainLayout({
   children,
@@ -16,22 +22,23 @@ export default function MainLayout({
   children: React.ReactNode;
   withOutImage?: boolean;
 }) {
+  const pathname = usePathname();
   const { isSignedIn } = useUser();
+  const { signOut } = useClerk();
+  const router = useRouter();
   const dbUser = useQuery(api.user.getOwnUser);
   const headerControls = useAnimation();
   const [currentAuraColor, setCurrentAuraColor] = useState<string>("none");
+  const [isGameDrawerOpen, setIsGameDrawerOpen] = useState(false);
 
-  // Detect OS for keyboard shortcut display
-  const isMacOS =
-    typeof window !== "undefined" &&
-    navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+  const { isMacOS } = useOS();
   const keyboardShortcut = isMacOS ? "⌘ I" : "Ctrl I";
 
   // Control header animations based on user state
   useEffect(() => {
-    if (dbUser?.activeGame) {
+    if (dbUser?.queueId) {
       setCurrentAuraColor("green-blue");
-      // Game found - gradual appearance with growth effect
+      // In queue - gradual appearance with growth effect
       headerControls
         .start({
           y: 0,
@@ -64,49 +71,12 @@ export default function MainLayout({
             },
           });
         });
-    } else if (dbUser?.queueId) {
-      setCurrentAuraColor("orange-red");
-      // In queue - gradual appearance
-      headerControls
-        .start({
-          y: 0,
-          boxShadow: [
-            "0 0 0px rgba(249, 115, 22, 0)",
-            "0 0 10px rgba(249, 115, 22, 0.2)",
-            "0 0 20px rgba(239, 68, 68, 0.3)",
-            "0 0 30px rgba(249, 115, 22, 0.4)",
-            "0 0 40px rgba(239, 68, 68, 0.5)",
-            "0 0 50px rgba(249, 115, 22, 0.6)",
-            "0 0 60px rgba(239, 68, 68, 0.7)",
-          ],
-          transition: {
-            y: { duration: 0.8, ease: "easeOut" },
-            boxShadow: { duration: 2.5, ease: "easeOut" },
-          },
-        })
-        .then(() => {
-          // Start pulsing animation after fade-in
-          headerControls.start({
-            boxShadow: [
-              "0 0 60px rgba(249, 115, 22, 0.6)",
-              "0 0 90px rgba(239, 68, 68, 0.7)",
-              "0 0 60px rgba(249, 115, 22, 0.6)",
-            ],
-            transition: {
-              duration: 4,
-              repeat: Infinity,
-              ease: "easeInOut",
-            },
-          });
-        });
     } else {
-      // No state - gradual removal with current color preservation
+      // No queue - remove aura gradually
       let fadeOutColor = "rgba(0, 0, 0, 0)";
 
       if (currentAuraColor === "green-blue") {
         fadeOutColor = "rgba(34, 197, 94, 0.6)";
-      } else if (currentAuraColor === "orange-red") {
-        fadeOutColor = "rgba(249, 115, 22, 0.6)";
       }
 
       headerControls.start({
@@ -122,50 +92,105 @@ export default function MainLayout({
         ],
         transition: {
           y: { duration: 0.8, ease: "easeOut" },
-          boxShadow: { duration: 2, ease: "easeOut" },
+          boxShadow: { duration: 3, ease: "easeOut" },
         },
       });
 
       setCurrentAuraColor("none");
     }
-  }, [dbUser?.activeGame, dbUser?.queueId, headerControls, currentAuraColor]);
+  }, [dbUser?.queueId, headerControls, currentAuraColor]);
+
+  // Simple avatar component
+  const AvatarDisplay = () => {
+    if (!isSignedIn || !dbUser) {
+      return (
+        <div className="w-8 h-8 rounded-full bg-gray-800 border-2 border-gray-600 flex items-center justify-center">
+          <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      );
+    }
+
+    if (!dbUser.avatar) {
+      return (
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm cursor-pointer hover:scale-105 transition-transform duration-200">
+          {dbUser.nickname
+            ?.split(" ")
+            .map((n) => n[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 2) || "?"}
+        </div>
+      );
+    }
+
+    return (
+      <button
+        onClick={() => setIsGameDrawerOpen(true)}
+        className="w-8 h-8 rounded-full bg-gray-800 border-2 border-gray-600 overflow-hidden flex items-center justify-center relative cursor-pointer hover:scale-105 transition-transform duration-200"
+      >
+        <div
+          dangerouslySetInnerHTML={{ __html: dbUser.avatar }}
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ transform: "scale(1)" }}
+        />
+      </button>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white relative grid grid-rows-[80px_1fr_100px]">
-      <motion.header
-        className="bg-gray-950/95 backdrop-blur-sm border-b border-gray-800/50 relative z-20 h-20"
-        initial={{
-          y: -10,
-          boxShadow: "0 0 0px rgba(0, 0, 0, 0)",
-        }}
-        animate={headerControls}
-      >
-        <div className="container mx-auto px-6 py-4 h-full">
-          <div className="flex items-center justify-between h-full">
-            <Link href="/home">
-              <div className="flex items-center space-x-3">
-                <h1 className="text-2xl font-bold text-white">typewars.io</h1>
+    <div
+      className={cn(
+        "min-h-screen bg-gray-950 text-white relative grid",
+        pathname === "/home"
+          ? "grid-rows-[80px_1fr_100px]"
+          : "grid-rows-[1fr_100px]"
+      )}
+    >
+      {pathname === "/home" && (
+        <motion.header
+          className="bg-gray-950/95 backdrop-blur-sm  relative z-20 h-20"
+          initial={{
+            y: -10,
+            boxShadow: "0 0 0px rgba(0, 0, 0, 0)",
+          }}
+          animate={headerControls}
+        >
+          <div className="container mx-auto px-6 py-4 h-full">
+            <div className="grid grid-cols-[2fr_8fr_2fr] items-center h-full">
+              <Link href="/home">
+                <div className="flex items-center space-x-3">
+                  <h1 className="text-2xl font-bold text-white">typewars.io</h1>
+                </div>
+              </Link>
+
+              {
+                <div className="w-full h-full">
+                  <MainTabs />
+                </div>
+              }
+
+              <div className="flex items-center justify-end space-x-4">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <Text variant="caption">{dbUser?.nickname}</Text>
+                <AvatarDisplay />
+                <div
+                  className="px-2 py-1 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
+                  style={{
+                    boxShadow:
+                      "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
+                  }}
+                >
+                  <Text variant="caption" className="!text-xs">
+                    {keyboardShortcut}
+                  </Text>
+                </div>
               </div>
-            </Link>
-
-            {/* Fixed position for MatchMakingComponent */}
-            {
-              <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <MatchMakingComponent />
-              </div>
-            }
-
-            <div className="flex items-center space-x-4">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <Text variant="caption">{dbUser?.nickname}</Text>
-
-              {isSignedIn && <Avatar size="sm" />}
             </div>
           </div>
-        </div>
-      </motion.header>
+        </motion.header>
+      )}
 
-      {/* Fixed centered isometric image - behind everything */}
+      {<MatchMakingComponent />}
 
       {/* Page content - above the background image */}
       <div className="relative h-full z-10 px-12 py-8 flex flex-col items-center justify-center">
@@ -190,6 +215,11 @@ export default function MainLayout({
           </div>
         </div>
       </footer>
+
+      <GameDrawer
+        isOpen={isGameDrawerOpen}
+        onOpenChange={setIsGameDrawerOpen}
+      />
     </div>
   );
 }

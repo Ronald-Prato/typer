@@ -46,14 +46,6 @@ export function MatchMakingComponent() {
     return `${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
-  const handleExitQueue = () => {
-    if (ownUser?.queueId) {
-      startTransition(async () => {
-        await exitQueue();
-      });
-    }
-  };
-
   const handleAcceptGame = () => {
     if (ownUser?.activeGame) {
       setIsAccepting(true);
@@ -176,7 +168,7 @@ export function MatchMakingComponent() {
     ownUser.status === "game_found" ? (
     // Game Found Component
     <motion.div
-      className="fixed top-10 inset-0 flex items-center justify-center z-50"
+      className="fixed top-0 left-0 inset-0 flex items-center justify-center z-50"
       initial={{
         opacity: 0,
       }}
@@ -424,98 +416,6 @@ export function MatchMakingComponent() {
           </div>
         </motion.div>
       </motion.div>
-    </motion.div>
-  ) : !!ownUser.queueId ? (
-    <motion.div
-      className="relative"
-      initial={{
-        y: -50,
-        opacity: 0,
-        filter: "blur(10px)",
-        scale: 0.8,
-      }}
-      animate={{
-        y: 0,
-        opacity: 1,
-        filter: "blur(0px)",
-        scale: 1,
-      }}
-      transition={{
-        duration: 0.3,
-        ease: [0.25, 0.46, 0.45, 0.94], // easeOutQuart
-        scale: {
-          duration: 0.1,
-          ease: [0.68, -0.55, 0.265, 1.55], // easeOutBack for bounce
-        },
-      }}
-    >
-      {/* Animated Aura */}
-      <motion.div
-        className="absolute inset-0 rounded-sm"
-        animate={{
-          boxShadow: [
-            "0 0 20px rgba(249, 115, 22, 0.6)",
-            "0 0 30px rgba(239, 68, 68, 0.8)",
-            "0 0 20px rgba(249, 115, 22, 0.6)",
-          ],
-        }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-      />
-
-      <div
-        className="bg-gradient-to-r from-orange-500 to-red-500 rounded-sm px-4 py-1 shadow-lg max-h-[3rem] w-[14rem] relative overflow-hidden"
-        style={{
-          boxShadow:
-            "0 4px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.2)",
-          border: "1px solid rgba(255, 255, 255, 0.1)",
-        }}
-      >
-        {/* 3D Relief Effects */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent rounded-t-lg" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-b-lg" />
-
-        {/* Exit Button */}
-        <button
-          disabled={isPending}
-          onClick={handleExitQueue}
-          className="min-w-10 absolute top-1 right-1 flex items-center justify-center space-x-0.5 z-20 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded border border-white/30 hover:bg-white/30 transition-all duration-200 cursor-pointer px-0.5 py-0.5"
-          style={{
-            boxShadow:
-              "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
-          }}
-        >
-          {!isPending && (
-            <span className="text-[10px]">
-              {typeof window !== "undefined" &&
-              navigator.platform.toUpperCase().indexOf("MAC") >= 0
-                ? "⌘X"
-                : "Ctrl+X"}
-            </span>
-          )}
-
-          {isPending && (
-            <div className="h-4 flex items-center justify-center">
-              <Loader2 className="w-3 h-3 animate-spin" />
-            </div>
-          )}
-        </button>
-
-        <div className="relative z-10 flex flex-col">
-          <Text
-            variant="caption"
-            className="text-white/90 font-medium text-left font-bold opacity-80"
-          >
-            En cola
-          </Text>
-          <Text variant="subtitle2" className="text-white font-bold">
-            {formatTime(seconds)}
-          </Text>
-        </div>
-      </div>
     </motion.div>
   ) : null;
 }

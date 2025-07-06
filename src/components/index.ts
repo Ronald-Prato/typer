@@ -9,3 +9,5 @@ export * from "./RacerWords";
 export * from "./Typography";
 export * from "./layouts";
 export * from "./GameMetrics";
+export * from "./SettingsModal";
+export * from "./GameDrawer";

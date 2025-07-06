@@ -116,7 +116,7 @@ export default function PracticePage() {
   };
 
   return (
-    <div className="h-full bg-gray-950 text-white flex flex-col items-center justify-center p-8">
+    <div className="h-full bg-gray-950 text-white flex flex-col items-center justify-start p-8">
       {/* Results Overlay */}
       <ResultsOverlay
         isVisible={showResultsOverlay}
@@ -129,10 +129,10 @@ export default function PracticePage() {
           shortcut="Cmd+J"
           onClick={() => router.push("/home")}
           onShortcutPress={() => router.push("/home")}
-          className="py-6 relative bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-200"
+          className="py-2 relative bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/15 transition-all duration-200"
         >
-          <div className="flex items-center space-x-4">
-            <ChevronLeftIcon className="size-2" />
+          <div className="flex items-center gap-3">
+            <ChevronLeftIcon className="size-1" />
             <Text variant="caption" className="text-white font-bold">
               Volver
             </Text>
@@ -141,7 +141,7 @@ export default function PracticePage() {
         </Button>
       </div>
 
-      <div className="text-center mb-8 flex flex-col items-center">
+      <div className="text-center mt-12 mb-8 flex flex-col items-center">
         <Text
           variant="h5"
           className="font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent"
