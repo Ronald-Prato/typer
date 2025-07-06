@@ -1,22 +1,45 @@
-"use client";
+import { Metadata } from "next";
 
-import { useEffect, useState } from "react";
+export const metadata: Metadata = {
+  title: "Iniciar Sesión - typewars.io",
+  description:
+    "Accede a typewars.io y mejora tu velocidad de escritura. La mejor plataforma para practicar typing con desafíos en vivo.",
+  openGraph: {
+    title: "Iniciar Sesión - typewars.io",
+    description:
+      "Accede a typewars.io y mejora tu velocidad de escritura. La mejor plataforma para practicar typing con desafíos en vivo.",
+    type: "website",
+    url: "https://typewars.io/login",
+    siteName: "typewars.io",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Iniciar Sesión en typewars.io - Mejora tu velocidad de escritura",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Iniciar Sesión - typewars.io",
+    description:
+      "Accede a typewars.io y mejora tu velocidad de escritura. La mejor plataforma para practicar typing con desafíos en vivo.",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: false, // No indexar página de login
+    follow: false,
+  },
+  viewport: "width=device-width, initial-scale=1",
+  themeColor: "#ea580c",
+};
 
 export default function LoginLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return null;
-  }
-
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col relative  overflow-hidden">
       {/* Subtle background pattern */}

@@ -43,7 +43,6 @@ export function GameDrawer({ isOpen, onOpenChange }: GameDrawerProps) {
   const handleSignOut = async () => {
     try {
       await signOut();
-      router.push("/login");
     } catch (error) {
       console.error("Error signing out:", error);
     }
