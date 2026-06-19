@@ -1,40 +1,39 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Text } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createAvatar } from "@dicebear/core";
-import { avataaars } from "@dicebear/collection";
+import { UserAvatarImage } from "@/components/Avatar";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+
+const avatarUrlFromSeed = (seed: string) =>
+  `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
 
 export default function WelcomePage() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const router = useRouter();
   const [nickname, setNickname] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [_, setAvatarSeed] = useState("");
-  const [avatarSvg, setAvatarSvg] = useState("");
+  const [avatarSeed, setAvatarSeed] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
 
   const createUser = useMutation(api.user.createUser);
 
-  const dbUser = useQuery(api.user.getOwnUser);
+  const dbUser = useCurrentUser();
 
-  const generateAvatar = (seed: string) => {
-    const avatar = createAvatar(avataaars, {
-      seed: seed,
-      size: 96,
-    });
-
-    setAvatarSvg(avatar.toString());
-  };
+  const generateAvatar = useCallback((seed: string) => {
+    setAvatarSeed(seed);
+    setAvatarUrl(avatarUrlFromSeed(seed));
+  }, []);
 
   const randomizeAvatar = () => {
     const newSeed = Math.random().toString(36).substring(7);
-    setAvatarSeed(newSeed);
     generateAvatar(newSeed);
   };
 
@@ -42,25 +41,23 @@ export default function WelcomePage() {
     if (dbUser?.nickname) {
       router.push("/home");
     }
-  }, [dbUser]);
+  }, [dbUser, router]);
 
   useEffect(() => {
     // Generate initial avatar
     const initialSeed = user?.id || Math.random().toString(36).substring(7);
     setAvatarSeed(initialSeed);
     generateAvatar(initialSeed);
-  }, [user?.id]);
+  }, [generateAvatar, user?.id]);
 
-  const handleCreateProfile = async () => {
+  const handleCreateProfile = useCallback(async () => {
     if (!user || !nickname.trim()) return;
 
     setIsLoading(true);
     try {
       await createUser({
-        authId: user.id,
-        avatar: avatarSvg,
+        avatarSeed,
         nickname: nickname.trim(),
-        email: user.emailAddresses[0]?.emailAddress || "",
       });
 
       router.push("/home");
@@ -68,7 +65,7 @@ export default function WelcomePage() {
       console.error("Error creating user:", error);
       setIsLoading(false);
     }
-  };
+  }, [avatarSeed, createUser, nickname, router, user]);
 
   // Listen for Enter key
   useEffect(() => {
@@ -81,9 +78,9 @@ export default function WelcomePage() {
 
     document.addEventListener("keydown", handleKeyPress);
     return () => document.removeEventListener("keydown", handleKeyPress);
-  }, [nickname, isLoading]);
+  }, [handleCreateProfile, isLoading, nickname]);
 
-  if (!user) {
+  if (!isLoaded || !user || !isAuthenticated || dbUser === undefined) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
@@ -112,13 +109,13 @@ export default function WelcomePage() {
             <div className="flex flex-col items-center space-y-4">
               {/* Avatar Display */}
               <div className="w-24 h-24 rounded-full bg-gray-800 border-2 border-gray-600 overflow-hidden flex items-center justify-center relative">
-                {avatarSvg ? (
-                  <div
-                    dangerouslySetInnerHTML={{ __html: avatarSvg }}
-                    className="absolute inset-0 flex items-center justify-center"
-                    style={{
-                      transform: "scale(1)",
-                    }}
+                {avatarUrl ? (
+                  <UserAvatarImage
+                    avatarUrl={avatarUrl}
+                    avatarSeed={avatarSeed}
+                    nickname={nickname}
+                    className="w-24 h-24"
+                    initialsClassName="text-xl"
                   />
                 ) : (
                   <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>

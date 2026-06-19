@@ -6,38 +6,38 @@ import { api } from "../../../convex/_generated/api";
 import { Text } from "../Typography";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { createAvatar } from "@dicebear/core";
-import { avataaars } from "@dicebear/collection";
 import { Modal, type ModalRefProps } from "../Modal";
+import { UserAvatarImage } from "../Avatar";
 
 interface ProfileEditProps {
   currentNickname: string;
-  currentAvatar: string | null;
+  currentAvatarSeed?: string | null;
+  currentAvatarUrl?: string | null;
   onClose: () => void;
   onUpdate: () => void;
 }
 
+const avatarUrlFromSeed = (seed: string) =>
+  `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
+
 export function ProfileEdit({
   currentNickname,
-  currentAvatar,
+  currentAvatarSeed,
+  currentAvatarUrl,
   onClose,
   onUpdate,
 }: ProfileEditProps) {
   const [nickname, setNickname] = useState(currentNickname);
   const [isLoading, setIsLoading] = useState(false);
-  const [avatarSeed, setAvatarSeed] = useState("");
-  const [avatarSvg, setAvatarSvg] = useState(currentAvatar || "");
+  const [avatarSeed, setAvatarSeed] = useState(currentAvatarSeed || "");
+  const [avatarUrl, setAvatarUrl] = useState(currentAvatarUrl || "");
   const modalRef = useRef<ModalRefProps>(null);
 
   const updateUser = useMutation(api.user.updateUser);
 
   const generateAvatar = (seed: string) => {
-    const avatar = createAvatar(avataaars, {
-      seed: seed,
-      size: 96,
-    });
-
-    setAvatarSvg(avatar.toString());
+    setAvatarSeed(seed);
+    setAvatarUrl(avatarUrlFromSeed(seed));
   };
 
   const randomizeAvatar = () => {
@@ -47,31 +47,16 @@ export function ProfileEdit({
   };
 
   useEffect(() => {
-    // Generate initial avatar if no current avatar
-    if (!currentAvatar) {
+    if (!currentAvatarUrl) {
       const initialSeed = Math.random().toString(36).substring(7);
-      setAvatarSeed(initialSeed);
       generateAvatar(initialSeed);
     }
-  }, [currentAvatar]);
+  }, [currentAvatarUrl]);
 
   useEffect(() => {
     // Open modal when component mounts
     modalRef.current?.openModal();
   }, []);
-
-  // Listen for modal close events (backdrop click)
-  useEffect(() => {
-    const checkModalState = setInterval(() => {
-      if (modalRef.current && !modalRef.current.isOpen) {
-        // Modal was closed via backdrop click or escape key
-        onClose();
-        clearInterval(checkModalState);
-      }
-    }, 50);
-
-    return () => clearInterval(checkModalState);
-  }, [onClose]);
 
   const handleUpdateProfile = useCallback(async () => {
     if (!nickname.trim()) return;
@@ -79,22 +64,20 @@ export function ProfileEdit({
     setIsLoading(true);
     try {
       await updateUser({
-        avatar: avatarSvg,
+        avatarSeed,
         nickname: nickname.trim(),
       });
 
       onUpdate();
       modalRef.current?.closeModal();
-      setTimeout(() => onClose(), 200); // Wait for modal animation
     } catch (error) {
       console.error("Error updating user:", error);
       setIsLoading(false);
     }
-  }, [nickname.trim(), avatarSvg, updateUser, onUpdate, onClose]);
+  }, [nickname, avatarSeed, updateUser, onUpdate]);
 
   const handleClose = () => {
     modalRef.current?.closeModal();
-    setTimeout(() => onClose(), 200); // Wait for modal animation
   };
 
   // Listen for Enter key
@@ -116,6 +99,7 @@ export function ProfileEdit({
       ref={modalRef}
       className="bg-gray-900 border border-gray-700 shadow-xl text-white max-h-[90vh]"
       withCloseButton={true}
+      onCloseComplete={onClose}
     >
       <Modal.Content className="overflow-y-auto">
         <div className="">
@@ -128,13 +112,13 @@ export function ProfileEdit({
             <div className="flex flex-col items-center space-y-4">
               {/* Avatar Display */}
               <div className="w-20 h-20 rounded-full bg-gray-800 border-2 border-gray-600 overflow-hidden flex items-center justify-center relative">
-                {avatarSvg ? (
-                  <div
-                    dangerouslySetInnerHTML={{ __html: avatarSvg }}
-                    className="absolute inset-0 flex items-center justify-center"
-                    style={{
-                      transform: "scale(1)",
-                    }}
+                {avatarUrl ? (
+                  <UserAvatarImage
+                    avatarUrl={avatarUrl}
+                    avatarSeed={avatarSeed}
+                    nickname={nickname}
+                    className="w-20 h-20"
+                    initialsClassName="text-lg"
                   />
                 ) : (
                   <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>

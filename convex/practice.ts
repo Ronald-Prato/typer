@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
+import { getNextHighestPracticeWpm } from "./practiceState";
 
 export const addPractice = mutation({
   args: {
@@ -32,6 +33,17 @@ export const addPractice = mutation({
       errors: args.errors,
       date: Date.now(),
     });
+
+    const nextHighestPracticeWpm = getNextHighestPracticeWpm({
+      currentHighestWpm: user.highestPracticeWpm,
+      practiceWpm: args.wpm,
+    });
+
+    if (nextHighestPracticeWpm !== (user.highestPracticeWpm ?? 0)) {
+      await ctx.db.patch(user._id, {
+        highestPracticeWpm: nextHighestPracticeWpm,
+      });
+    }
 
     return practice;
   },

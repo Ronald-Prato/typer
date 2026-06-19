@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "@/motion";
 import { Text } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 

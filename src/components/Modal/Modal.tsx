@@ -1,8 +1,7 @@
 "use client";
 
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { motion } from "framer-motion";
-import { Text } from "../Typography/Typography";
+import { motion } from "@/motion";
 
 import {
   useState,
@@ -13,6 +12,9 @@ import {
   isValidElement,
   type ReactElement,
   useEffect,
+  useId,
+  useRef,
+  useCallback,
 } from "react";
 
 const slideInVariants = {
@@ -33,6 +35,7 @@ type ModalProps = {
   withCloseButton?: boolean;
   title?: string;
   bottomContent?: React.ReactNode;
+  onCloseComplete?: () => void;
 };
 
 export type ModalRefProps = {
@@ -80,19 +83,29 @@ const Modal = forwardRef<ModalRefProps, ModalProps>(
       className,
       title,
       bottomContent,
+      onCloseComplete,
     }: ModalProps,
     ref: ForwardedRef<ModalRefProps>
   ) => {
     const [showDrawer, setShowDrawer] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);
+    const titleId = useId();
+    const dialogRef = useRef<HTMLElement | null>(null);
+    const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+    const previousFocusRef = useRef<HTMLElement | null>(null);
 
-    const handleCloseLocally = () => {
+    const handleCloseLocally = useCallback(() => {
       setIsAnimating(false);
-      setTimeout(() => setShowDrawer(false), 200);
-    };
+      setTimeout(() => {
+        setShowDrawer(false);
+        previousFocusRef.current?.focus();
+        onCloseComplete?.();
+      }, 200);
+    }, [onCloseComplete]);
 
     useImperativeHandle(ref, () => ({
       openModal: () => {
+        previousFocusRef.current = document.activeElement as HTMLElement | null;
         setShowDrawer(true);
         setTimeout(() => setIsAnimating(true));
       },
@@ -101,6 +114,19 @@ const Modal = forwardRef<ModalRefProps, ModalProps>(
       },
       isOpen: showDrawer,
     }));
+
+    useEffect(() => {
+      if (!showDrawer) return;
+
+      const focusTarget =
+        closeButtonRef.current ??
+        dialogRef.current?.querySelector<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        ) ??
+        dialogRef.current;
+
+      focusTarget?.focus();
+    }, [showDrawer, handleCloseLocally]);
 
     // Add escape key listener
     useEffect(() => {
@@ -117,7 +143,7 @@ const Modal = forwardRef<ModalRefProps, ModalProps>(
       return () => {
         document.removeEventListener("keydown", handleKeyDown);
       };
-    }, [showDrawer]);
+    }, [showDrawer, handleCloseLocally]);
 
     // Extract compound components from children
     let modalTitle: React.ReactNode = title;
@@ -154,9 +180,15 @@ const Modal = forwardRef<ModalRefProps, ModalProps>(
         <div
           className="absolute h-full w-full bg-black/70 backdrop-blur-2xl backdrop-saturate-150 backdrop-brightness-50"
           onClick={handleCloseLocally}
+          aria-hidden="true"
         />
 
         <motion.main
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={modalTitle ? titleId : undefined}
+          tabIndex={-1}
           initial={isAnimating ? "initial" : "exit"}
           animate={isAnimating ? "animate" : "exit"}
           exit="exit"
@@ -167,17 +199,25 @@ const Modal = forwardRef<ModalRefProps, ModalProps>(
           }`}
         >
           {withCloseButton && (
-            <XMarkIcon
+            <button
+              ref={closeButtonRef}
+              type="button"
+              aria-label="Cerrar modal"
               onClick={handleCloseLocally}
-              className="absolute z-30 right-4 top-8 w-10 h-10 box-border cursor-pointer p-2 text-dark-secondary"
-            />
+              className="absolute z-30 right-4 top-8 w-10 h-10 box-border cursor-pointer p-2 text-dark-secondary rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            >
+              <XMarkIcon aria-hidden="true" className="h-full w-full" />
+            </button>
           )}
 
           {modalTitle && (
             <div className="pt-10 pb-4 px-6">
-              <Text variant="h6" className="text-neutral-900 font-semibold">
+              <h2
+                id={titleId}
+                className="text-[20px] leading-[24px] tracking-[0.15px] font-cabin text-wrap break-keep text-neutral-900 font-semibold"
+              >
                 {modalTitle}
-              </Text>
+              </h2>
             </div>
           )}
 

@@ -1,10 +1,8 @@
 "use client";
 
 import { useUser, useClerk } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "@/motion";
 import { useRouter } from "next/navigation";
 import { Text } from "../Typography";
 import {
@@ -14,6 +12,8 @@ import {
 import { truncateEmail } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { ProfileEdit } from "../ProfileEdit";
+import { UserAvatarImage } from "./UserAvatarImage";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface AvatarProps {
   size?: "sm" | "md" | "lg";
@@ -33,8 +33,7 @@ export function Avatar({
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Query user data from Convex
-  const dbUser = useQuery(api.user.getOwnUser);
+  const dbUser = useCurrentUser();
 
   // Detect OS for keyboard shortcut display
   const isMacOS =
@@ -42,10 +41,10 @@ export function Avatar({
     navigator.platform.toUpperCase().indexOf("MAC") >= 0;
   const keyboardShortcut = isMacOS ? "⌘ I" : "Ctrl I";
 
-  const handleProfileEdit = () => {
+  const handleProfileEdit = useCallback(() => {
     setIsDropdownOpen(false);
     setIsProfileEditOpen(true);
-  };
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -70,7 +69,7 @@ export function Avatar({
 
       if (isCmdOrCtrl && event.key === "i") {
         event.preventDefault();
-        setIsDropdownOpen(!isDropdownOpen);
+        setIsDropdownOpen((isOpen) => !isOpen);
       }
 
       // Check for E key (only when dropdown is open)
@@ -113,30 +112,18 @@ export function Avatar({
     );
   }
 
-  const avatarContent = !dbUser.avatar ? (
-    // Fallback to initials if no avatar
+  const avatarContent = (
     <div
-      className={`${sizeClasses[size]} rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm cursor-pointer hover:scale-105 transition-transform duration-200 ${className}`}
+      className={`cursor-pointer hover:scale-105 transition-transform duration-200 ${className}`}
       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
     >
-      {dbUser.nickname
-        ?.split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2) ||
-        clerkUser.emailAddresses[0]?.emailAddress[0].toUpperCase() ||
-        "?"}
-    </div>
-  ) : (
-    <div
-      className={`${sizeClasses[size]} rounded-full bg-gray-800 border-2 border-gray-600 overflow-hidden flex items-center justify-center relative cursor-pointer hover:scale-105 transition-transform duration-200 ${className}`}
-      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-    >
-      <div
-        dangerouslySetInnerHTML={{ __html: dbUser.avatar }}
-        className="absolute inset-0 flex items-center justify-center"
-        style={{ transform: "scale(1)" }}
+      <UserAvatarImage
+        avatarUrl={dbUser.avatarUrl}
+        avatarSeed={dbUser.avatarSeed}
+        nickname={
+          dbUser.nickname || clerkUser.emailAddresses[0]?.emailAddress || "?"
+        }
+        className={sizeClasses[size]}
       />
     </div>
   );
@@ -227,7 +214,8 @@ export function Avatar({
       {isProfileEditOpen && (
         <ProfileEdit
           currentNickname={dbUser?.nickname || ""}
-          currentAvatar={dbUser?.avatar || null}
+          currentAvatarSeed={dbUser?.avatarSeed || null}
+          currentAvatarUrl={dbUser?.avatarUrl || null}
           onClose={() => setIsProfileEditOpen(false)}
           onUpdate={handleProfileUpdate}
         />

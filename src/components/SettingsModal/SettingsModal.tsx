@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useId } from "react";
+import { motion, AnimatePresence } from "@/motion";
 
 interface SettingsModalProps {
   children: React.ReactNode;
@@ -16,6 +16,7 @@ export function SettingsModal({
   onOpenChange,
   content,
 }: SettingsModalProps) {
+  const titleId = useId();
   // Detect OS for keyboard shortcut display
   const isMacOS =
     typeof window !== "undefined" &&
@@ -39,7 +40,15 @@ export function SettingsModal({
 
   return (
     <>
-      <div onClick={() => onOpenChange(true)}>{children}</div>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        onClick={() => onOpenChange(true)}
+        className="contents"
+      >
+        {children}
+      </button>
 
       <AnimatePresence>
         {isOpen && (
@@ -52,6 +61,7 @@ export function SettingsModal({
               transition={{ duration: 0.2 }}
               className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
               onClick={() => onOpenChange(false)}
+              aria-hidden="true"
             />
 
             {/* Drawer */}
@@ -61,10 +71,13 @@ export function SettingsModal({
               exit={{ x: "100%" }}
               transition={{ duration: 0.3, ease: "easeOut" }}
               className="fixed right-0 top-0 bottom-0 w-96 bg-gray-900 border-l border-gray-700 z-50 flex flex-col"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
             >
               {/* Header */}
               <div className="border-b border-gray-700 bg-gray-900 p-6">
-                <h2 className="text-white text-lg font-semibold">
+                <h2 id={titleId} className="text-white text-lg font-semibold">
                   Configuración
                 </h2>
               </div>

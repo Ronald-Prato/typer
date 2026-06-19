@@ -1,19 +1,23 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { Text } from "../Typography";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Modal, type ModalRefProps } from "../Modal";
 import { UserPlus, Loader2, Check } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, m } from "@/motion";
 import { toast } from "sonner";
+import { UserAvatarImage } from "../Avatar";
 
 interface AddFriendsModalProps {
   onClose: () => void;
 }
+
+const FRIENDS_LOOKUP_LIMIT = 50;
 
 export function AddFriendsModal({ onClose }: AddFriendsModalProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -24,9 +28,10 @@ export function AddFriendsModal({ onClose }: AddFriendsModalProps) {
   );
   const modalRef = useRef<ModalRefProps>(null);
 
-  // Get current user and friends
-  const currentUser = useQuery(api.user.getOwnUser);
-  const friends = useQuery(api.user.getFriends);
+  const friendsPage = useQuery(api.user.getFriendsPage, {
+    limit: FRIENDS_LOOKUP_LIMIT,
+  });
+  const friends = friendsPage?.page ?? [];
   const sendFriendRequest = useMutation(api.user.sendFriendRequest);
 
   // Search users by nickname
@@ -57,29 +62,14 @@ export function AddFriendsModal({ onClose }: AddFriendsModalProps) {
     modalRef.current?.openModal();
   }, []);
 
-  // Listen for modal close events
-  useEffect(() => {
-    const checkModalState = setInterval(() => {
-      if (modalRef.current && !modalRef.current.isOpen) {
-        onClose();
-        clearInterval(checkModalState);
-      }
-    }, 50);
-
-    return () => clearInterval(checkModalState);
-  }, [onClose]);
-
   const handleClose = () => {
     modalRef.current?.closeModal();
-    setTimeout(() => onClose(), 200);
   };
 
-  const handleSendFriendRequest = async (userId: any) => {
+  const handleSendFriendRequest = async (userId: Id<"user">) => {
     try {
-      console.log("Sending friend request to:", userId);
       setLoadingRequests((prev) => new Set(prev).add(userId));
-      await sendFriendRequest({ userId: userId as any });
-      console.log("Friend request sent successfully");
+      await sendFriendRequest({ userId });
 
       // Force a re-render by updating state
       // The queries will automatically refetch when the component re-renders
@@ -110,8 +100,13 @@ export function AddFriendsModal({ onClose }: AddFriendsModalProps) {
   };
 
   // Check if friend request was already sent
-  const hasFriendRequest = (userId: string) => {
-    return currentUser?.friendRequests?.includes(userId as any) || false;
+  const hasFriendRequest = (user: {
+    friendshipStatus?: "none" | "friends" | "request_sent" | "request_received";
+  }) => {
+    return (
+      user.friendshipStatus === "request_sent" ||
+      user.friendshipStatus === "request_received"
+    );
   };
 
   const renderSearchResults = () => {
@@ -149,8 +144,8 @@ export function AddFriendsModal({ onClose }: AddFriendsModalProps) {
     return (
       <div className="space-y-2 max-h-64 overflow-y-auto">
         <AnimatePresence>
-          {searchResults.map((user: any, index: number) => (
-            <motion.div
+          {searchResults.map((user, index) => (
+            <m.div
               key={user._id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -159,25 +154,13 @@ export function AddFriendsModal({ onClose }: AddFriendsModalProps) {
               className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg border border-gray-700/30 hover:bg-gray-800/70 transition-colors"
             >
               <div className="flex items-center space-x-3">
-                {/* Avatar */}
-                {user.avatar ? (
-                  <div className="w-10 h-10 rounded-full bg-gray-800 border-2 border-gray-600 overflow-hidden flex items-center justify-center">
-                    <div
-                      dangerouslySetInnerHTML={{ __html: user.avatar }}
-                      className="w-full h-full flex items-center justify-center"
-                      style={{ transform: "scale(1)" }}
-                    />
-                  </div>
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm">
-                    {user.nickname
-                      ?.split(" ")
-                      .map((n: string) => n[0])
-                      .join("")
-                      .toUpperCase()
-                      .slice(0, 2) || "?"}
-                  </div>
-                )}
+                <UserAvatarImage
+                  avatarUrl={user.avatarUrl}
+                  avatarSeed={user.avatarSeed}
+                  nickname={user.nickname}
+                  className="w-10 h-10"
+                  initialsClassName="text-sm"
+                />
 
                 {/* User Info */}
                 <div className="flex flex-col">
@@ -185,7 +168,7 @@ export function AddFriendsModal({ onClose }: AddFriendsModalProps) {
                     {user.nickname}
                   </Text>
                   <Text variant="caption" className="text-gray-400">
-                    {user.games?.length || 0} juegos
+                    {user.gamesCount || 0} juegos
                   </Text>
                 </div>
               </div>
@@ -199,7 +182,7 @@ export function AddFriendsModal({ onClose }: AddFriendsModalProps) {
                       Agregado
                     </Text>
                   </div>
-                ) : hasFriendRequest(user._id) ? (
+                ) : hasFriendRequest(user) ? (
                   <div className="flex items-center space-x-2 text-orange-400">
                     <Text variant="caption" className="text-orange-400">
                       Pendiente
@@ -214,7 +197,7 @@ export function AddFriendsModal({ onClose }: AddFriendsModalProps) {
                   </div>
                 ) : (
                   <Button
-                    onClick={() => handleSendFriendRequest(user._id as any)}
+                    onClick={() => handleSendFriendRequest(user._id)}
                     variant="outline"
                     size="sm"
                     className="bg-green-500/20 border-green-500/30 hover:bg-green-500/30 text-green-400 hover:text-green-300"
@@ -224,7 +207,7 @@ export function AddFriendsModal({ onClose }: AddFriendsModalProps) {
                   </Button>
                 )}
               </div>
-            </motion.div>
+            </m.div>
           ))}
         </AnimatePresence>
       </div>
@@ -236,6 +219,7 @@ export function AddFriendsModal({ onClose }: AddFriendsModalProps) {
       ref={modalRef}
       className="bg-gray-900 border border-gray-700 shadow-xl text-white max-h-[90vh]"
       withCloseButton={true}
+      onCloseComplete={onClose}
     >
       <Modal.Content className="overflow-y-auto">
         <div className="space-y-6">

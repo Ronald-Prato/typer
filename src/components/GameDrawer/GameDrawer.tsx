@@ -1,23 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Drawer } from "@/components/Drawer.tsx/Drawer";
-import { Text } from "@/components/Typography";
-import { Button } from "@/components/ui/button";
-import {
-  ArrowRightOnRectangleIcon,
-  Cog6ToothIcon,
-  UserPlusIcon,
-} from "@heroicons/react/24/outline";
-import { truncateEmail } from "@/lib/utils";
-import { useUser, useClerk } from "@clerk/nextjs";
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { useClerk, useUser } from "@clerk/nextjs";
+import { useTheme } from "next-themes";
+import { Drawer } from "@/components/Drawer/Drawer";
 import { ProfileEdit } from "@/components/ProfileEdit";
-import { useOS } from "@/hooks";
-import { FriendList } from "../FriendList/FriendList";
 import { AddFriendsModal } from "../AddFriendsModal";
+import { useHudScale, useOS } from "@/hooks";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import {
+  isGameDrawerProfileEditShortcut,
+  isGameDrawerToggleShortcut,
+} from "@/domain/gameDrawer";
+import { GameDrawerSettingsContent } from "./GameDrawerSettingsContent";
 
 interface GameDrawerProps {
   isOpen: boolean;
@@ -27,39 +22,33 @@ interface GameDrawerProps {
 export function GameDrawer({ isOpen, onOpenChange }: GameDrawerProps) {
   const { isSignedIn } = useUser();
   const { signOut } = useClerk();
-  const router = useRouter();
-  const dbUser = useQuery(api.user.getOwnUser);
+  const dbUser = useCurrentUser();
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
-
   const { isMacOS } = useOS();
-  const keyboardShortcut = isMacOS ? "⌘ I" : "Ctrl I";
+  const { scale: hudScale, setScale: setHudScale } = useHudScale();
+  const { theme, setTheme } = useTheme();
 
-  const handleProfileEdit = () => {
+  const handleProfileEdit = useCallback(() => {
     onOpenChange(false);
     setIsProfileEditOpen(true);
-  };
+  }, [onOpenChange]);
 
-  const handleProfileUpdate = () => {
-    // This will trigger a re-render and update the user data
-  };
-
-  const handleAddFriend = () => {
+  const handleAddFriend = useCallback(() => {
     setIsAddFriendModalOpen(true);
-  };
+  }, []);
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     try {
       await signOut();
     } catch (error) {
       console.error("Error signing out:", error);
     }
-  };
+  }, [signOut]);
 
-  // Handle E key for profile edit when drawer is open
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "e" && isOpen) {
+      if (isGameDrawerProfileEditShortcut(event, isOpen)) {
         event.preventDefault();
         handleProfileEdit();
       }
@@ -67,15 +56,11 @@ export function GameDrawer({ isOpen, onOpenChange }: GameDrawerProps) {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen]);
+  }, [handleProfileEdit, isOpen]);
 
-  // Handle keyboard shortcuts for opening drawer
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Check for Cmd+I (macOS) or Ctrl+I (other systems)
-      const isCmdOrCtrl = isMacOS ? event.metaKey : event.ctrlKey;
-
-      if (isCmdOrCtrl && event.key === "i") {
+      if (isGameDrawerToggleShortcut(event, isMacOS)) {
         event.preventDefault();
         onOpenChange(!isOpen);
       }
@@ -83,143 +68,37 @@ export function GameDrawer({ isOpen, onOpenChange }: GameDrawerProps) {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isMacOS, onOpenChange]);
-
-  // Settings content component
-  const SettingsContent = () => {
-    if (!isSignedIn || !dbUser) return null;
-
-    return (
-      <div className="flex flex-col h-full">
-        {/* Main Content - Takes up available space */}
-        <div className="flex-1 space-y-6">
-          {/* User Info Section */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-4">
-              {/* Avatar */}
-              <div className="w-16 h-16 rounded-full bg-gray-800 border-2 border-gray-600 overflow-hidden flex items-center justify-center relative">
-                {dbUser.avatar ? (
-                  <div
-                    dangerouslySetInnerHTML={{ __html: dbUser.avatar }}
-                    className="absolute inset-0 flex items-center justify-center"
-                    style={{ transform: "scale(1)" }}
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-lg">
-                    {dbUser.nickname
-                      ?.split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()
-                      .slice(0, 2) || "?"}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1 flex flex-col justify-center">
-                <Text className="text-lg font-semibold text-white">
-                  {dbUser.nickname || "Usuario"}
-                </Text>
-                <Text className="text-sm text-gray-400">
-                  {truncateEmail(dbUser.email)}
-                </Text>
-              </div>
-
-              <button
-                onClick={handleProfileEdit}
-                className="flex items-center space-x-3 hover:bg-gray-700 rounded-md p-2 cursor-pointer"
-              >
-                <Cog6ToothIcon className="size-4" />
-                <Text variant="body2" className="text-gray-300">
-                  Editar perfil
-                </Text>
-                <div
-                  className="px-2 py-1 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
-                  style={{
-                    boxShadow:
-                      "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
-                  }}
-                >
-                  <Text variant="caption" className="!text-xs">
-                    E
-                  </Text>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Friends Section */}
-          <div className="space-y-3 mt-10 ">
-            <div className="w-full flex items-center justify-between">
-              <Text variant="h6" className="font-extrabold">
-                Amigos
-              </Text>
-
-              <Button variant="ghost" onClick={handleAddFriend}>
-                <UserPlusIcon className="size-4 mr-2" />
-                Agregar amigo
-              </Button>
-            </div>
-            <FriendList onAddFriend={handleAddFriend} />
-          </div>
-
-          {/* Keyboard Shortcut Info */}
-          {/* <div className="pt-4 border-t border-gray-700">
-            <div className="flex items-center justify-center space-x-2">
-              <Text variant="caption" className="text-gray-400">
-                Abrir configuración:
-              </Text>
-              <div
-                className="px-2 py-1 bg-white/20 backdrop-blur-sm text-white text-xs font-medium rounded flex items-center justify-center border border-white/30"
-                style={{
-                  boxShadow:
-                    "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
-                }}
-              >
-                <Text variant="caption" className="!text-xs">
-                  {keyboardShortcut}
-                </Text>
-              </div>
-            </div>
-          </div> */}
-        </div>
-
-        {/* Bottom Section - Sign Out Button */}
-        <div className="mt-auto pt-6 border-t border-gray-700">
-          <Button
-            onClick={handleSignOut}
-            variant="outline"
-            className="w-full justify-start bg-gray-800 border-gray-600 hover:bg-gray-700 text-red-400 hover:text-red-300"
-          >
-            <ArrowRightOnRectangleIcon className="size-4 mr-3" />
-            <Text variant="body2" className="text-red-400">
-              Cerrar sesión
-            </Text>
-          </Button>
-        </div>
-      </div>
-    );
-  };
+  }, [isMacOS, isOpen, onOpenChange]);
 
   return (
     <>
       <Drawer open={isOpen} onOpenChange={onOpenChange} name="Game Settings">
-        <div className="p-6 space-y-6 bg-gray-900 h-full overflow-y-auto">
-          <SettingsContent />
+        <div className="p-6 space-y-6 bg-[var(--tw-home-bg)] h-full overflow-y-auto">
+          {isSignedIn && (
+            <GameDrawerSettingsContent
+              dbUser={dbUser}
+              hudScale={hudScale}
+              theme={theme}
+              onAddFriend={handleAddFriend}
+              onHudScaleChange={setHudScale}
+              onProfileEdit={handleProfileEdit}
+              onSignOut={handleSignOut}
+              onThemeChange={setTheme}
+            />
+          )}
         </div>
       </Drawer>
 
-      {/* Profile Edit Modal */}
       {isProfileEditOpen && (
         <ProfileEdit
           currentNickname={dbUser?.nickname || ""}
-          currentAvatar={dbUser?.avatar || null}
+          currentAvatarSeed={dbUser?.avatarSeed || null}
+          currentAvatarUrl={dbUser?.avatarUrl || null}
           onClose={() => setIsProfileEditOpen(false)}
-          onUpdate={handleProfileUpdate}
+          onUpdate={() => undefined}
         />
       )}
 
-      {/* Add Friend Modal */}
       {isAddFriendModalOpen && (
         <AddFriendsModal onClose={() => setIsAddFriendModalOpen(false)} />
       )}

@@ -1,0 +1,39 @@
+<svg width="320" height="190" viewBox="0 0 320 190" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="scrollPanel" x1="82" y1="24" x2="244" y2="164" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.04"/>
+    </linearGradient>
+    <linearGradient id="typed" x1="92" y1="78" x2="210" y2="78" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F97316"/>
+      <stop offset="1" stop-color="#EF4444"/>
+    </linearGradient>
+    <filter id="speedBlur" x="-20%" y="-30%" width="150%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="9 1.2"/>
+    </filter>
+    <filter id="dangerGlow" x="-20%" y="-100%" width="140%" height="300%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="46" y="18" width="228" height="154" rx="30" fill="currentColor" fill-opacity="0.07"/>
+  <rect x="46.75" y="18.75" width="226.5" height="152.5" rx="29.25" stroke="currentColor" stroke-opacity="0.16" stroke-width="1.5"/>
+  <path d="M40 54H280" stroke="#EF4444" stroke-opacity="0.76" stroke-width="4" stroke-linecap="round" filter="url(#dangerGlow)"/>
+  <path d="M56 42L42 54L56 66" stroke="#EF4444" stroke-opacity="0.72" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M66 88H16" stroke="#F97316" stroke-opacity="0.32" stroke-width="8" stroke-linecap="round" filter="url(#speedBlur)"/>
+  <path d="M88 122H26" stroke="#EF4444" stroke-opacity="0.22" stroke-width="8" stroke-linecap="round" filter="url(#speedBlur)"/>
+  <path d="M98 34H230C242.15 34 252 43.8497 252 56V136C252 148.15 242.15 158 230 158H98C85.8497 158 76 148.15 76 136V56C76 43.8497 85.8497 34 98 34Z" fill="url(#scrollPanel)" stroke="currentColor" stroke-opacity="0.12"/>
+  <g transform="translate(0 8)">
+    <path d="M96 70H210" stroke="url(#typed)" stroke-width="10" stroke-linecap="round"/>
+    <path d="M96 100H232" stroke="currentColor" stroke-opacity="0.28" stroke-width="10" stroke-linecap="round"/>
+    <path d="M96 130H194" stroke="currentColor" stroke-opacity="0.18" stroke-width="10" stroke-linecap="round"/>
+    <rect x="220" y="56" width="10" height="28" rx="5" fill="currentColor" fill-opacity="0.72"/>
+  </g>
+  <path d="M254 72H304" stroke="#F97316" stroke-opacity="0.28" stroke-width="8" stroke-linecap="round" filter="url(#speedBlur)"/>
+  <path d="M238 108H300" stroke="#EF4444" stroke-opacity="0.24" stroke-width="8" stroke-linecap="round" filter="url(#speedBlur)"/>
+  <path d="M266 72V132" stroke="currentColor" stroke-opacity="0.32" stroke-width="5" stroke-linecap="round"/>
+  <path d="M250 118L266 134L282 118" stroke="#F97316" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -18,7 +18,7 @@ Un juego de velocidad de escritura multijugador donde los jugadores compiten en 
 ```bash
 git clone <tu-repositorio>
 cd typer
-npm install
+pnpm install
 ```
 
 ### 2. Configurar Clerk
@@ -42,7 +42,7 @@ NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/home
 
 ### 3. Configurar Convex
 
-1. Ejecuta: `npx convex dev --configure`
+1. Ejecuta: `pnpm exec convex dev --configure`
 2. Sigue las instrucciones para crear una cuenta y proyecto
 3. Las variables de entorno de Convex se agregarán automáticamente a `.env.local`
 
@@ -50,13 +50,25 @@ NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/home
 
 ```bash
 # Terminal 1: Iniciar Convex
-npx convex dev
+pnpm exec convex dev
 
 # Terminal 2: Iniciar Next.js
-npm run dev
+pnpm dev
 ```
 
-### 5. Configurar Webhooks de Clerk (Opcional)
+### 5. Comandos de calidad
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test
+```
+
+`pnpm lint` usa ESLint flat config. El repo todavía conserva deuda de lint en
+zonas legacy, así que para cambios acotados también puedes ejecutar ESLint sobre
+los archivos tocados.
+
+### 6. Configurar Webhooks de Clerk (Opcional)
 
 Para sincronizar automáticamente los usuarios entre Clerk y Convex:
 

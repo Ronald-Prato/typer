@@ -1,41 +1,33 @@
 import { query } from "./_generated/server";
-import { getCurrentUser } from "./helpers/getCurrentUser";
-import { v } from "convex/values";
+import { getCurrentUserOrNull } from "./helpers/getCurrentUser";
+import { paginationOptsValidator } from "convex/server";
+import { normalizeHistoryPageSize } from "./historyPagination";
 
 export const getGameHistory = query({
   args: {
-    page: v.optional(v.number()),
-    limit: v.optional(v.number()),
+    paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
-    const ownUser = await getCurrentUser(ctx);
+    const ownUser = await getCurrentUserOrNull(ctx);
 
     if (!ownUser) {
-      throw new Error("Unauthorized");
+      return {
+        page: [],
+        isDone: true,
+        continueCursor: "",
+      };
     }
 
-    const page = args.page || 0;
-    const limit = args.limit || 6;
-    const offset = page * limit;
+    const pageSize = normalizeHistoryPageSize(args.paginationOpts.numItems);
 
-    // Get all results first, then slice for pagination
-    const allHistory = await ctx.db
+    const query = ctx.db
       .query("gameHistory")
-      .withIndex("by_user_id", (q) => q.eq("userId", ownUser._id))
-      .order("desc")
-      .collect();
+      .withIndex("by_user_created_at", (q) => q.eq("userId", ownUser._id))
+      .order("desc");
 
-    const totalCount = allHistory.length;
-    const startIndex = offset;
-    const endIndex = startIndex + limit;
-    const paginatedHistory = allHistory.slice(startIndex, endIndex);
-
-    return {
-      results: paginatedHistory,
-      hasMore: endIndex < totalCount,
-      totalCount,
-      currentPage: page,
-      totalPages: Math.ceil(totalCount / limit),
-    };
+    return await query.paginate({
+      numItems: pageSize,
+      cursor: args.paginationOpts.cursor,
+    });
   },
 });

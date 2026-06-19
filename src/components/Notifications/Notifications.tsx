@@ -1,62 +1,88 @@
 import { Bell, Check, X, Loader2 } from "lucide-react";
-import { useState, useTransition } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { AnimatePresence, m } from "@/motion";
 import { Text } from "@/components";
-import { useQuery, useMutation } from "convex/react";
+import { useConvexAuth, useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { UserAvatarImage } from "../Avatar";
+import type { Id } from "../../../convex/_generated/dataModel";
+
+const REQUESTS_PAGE_SIZE = 25;
+
+type FriendRequestSummary = {
+  requestId: Id<"friendRequests">;
+  createdAt: number;
+  fromUser: {
+    nickname?: string;
+    avatarSeed?: string;
+    avatarUrl?: string;
+  };
+};
+
+type LoadedRequestPage = {
+  cursorCreatedAt?: number;
+  page: FriendRequestSummary[];
+};
 
 export const Notifications = () => {
+  const { isAuthenticated } = useConvexAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [cursorCreatedAt, setCursorCreatedAt] = useState<number | undefined>();
   const [isAcceptPending, startAcceptTransition] = useTransition();
   const [isRejectPending, startRejectTransition] = useTransition();
   const [removingRequests, setRemovingRequests] = useState<Set<string>>(
     new Set()
   );
 
-  // Get real friend requests from the database
-  const friendRequests = useQuery(api.user.getFriendRequests) || [];
+  const friendRequestsPage = useQuery(
+    api.user.getFriendRequestsPage,
+    isAuthenticated ? { limit: REQUESTS_PAGE_SIZE, cursorCreatedAt } : "skip"
+  );
+  const [loadedPages, setLoadedPages] = useState<LoadedRequestPage[]>([]);
+
+  useEffect(() => {
+    if (!friendRequestsPage) {
+      if (!isAuthenticated) setLoadedPages([]);
+      return;
+    }
+
+    setLoadedPages((pages) => {
+      const nextPage = { cursorCreatedAt, page: friendRequestsPage.page };
+
+      if (cursorCreatedAt === undefined) return [nextPage];
+
+      const existingIndex = pages.findIndex(
+        (page) => page.cursorCreatedAt === cursorCreatedAt
+      );
+
+      if (existingIndex === -1) return [...pages, nextPage];
+
+      return pages.map((page, index) =>
+        index === existingIndex ? nextPage : page
+      );
+    });
+  }, [cursorCreatedAt, friendRequestsPage, isAuthenticated]);
+
+  const friendRequests = useMemo(
+    () => loadedPages.flatMap((loadedPage) => loadedPage.page),
+    [loadedPages]
+  );
 
   // Mutations for accepting/rejecting friend requests
   const acceptFriendRequest = useMutation(api.user.acceptFriendRequest);
   const rejectFriendRequest = useMutation(api.user.rejectFriendRequest);
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case "friend_request":
-        return "👥";
-      default:
-        return "📢";
-    }
-  };
-
-  const formatTimeAgo = (timestamp: number) => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (minutes < 60) {
-      return `${minutes} min`;
-    } else if (hours < 24) {
-      return `${hours} hora${hours > 1 ? "s" : ""}`;
-    } else {
-      return `${days} día${days > 1 ? "s" : ""}`;
-    }
-  };
-
-  const handleAcceptRequest = async (friendRequestId: any) => {
-    console.log("Accepting friend request:", friendRequestId);
-    setRemovingRequests((prev) => new Set(prev).add(friendRequestId));
+  const handleAcceptRequest = async (requestId: Id<"friendRequests">) => {
+    setRemovingRequests((prev) => new Set(prev).add(requestId));
 
     startAcceptTransition(async () => {
       try {
-        await acceptFriendRequest({ friendRequestId });
+        await acceptFriendRequest({ friendRequestId: requestId });
         // Remove from removing set after a short delay to allow animation
         setTimeout(() => {
           setRemovingRequests((prev) => {
             const newSet = new Set(prev);
-            newSet.delete(friendRequestId);
+            newSet.delete(requestId);
             return newSet;
           });
         }, 300);
@@ -65,24 +91,24 @@ export const Notifications = () => {
         // Remove from removing set on error
         setRemovingRequests((prev) => {
           const newSet = new Set(prev);
-          newSet.delete(friendRequestId);
+          newSet.delete(requestId);
           return newSet;
         });
       }
     });
   };
 
-  const handleRejectRequest = async (friendRequestId: any) => {
-    setRemovingRequests((prev) => new Set(prev).add(friendRequestId));
+  const handleRejectRequest = async (requestId: Id<"friendRequests">) => {
+    setRemovingRequests((prev) => new Set(prev).add(requestId));
 
     startRejectTransition(async () => {
       try {
-        await rejectFriendRequest({ friendRequestId });
+        await rejectFriendRequest({ friendRequestId: requestId });
         // Remove from removing set after a short delay to allow animation
         setTimeout(() => {
           setRemovingRequests((prev) => {
             const newSet = new Set(prev);
-            newSet.delete(friendRequestId);
+            newSet.delete(requestId);
             return newSet;
           });
         }, 300);
@@ -91,7 +117,7 @@ export const Notifications = () => {
         // Remove from removing set on error
         setRemovingRequests((prev) => {
           const newSet = new Set(prev);
-          newSet.delete(friendRequestId);
+          newSet.delete(requestId);
           return newSet;
         });
       }
@@ -103,7 +129,7 @@ export const Notifications = () => {
       {/* Global Backdrop */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -133,7 +159,7 @@ export const Notifications = () => {
 
         <AnimatePresence>
           {isOpen && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
@@ -164,15 +190,15 @@ export const Notifications = () => {
                 ) : (
                   <div className="divide-y divide-gray-700/30">
                     <AnimatePresence>
-                      {friendRequests.map((friendRequest: any) => (
-                        <motion.div
-                          key={friendRequest._id}
+                      {friendRequests.map((friendRequest) => (
+                        <m.div
+                          key={friendRequest.requestId}
                           initial={{ opacity: 1, height: "auto" }}
                           animate={{
-                            opacity: removingRequests.has(friendRequest._id)
+                            opacity: removingRequests.has(friendRequest.requestId)
                               ? 0
                               : 1,
-                            height: removingRequests.has(friendRequest._id)
+                            height: removingRequests.has(friendRequest.requestId)
                               ? 0
                               : "auto",
                           }}
@@ -187,26 +213,13 @@ export const Notifications = () => {
                           <div className="flex items-start space-x-3">
                             {/* Avatar */}
                             <div className="flex-shrink-0">
-                              {friendRequest.avatar ? (
-                                <div className="w-8 h-8 rounded-full bg-gray-800 border-2 border-gray-600 overflow-hidden flex items-center justify-center">
-                                  <div
-                                    dangerouslySetInnerHTML={{
-                                      __html: friendRequest.avatar,
-                                    }}
-                                    className="w-full h-full flex items-center justify-center"
-                                    style={{ transform: "scale(1)" }}
-                                  />
-                                </div>
-                              ) : (
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm">
-                                  {friendRequest.nickname
-                                    ?.split(" ")
-                                    .map((n: string) => n[0])
-                                    .join("")
-                                    .toUpperCase()
-                                    .slice(0, 2) || "?"}
-                                </div>
-                              )}
+                              <UserAvatarImage
+                                avatarUrl={friendRequest.fromUser.avatarUrl}
+                                avatarSeed={friendRequest.fromUser.avatarSeed}
+                                nickname={friendRequest.fromUser.nickname}
+                                className="w-8 h-8"
+                                initialsClassName="text-sm"
+                              />
                             </div>
 
                             <div className="flex-1 min-w-0">
@@ -222,7 +235,8 @@ export const Notifications = () => {
                                 variant="caption"
                                 className="text-gray-400 line-clamp-2"
                               >
-                                <b>{friendRequest.nickname}</b> quiere agregarte
+                                <b>{friendRequest.fromUser.nickname}</b> quiere
+                                agregarte
                               </Text>
                             </div>
 
@@ -232,16 +246,16 @@ export const Notifications = () => {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleRejectRequest(friendRequest._id);
+                                  handleRejectRequest(friendRequest.requestId);
                                 }}
                                 disabled={
                                   isRejectPending ||
-                                  removingRequests.has(friendRequest._id)
+                                  removingRequests.has(friendRequest.requestId)
                                 }
                                 className="cursor-pointer w-8 h-8 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center hover:bg-red-500/30 transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 {isRejectPending &&
-                                removingRequests.has(friendRequest._id) ? (
+                                removingRequests.has(friendRequest.requestId) ? (
                                   <Loader2 className="w-4 h-4 text-red-400 animate-spin" />
                                 ) : (
                                   <X className="w-4 h-4 text-red-400 group-hover:text-red-300" />
@@ -252,16 +266,16 @@ export const Notifications = () => {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleAcceptRequest(friendRequest._id);
+                                  handleAcceptRequest(friendRequest.requestId);
                                 }}
                                 disabled={
                                   isAcceptPending ||
-                                  removingRequests.has(friendRequest._id)
+                                  removingRequests.has(friendRequest.requestId)
                                 }
                                 className="cursor-pointer w-8 h-8 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center hover:bg-green-500/30 transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 {isAcceptPending &&
-                                removingRequests.has(friendRequest._id) ? (
+                                removingRequests.has(friendRequest.requestId) ? (
                                   <Loader2 className="w-4 h-4 text-green-400 animate-spin" />
                                 ) : (
                                   <Check className="w-4 h-4 text-green-400 group-hover:text-green-300" />
@@ -269,13 +283,29 @@ export const Notifications = () => {
                               </button>
                             </div>
                           </div>
-                        </motion.div>
+                        </m.div>
                       ))}
                     </AnimatePresence>
+                    {friendRequestsPage?.nextCursorCreatedAt != null && (
+                      <div className="p-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCursorCreatedAt(
+                              friendRequestsPage?.nextCursorCreatedAt ??
+                                undefined
+                            )
+                          }
+                          className="w-full rounded-md border border-gray-700 bg-gray-800/60 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-800 hover:text-white"
+                        >
+                          Cargar mas solicitudes
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>

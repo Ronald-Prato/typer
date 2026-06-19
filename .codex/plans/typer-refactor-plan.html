@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Typer - Plan de cierre de escalabilidad</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f1115;
+        --surface: #171b22;
+        --surface-2: #202631;
+        --text: #f4f7fb;
+        --muted: #aab4c3;
+        --border: #303846;
+        --accent: #66d19e;
+        --warn: #f7b955;
+        --danger: #ff7474;
+        --info: #84a8ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        line-height: 1.55;
+      }
+
+      main {
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 44px 0 72px;
+      }
+
+      header {
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 28px;
+        padding-bottom: 28px;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        line-height: 1.15;
+      }
+
+      h1 {
+        font-size: clamp(2rem, 5vw, 4.2rem);
+        letter-spacing: 0;
+      }
+
+      h2 {
+        font-size: 1.35rem;
+        margin-bottom: 12px;
+      }
+
+      h3 {
+        font-size: 1rem;
+        margin-bottom: 8px;
+      }
+
+      p {
+        margin: 0 0 12px;
+      }
+
+      code {
+        background: #0a0c10;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.12rem 0.35rem;
+      }
+
+      section {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin: 16px 0;
+        padding: 22px;
+      }
+
+      ul,
+      ol {
+        margin: 8px 0 0;
+        padding-left: 22px;
+      }
+
+      li {
+        margin: 7px 0;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+      }
+
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: var(--surface-2);
+      }
+
+      .lede {
+        max-width: 900px;
+        color: var(--muted);
+        font-size: 1.06rem;
+        margin-top: 14px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 14px;
+      }
+
+      .tile {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+      }
+
+      .badge {
+        display: inline-flex;
+        border-radius: 999px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        margin-right: 6px;
+        padding: 2px 8px;
+      }
+
+      .done {
+        background: var(--accent);
+        color: #06150e;
+      }
+
+      .todo {
+        background: var(--warn);
+        color: #1b1204;
+      }
+
+      .risk {
+        background: var(--danger);
+        color: #1c0808;
+      }
+
+      .info {
+        background: var(--info);
+        color: #071127;
+      }
+
+      .phase {
+        border-left: 4px solid var(--info);
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .commands {
+        background: #0a0c10;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-top: 10px;
+        padding: 12px;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Typer - Plan de cierre de escalabilidad</h1>
+        <p class="lede">
+          Este plan convierte la auditoria actual en un checklist ejecutable.
+          El objetivo no es solo pasar lint/tests, sino dejar evidencia
+          suficiente para que una siguiente auditoria pueda revisar backend,
+          frontend, datos, concurrencia y pruebas sin encontrar huecos obvios
+          de arquitectura.
+        </p>
+      </header>
+
+      <section>
+        <h2>Veredicto de partida</h2>
+        <div class="grid">
+          <div class="tile">
+            <h3><span class="badge done">Base sana</span>Refactor anterior</h3>
+            <p>
+              El repo ya tiene reglas puras en <code>src/domain</code>,
+              helpers en <code>convex/*State.ts</code> y lifecycle en
+              <code>convex/*Lifecycle.ts</code>. Los gates no lanzadores pasan.
+            </p>
+          </div>
+          <div class="tile">
+            <h3><span class="badge done">Ejecutado</span>Escala real</h3>
+            <p>
+              Se cerraron los puntos de query shape, paginacion, matchmaking
+              stale-safe, bot snapshot y componentes principales con separacion
+              controller/vista.
+            </p>
+          </div>
+          <div class="tile">
+            <h3><span class="badge info">Criterio</span>Auditoria futura</h3>
+            <p>
+              Una auditoria favorable debe poder encontrar indices para
+              busquedas, cursores para listas crecientes, pruebas de carreras y
+              componentes/hook boundaries claros.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Checklist de cierre</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Area</th>
+              <th>Problema actual</th>
+              <th>Estado objetivo</th>
+              <th>Evidencia requerida</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Busqueda social</td>
+              <td>
+                <code>searchUsersByNickname</code> filtra usuarios sin indice
+                por nickname normalizado.
+              </td>
+              <td>
+                Campo <code>nicknameSearch</code> normalizado e indexado.
+                Busqueda por prefijo usando <code>withIndex</code>.
+              </td>
+              <td>
+                Schema actualizado, helper puro testeado, integration tests de
+                busqueda, limite de resultados y no auto-inclusion.
+              </td>
+            </tr>
+            <tr>
+              <td>Listas sociales</td>
+              <td>
+                Amigos y solicitudes usan lecturas completas o no limitadas.
+              </td>
+              <td>
+                APIs limitadas con indices por fecha para amigos/solicitudes,
+                con compatibilidad razonable para la UI actual.
+              </td>
+              <td>
+                Tests de limites, empty states y orden estable. UI usando
+                limites/cursor donde aplique.
+              </td>
+            </tr>
+            <tr>
+              <td>Historial</td>
+              <td>
+                La UI usa <code>limit/page</code>, que crece linealmente en
+                paginas profundas.
+              </td>
+              <td>
+                UI usando <code>paginationOpts</code> con cursor real de Convex.
+                API legacy de offset eliminada.
+              </td>
+              <td>
+                Tests de <code>normalizeHistoryPageSize</code> y componente/hook
+                o codigo inspeccionable sin <code>page</code>.
+              </td>
+            </tr>
+            <tr>
+              <td>Matchmaking</td>
+              <td>
+                La mutation mezcla seleccion, pairing, creacion de juegos,
+                scheduling de bot y patches.
+              </td>
+              <td>
+                Seleccion y guards puros en <code>queueState</code>. Mutations
+                con revalidacion justo antes de escribir o agendar bot.
+              </td>
+              <td>
+                Tests para pares, impar, usuarios ya movidos, lote maximo e
+                idempotencia parcial.
+              </td>
+            </tr>
+            <tr>
+              <td>Bot</td>
+              <td>
+                Un usuario global <code>imabot</code> se muta para todas las
+                partidas.
+              </td>
+              <td>
+                Identidad visual de bot congelada por juego o derivada de forma
+                deterministica, sin mutar un perfil global por match.
+              </td>
+              <td>
+                Schema/DTO actualizado, tests que prueben matches simultaneos
+                sin pisar avatar/nickname global.
+              </td>
+            </tr>
+            <tr>
+              <td>Lifecycle de juego</td>
+              <td>
+                Finalizar juego limpia solo al usuario actual; hay riesgo de
+                estados colgados si el flujo no completa.
+              </td>
+              <td>
+                Limpieza explicita de humanos afectados en reject/finish,
+                conservando historial y winner server-authoritative.
+              </td>
+              <td>
+                Integration tests de finalizar/ganar/rechazar y repeated calls.
+              </td>
+            </tr>
+            <tr>
+              <td>Frontend modal/lifecycle</td>
+              <td>
+                Modales usan polling de <code>setInterval</code> para detectar
+                cierre.
+              </td>
+              <td>
+                Modal expone callbacks de cierre; consumidores no hacen polling.
+              </td>
+              <td>
+                Tests de modal/cierre o inspeccion sin intervalos en modales de
+                perfil/amigos.
+              </td>
+            </tr>
+            <tr>
+              <td>Frontend 1v1</td>
+              <td>
+                <code>MatchMakingComponent</code> y <code>MatchProgress</code>
+                siguen grandes y mezclan comandos, shortcuts y vista.
+              </td>
+              <td>
+                Hooks de orquestacion y sub-vistas presentacionales. Reglas
+                compartidas para shortcuts/progreso.
+              </td>
+              <td>
+                Archivos por debajo del umbral o con responsabilidad unica, y
+                tests para reglas extraidas.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="phase">
+        <h2>Fase 1 - Backend server-authoritative</h2>
+        <ol>
+          <li>
+            Crear helpers puros para busqueda social:
+            <code>normalizeNicknameSearch</code> y tamano defensivo de pagina
+            social.
+          </li>
+          <li>
+            Agregar <code>nicknameSearch</code> al schema y a create/update,
+            indexado para prefijo.
+          </li>
+          <li>
+            Cambiar <code>searchUsersByNickname</code> a
+            <code>withIndex</code> y limitar resultados.
+          </li>
+          <li>
+            Acotar/paginar amigos y solicitudes. Si la UI aun necesita una lista
+            simple, mantener un limite defensivo documentado.
+          </li>
+          <li>
+            Migrar historial UI a cursor pagination real.
+          </li>
+        </ol>
+      </section>
+
+      <section class="phase">
+        <h2>Fase 2 - Matchmaking y bot resilientes</h2>
+        <ol>
+          <li>
+            Extraer pairing puro desde <code>queue.ts</code>: seleccion,
+            pares humanos, usuario impar y max batch.
+          </li>
+          <li>
+            Revalidar cada usuario justo antes de crear/patchar una partida.
+          </li>
+          <li>
+            Eliminar mutacion de perfil global del bot; guardar
+            <code>botOpponent</code> o snapshot equivalente en el documento de
+            juego.
+          </li>
+          <li>
+            Agregar tests de lote, impar, usuario ya movido, bot snapshot y
+            reintentos.
+          </li>
+        </ol>
+      </section>
+
+      <section class="phase">
+        <h2>Fase 3 - Frontend mantenible</h2>
+        <ol>
+          <li>
+            Cambiar polling de modales por callback/ref lifecycle.
+          </li>
+          <li>
+            Extraer hooks de matchmaking para aceptar/rechazar/salir y
+            shortcuts.
+          </li>
+          <li>
+            Extraer reglas puras de progreso 1v1: conteo de steps, etiquetas y
+            ganador.
+          </li>
+          <li>
+            Reducir componentes grandes solo donde el split mejore
+            responsabilidad real; no hacer cortes mecanicos.
+          </li>
+        </ol>
+      </section>
+
+      <section class="phase">
+        <h2>Fase 4 - Documentacion y gates</h2>
+        <ol>
+          <li>
+            Actualizar <code>AGENTS.md</code> con reglas concretas de indices,
+            paginacion, bot snapshots, matchmaking y no-polling.
+          </li>
+          <li>
+            Ejecutar tests focalizados mientras se implementa.
+          </li>
+          <li>
+            Cerrar con <code>pnpm typecheck</code>, <code>pnpm test</code> y
+            <code>pnpm lint</code>, sin lanzar la app.
+          </li>
+          <li>
+            Hacer auditoria final contra esta tabla, no contra memoria o
+            intencion.
+          </li>
+        </ol>
+        <div class="commands">pnpm typecheck
+pnpm test
+pnpm lint</div>
+      </section>
+
+      <section>
+        <h2>Regla para futuras auditorias</h2>
+        <p>
+          Si aparece una nueva lista que puede crecer por usuario, debe tener
+          limite, cursor o indice antes de considerarse lista para produccion.
+          Si aparece una mutation que cambia matchmaking, rewards, history o
+          permisos, debe existir una regla pura testeada que describa la
+          transicion. Si aparece un bot, su identidad de partida debe ser
+          inmutable por juego.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

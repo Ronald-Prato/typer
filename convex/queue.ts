@@ -4,22 +4,34 @@ import { internal } from "./_generated/api";
 import {
   getCurrentUser,
   getRandomGameSettings,
+  avatarUrlFromSeed,
+  sanitizeAvatarSeed,
 } from "./helpers/getCurrentUser";
-import { v4 as uuidv4 } from "uuid";
 import { botNicknames } from "../src/constants";
+import {
+  buildBotProfile,
+  buildEnterQueuePatch,
+  buildExitQueuePatch,
+  canCreateBotMatchForUser,
+  canCreateMatchForUser,
+  MAX_MATCHMAKING_BATCH_SIZE,
+} from "./queueState";
 
 export const getInQueue = mutation({
-  args: {
-    queueId: v.string(),
-  },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
 
+    if (
+      user.activeGame ||
+      user.status === "game_found" ||
+      user.status === "in_game"
+    ) {
+      throw new Error("No puedes entrar a la cola con una partida activa");
+    }
+
     const updatedUser = await ctx.db.patch(user._id, {
-      queueId: args.queueId,
-      queuedAt: Date.now(),
-      status: "in_queue",
-      activeGame: undefined,
+      ...buildEnterQueuePatch(Date.now()),
     });
 
     return updatedUser;
@@ -31,10 +43,7 @@ export const exitQueue = mutation({
     const user = await getCurrentUser(ctx);
 
     const updatedUser = await ctx.db.patch(user._id, {
-      queueId: undefined,
-      queuedAt: undefined,
-      status: "online",
-      activeGame: undefined,
+      ...buildExitQueuePatch(),
     });
 
     return updatedUser;
@@ -44,16 +53,36 @@ export const exitQueue = mutation({
 export const createMatchWithBot = internalMutation({
   args: {
     userId: v.id("user"),
+    queuedAt: v.number(),
     phrase: v.string(),
     words: v.array(v.string()),
     lettersAndSymbols: v.array(v.string()),
     holdsWords: v.array(v.object({ word: v.string(), number: v.number() })),
   },
   handler: async (ctx, args) => {
-    const bot = await ctx.db
-      .query("user")
-      .filter((q) => q.eq(q.field("authId"), "imabot"))
-      .first();
+    const [user, bot] = await Promise.all([
+      ctx.db.get(args.userId),
+      ctx.db
+        .query("user")
+        .withIndex("by_auth_id", (q) => q.eq("authId", "imabot"))
+        .first(),
+    ]);
+
+    if (
+      !canCreateMatchForUser(
+        user
+          ? {
+              _id: user._id,
+              status: user.status,
+              queuedAt: user.queuedAt,
+              activeGame: user.activeGame,
+            }
+          : null
+      ) ||
+      user?.queuedAt !== args.queuedAt
+    ) {
+      return null;
+    }
 
     if (!bot) {
       throw new Error("Bot not found");
@@ -62,12 +91,16 @@ export const createMatchWithBot = internalMutation({
     const randomNickname =
       botNicknames[Math.floor(Math.random() * botNicknames.length)];
 
-    const randomSeed = Math.random().toString(36).substring(7);
-    const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${randomSeed}`;
+    const avatarSeed = sanitizeAvatarSeed(
+      Math.random().toString(36).substring(7),
+      bot.authId
+    );
 
-    await ctx.db.patch(bot._id, {
-      avatar: avatarUrl,
+    const botProfile = buildBotProfile({
+      botUserId: bot._id,
       nickname: randomNickname,
+      avatarSeed,
+      avatarUrl: avatarUrlFromSeed(avatarSeed),
     });
 
     const gameId = await ctx.db.insert("game", {
@@ -79,12 +112,12 @@ export const createMatchWithBot = internalMutation({
       lettersAndSymbols: args.lettersAndSymbols,
       playersAccepted: [bot._id],
       againstBot: true,
+      botProfile,
     });
 
     // Solo actualizar el usuario real, el bot no existe en la base de datos
     await ctx.db.patch(args.userId, {
       status: "game_found",
-      queueId: undefined,
       queuedAt: undefined,
       activeGame: gameId,
     });
@@ -98,21 +131,12 @@ export const createMatchWithBot = internalMutation({
 
 export const matchQueuedUsers = internalMutation({
   handler: async (ctx) => {
-    // Buscar todos los usuarios con queueId seteado
-    const filteredUsers = await ctx.db
+    const queuedUsers = await ctx.db
       .query("user")
-      .filter((q) =>
-        q.and(
-          q.neq(q.field("queueId"), undefined),
-          q.eq(q.field("status"), "in_queue")
-        )
-      )
-      .collect();
-
-    // Ordenar por fecha de cola
-    const queuedUsers = filteredUsers.sort(
-      (a, b) => (a.queuedAt || 0) - (b.queuedAt || 0)
-    );
+      .withIndex("by_status_queued_at", (q) => q.eq("status", "in_queue"))
+      .order("asc")
+      .take(MAX_MATCHMAKING_BATCH_SIZE);
+    const now = Date.now();
 
     console.log(`🔍 Found ${queuedUsers.length} users in queue`);
 
@@ -127,8 +151,26 @@ export const matchQueuedUsers = internalMutation({
       const { phrase, words, lettersAndSymbols, holdsWords } =
         getRandomGameSettings();
 
+      if (
+        !canCreateBotMatchForUser(
+          {
+            _id: user._id,
+            status: user.status,
+            queuedAt: user.queuedAt,
+            activeGame: user.activeGame,
+          },
+          now
+        )
+      ) {
+        return;
+      }
+
+      const queuedAt = user.queuedAt;
+      if (queuedAt === undefined) return;
+
       await ctx.scheduler.runAfter(0, internal.queue.createMatchWithBot, {
         userId: user._id,
+        queuedAt,
         phrase,
         words,
         lettersAndSymbols,
@@ -161,6 +203,36 @@ export const matchQueuedUsers = internalMutation({
         continue;
       }
 
+      const [freshUser1, freshUser2] = await Promise.all([
+        ctx.db.get(user1._id),
+        ctx.db.get(user2._id),
+      ]);
+
+      if (
+        !canCreateMatchForUser(
+          freshUser1
+            ? {
+                _id: freshUser1._id,
+                status: freshUser1.status,
+                queuedAt: freshUser1.queuedAt,
+                activeGame: freshUser1.activeGame,
+              }
+            : null
+        ) ||
+        !canCreateMatchForUser(
+          freshUser2
+            ? {
+                _id: freshUser2._id,
+                status: freshUser2.status,
+                queuedAt: freshUser2.queuedAt,
+                activeGame: freshUser2.activeGame,
+              }
+            : null
+        )
+      ) {
+        continue;
+      }
+
       const gameId = await ctx.db.insert("game", {
         players: [user1._id, user2._id],
         language: "es",
@@ -174,20 +246,18 @@ export const matchQueuedUsers = internalMutation({
       await Promise.all([
         ctx.db.patch(user1._id, {
           status: "game_found",
-          queueId: undefined,
           queuedAt: undefined,
           activeGame: gameId,
         }),
         ctx.db.patch(user2._id, {
           status: "game_found",
-          queueId: undefined,
           queuedAt: undefined,
           activeGame: gameId,
         }),
       ]);
     }
 
-    // Si hay un usuario impar, crear partida con bot
+    // Si hay un usuario impar, crear partida con bot solo despues de una espera minima
     if (queuedUsers.length % 2 === 1) {
       const remainingUser = queuedUsers[queuedUsers.length - 1];
 
@@ -202,8 +272,29 @@ export const matchQueuedUsers = internalMutation({
       const { phrase, words, lettersAndSymbols, holdsWords } =
         getRandomGameSettings();
 
+      const freshRemainingUser = await ctx.db.get(remainingUser._id);
+
+      if (
+        !canCreateBotMatchForUser(
+          freshRemainingUser
+            ? {
+                _id: freshRemainingUser._id,
+                status: freshRemainingUser.status,
+                queuedAt: freshRemainingUser.queuedAt,
+                activeGame: freshRemainingUser.activeGame,
+              }
+            : null,
+          now
+        )
+      ) {
+        return;
+      }
+      const remainingQueuedAt = freshRemainingUser?.queuedAt;
+      if (remainingQueuedAt === undefined) return;
+
       await ctx.scheduler.runAfter(0, internal.queue.createMatchWithBot, {
         userId: remainingUser._id,
+        queuedAt: remainingQueuedAt,
         phrase,
         words,
         lettersAndSymbols,

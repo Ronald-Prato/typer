@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -70,15 +72,6 @@ function KeyIndicator({
   size = "base",
   className,
 }: KeyIndicatorProps) {
-  const [isMacOS, setIsMacOS] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsMacOS(
-      typeof window !== "undefined" &&
-        navigator.platform.toUpperCase().indexOf("MAC") >= 0
-    );
-  }, []);
-
   const formatShortcut = (shortcut: string) => {
     const keys = shortcut.toLowerCase().split("+");
     const isMacOS =
@@ -128,6 +121,8 @@ function Button({
     if (!shortcut || !onShortcutPress) return;
 
     const handleKeyPress = (event: KeyboardEvent) => {
+      if (isDisabled) return;
+
       // Parse shortcut (e.g., "Cmd+J", "Ctrl+K", "Enter")
       const keys = shortcut.toLowerCase().split("+");
       const isMacOS =
@@ -158,22 +153,31 @@ function Button({
 
     document.addEventListener("keydown", handleKeyPress);
     return () => document.removeEventListener("keydown", handleKeyPress);
-  }, [shortcut, onShortcutPress]);
+  }, [shortcut, onShortcutPress, isDisabled]);
 
   return (
     <Comp
+      {...props}
       className={cn(
         buttonVariants({ variant, size }),
         isDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
         className
       )}
       disabled={isDisabled}
-      {...props}
+      aria-busy={loading ? "true" : undefined}
+      type={asChild ? undefined : (props.type ?? "button")}
     >
       {loading ? (
-        <div className="flex items-center justify-center">
-          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-        </div>
+        <>
+          <span className="sr-only">{children}</span>
+          <span
+            role="status"
+            aria-label="Loading"
+            className="flex items-center justify-center"
+          >
+            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          </span>
+        </>
       ) : (
         children
       )}

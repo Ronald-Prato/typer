@@ -1,0 +1,40 @@
+<svg width="320" height="190" viewBox="0 0 320 190" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="card" x1="58" y1="32" x2="252" y2="156" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.04"/>
+    </linearGradient>
+    <linearGradient id="hot" x1="66" y1="88" x2="198" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F97316"/>
+      <stop offset="1" stop-color="#EF4444"/>
+    </linearGradient>
+    <linearGradient id="cool" x1="65" y1="122" x2="232" y2="122" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B7CF6" stop-opacity="0.52"/>
+      <stop offset="1" stop-color="#575279" stop-opacity="0.18"/>
+    </linearGradient>
+    <filter id="motionBlur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="7 0"/>
+    </filter>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="34" y="24" width="252" height="142" rx="28" fill="currentColor" fill-opacity="0.07"/>
+  <rect x="34.75" y="24.75" width="250.5" height="140.5" rx="27.25" stroke="currentColor" stroke-opacity="0.16" stroke-width="1.5"/>
+  <path d="M36 74H132" stroke="#F97316" stroke-opacity="0.42" stroke-width="9" stroke-linecap="round" filter="url(#motionBlur)"/>
+  <path d="M18 104H116" stroke="#EF4444" stroke-opacity="0.28" stroke-width="8" stroke-linecap="round" filter="url(#motionBlur)"/>
+  <path d="M64 44H244C255.046 44 264 52.9543 264 64V126C264 137.046 255.046 146 244 146H64C52.9543 146 44 137.046 44 126V64C44 52.9543 52.9543 44 64 44Z" fill="url(#card)" stroke="currentColor" stroke-opacity="0.12"/>
+  <path d="M68 88H198" stroke="url(#hot)" stroke-width="10" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M68 122H232" stroke="url(#cool)" stroke-width="10" stroke-linecap="round"/>
+  <path d="M68 58H150" stroke="currentColor" stroke-opacity="0.28" stroke-width="9" stroke-linecap="round"/>
+  <path d="M168 58H228" stroke="currentColor" stroke-opacity="0.16" stroke-width="9" stroke-linecap="round"/>
+  <rect x="214" y="74" width="10" height="28" rx="5" fill="currentColor" fill-opacity="0.72"/>
+  <circle cx="252" cy="88" r="18" fill="#575279" fill-opacity="0.82"/>
+  <path d="M245 88.5L250.5 94L261 82" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M250 88H306" stroke="#F97316" stroke-opacity="0.35" stroke-width="7" stroke-linecap="round" filter="url(#motionBlur)"/>
+  <path d="M234 118H292" stroke="#EF4444" stroke-opacity="0.22" stroke-width="6" stroke-linecap="round" filter="url(#motionBlur)"/>
+</svg>

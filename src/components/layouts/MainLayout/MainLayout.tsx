@@ -1,44 +1,44 @@
 "use client";
-import { useUser, useClerk } from "@clerk/nextjs";
-import Image from "next/image";
+import { useUser } from "@clerk/nextjs";
 import { Text } from "@/components";
 import Link from "next/link";
 import { MatchMakingComponent } from "@/components/MatchMakingComponent/MatchMakingComponent";
-import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import { motion, useAnimation } from "framer-motion";
+import { motion, useAnimation } from "@/motion";
 import { useEffect, useState } from "react";
 import { MainTabs } from "@/components/MainTabs/MainTabs";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { GameDrawer } from "@/components/GameDrawer";
-import { useRouter } from "next/navigation";
 import { useOS } from "@/hooks";
-import { Bell } from "lucide-react";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Notifications } from "@/components/Notifications";
+import { UserAvatarImage } from "@/components/Avatar";
+import { Zap } from "lucide-react";
+import {
+  HomeBackground,
+  HomeBackgroundDashProvider,
+} from "@/components/layouts/HomeBackground";
 
 export default function MainLayout({
   children,
-  withOutImage = false,
 }: {
   children: React.ReactNode;
-  withOutImage?: boolean;
 }) {
   const pathname = usePathname();
   const { isSignedIn } = useUser();
-  const { signOut } = useClerk();
-  const router = useRouter();
-  const dbUser = useQuery(api.user.getOwnUser);
+  const dbUser = useCurrentUser();
   const headerControls = useAnimation();
   const [currentAuraColor, setCurrentAuraColor] = useState<string>("none");
   const [isGameDrawerOpen, setIsGameDrawerOpen] = useState(false);
 
   const { isMacOS } = useOS();
   const keyboardShortcut = isMacOS ? "⌘ I" : "Ctrl I";
+  const isInQueue = dbUser?.status === "in_queue";
+  const highestPracticeWpm = dbUser?.highestPracticeWpm ?? 0;
 
   // Control header animations based on user state
   useEffect(() => {
-    if (dbUser?.queueId) {
+    if (isInQueue) {
       setCurrentAuraColor("green-blue");
       // In queue - gradual appearance with growth effect
       headerControls
@@ -100,7 +100,7 @@ export default function MainLayout({
 
       setCurrentAuraColor("none");
     }
-  }, [dbUser?.queueId, headerControls, currentAuraColor]);
+  }, [isInQueue, headerControls, currentAuraColor]);
 
   // Simple avatar component
   const AvatarDisplay = () => {
@@ -112,32 +112,89 @@ export default function MainLayout({
       );
     }
 
-    if (!dbUser.avatar) {
-      return (
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm cursor-pointer hover:scale-105 transition-transform duration-200">
-          {dbUser.nickname
-            ?.split(" ")
-            .map((n) => n[0])
-            .join("")
-            .toUpperCase()
-            .slice(0, 2) || "?"}
-        </div>
-      );
-    }
-
     return (
       <button
         onClick={() => setIsGameDrawerOpen(true)}
-        className="w-8 h-8 rounded-full bg-gray-800 border-2 border-gray-600 overflow-hidden flex items-center justify-center relative cursor-pointer hover:scale-105 transition-transform duration-200"
+        className="cursor-pointer hover:scale-105 transition-transform duration-200"
+        aria-label="Abrir perfil"
       >
-        <div
-          dangerouslySetInnerHTML={{ __html: dbUser.avatar }}
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ transform: "scale(1)" }}
+        <UserAvatarImage
+          avatarUrl={dbUser.avatarUrl}
+          avatarSeed={dbUser.avatarSeed}
+          nickname={dbUser.nickname}
+          className="w-8 h-8"
         />
       </button>
     );
   };
+
+  if (pathname === "/home") {
+    return (
+      <HomeBackgroundDashProvider>
+        <div className="relative h-screen overflow-hidden bg-[var(--tw-home-bg)] text-[var(--tw-home-fg)]">
+          <HomeBackground />
+
+          {<MatchMakingComponent />}
+
+          <header className="fixed left-0 right-0 top-0 z-30 grid h-24 grid-cols-[1fr_auto_1fr] items-center px-10">
+          <Link href="/home" className="justify-self-start">
+            <h1 className="text-2xl font-extrabold tracking-tight text-[var(--tw-home-fg)]">
+              typewars.io
+            </h1>
+          </Link>
+
+          <div className="justify-self-center">
+            <MainTabs variant="horizontal" />
+          </div>
+
+          <button
+            onClick={() => setIsGameDrawerOpen(true)}
+            className="flex min-w-[11.75rem] items-center gap-3 justify-self-end rounded-full border border-white/45 bg-white/35 px-3 py-2 shadow-[0_10px_34px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.72),inset_0_-1px_0_rgba(255,255,255,0.18)] backdrop-blur-2xl backdrop-saturate-150 transition-transform hover:scale-[1.02] dark:border-white/15 dark:bg-white/[0.09] dark:shadow-[0_14px_42px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.14)]"
+            type="button"
+            aria-label="Abrir perfil"
+          >
+            <span className="rounded-full border border-orange-500 p-1 shadow-[0_0_14px_rgba(249,115,22,0.26)]">
+              {isSignedIn && dbUser ? (
+                <UserAvatarImage
+                  avatarUrl={dbUser.avatarUrl}
+                  avatarSeed={dbUser.avatarSeed}
+                  nickname={dbUser.nickname}
+                  className="w-10 h-10"
+                />
+              ) : (
+                <span className="flex w-10 h-10 items-center justify-center rounded-full bg-gray-800">
+                  <span className="w-5 h-5 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+                </span>
+              )}
+            </span>
+            <span className="flex flex-col items-start">
+              <span className="max-w-32 truncate text-[0.95rem] font-extrabold leading-tight text-[var(--tw-home-fg)]">
+                {dbUser?.nickname || "Player"}
+              </span>
+              <span className="mt-1 flex items-center gap-1 text-xs font-extrabold leading-tight text-orange-500 dark:text-orange-300">
+                <Zap className="size-3 fill-current" aria-hidden="true" />
+                {highestPracticeWpm} WPM
+              </span>
+            </span>
+          </button>
+          </header>
+
+          <main className="relative z-10 h-screen overflow-hidden">
+            <div className="flex h-full min-h-0 items-center justify-center px-10 pt-24">
+              <div className="h-full min-h-0 w-full max-w-[72rem]">
+                {children}
+              </div>
+            </div>
+          </main>
+
+          <GameDrawer
+            isOpen={isGameDrawerOpen}
+            onOpenChange={setIsGameDrawerOpen}
+          />
+        </div>
+      </HomeBackgroundDashProvider>
+    );
+  }
 
   return (
     <div
@@ -197,14 +254,26 @@ export default function MainLayout({
       {<MatchMakingComponent />}
 
       {/* Page content - above the background image */}
-      <div className="relative h-full z-10 px-12 py-8 flex flex-col items-center justify-center">
-        <div className="w-full h-full max-w-[60rem] mx-auto">{children}</div>
+      <div
+        className={cn(
+          "relative z-10 flex h-full flex-col items-center justify-center",
+          pathname === "/practice" ? "px-0 py-0" : "px-12 py-8"
+        )}
+      >
+        <div
+          className={cn(
+            "h-full w-full",
+            pathname === "/practice" ? "max-w-none" : "mx-auto max-w-[60rem]"
+          )}
+        >
+          {children}
+        </div>
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-950/95 backdrop-blur-sm border-t border-gray-800/50  relative z-20">
+      <footer className="relative z-20 border-t border-[var(--tw-home-border)] bg-[var(--tw-home-panel-strong)] backdrop-blur-sm dark:bg-gray-950/95">
         <div className="container mx-auto px-6 py-6">
-          <div className="text-center text-gray-400 text-sm">
+          <div className="text-center text-sm text-[var(--tw-home-muted)]">
             <p>© 2025 typewars.io</p>
             <p className="mt-2">
               made with ❤️ by{" "}

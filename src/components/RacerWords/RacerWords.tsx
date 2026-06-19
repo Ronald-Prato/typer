@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion } from "@/motion";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { Text } from "../Typography";
 import { useRacerWords } from "@/hooks/useRacerWords";

@@ -14,13 +14,15 @@ interface DrawerProps {
 interface DrawerContentProps {
   className?: string;
   children: React.ReactNode;
-  open: boolean;
   isAnimatingIn: boolean;
   isClosing: boolean;
+  labelledBy: string;
+  contentRef: React.RefObject<HTMLDivElement | null>;
 }
 
 interface DrawerTitleProps {
   className?: string;
+  id?: string;
   children: React.ReactNode;
 }
 
@@ -28,6 +30,9 @@ const Drawer = ({ open, onOpenChange, name, children }: DrawerProps) => {
   const [isVisible, setIsVisible] = React.useState(false);
   const [isAnimatingIn, setIsAnimatingIn] = React.useState(false);
   const [isClosing, setIsClosing] = React.useState(false);
+  const titleId = React.useId();
+  const contentRef = React.useRef<HTMLDivElement | null>(null);
+  const previousFocusRef = React.useRef<HTMLElement | null>(null);
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -49,6 +54,7 @@ const Drawer = ({ open, onOpenChange, name, children }: DrawerProps) => {
 
   React.useEffect(() => {
     if (open) {
+      previousFocusRef.current = document.activeElement as HTMLElement | null;
       setIsVisible(true);
       setIsClosing(false);
       // Small delay to ensure the drawer renders off-screen first
@@ -62,9 +68,21 @@ const Drawer = ({ open, onOpenChange, name, children }: DrawerProps) => {
       const timer = setTimeout(() => {
         setIsVisible(false);
         setIsClosing(false);
+        previousFocusRef.current?.focus();
       }, 300); // Duration should match the CSS transition
       return () => clearTimeout(timer);
     }
+  }, [open, isVisible]);
+
+  React.useEffect(() => {
+    if (!open || !isVisible) return;
+
+    const focusTarget =
+      contentRef.current?.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      ) ?? contentRef.current;
+
+    focusTarget?.focus();
   }, [open, isVisible]);
 
   if (!isVisible) return null;
@@ -88,12 +106,13 @@ const Drawer = ({ open, onOpenChange, name, children }: DrawerProps) => {
         className="fixed inset-0 z-50 pointer-events-none"
       >
         <DrawerContent
-          open={open}
           isAnimatingIn={isAnimatingIn}
           isClosing={isClosing}
+          labelledBy={titleId}
+          contentRef={contentRef}
         >
           <VisuallyHidden>
-            <DrawerTitle>{name}</DrawerTitle>
+            <DrawerTitle id={titleId}>{name}</DrawerTitle>
           </VisuallyHidden>
           {children}
         </DrawerContent>
@@ -105,13 +124,19 @@ const Drawer = ({ open, onOpenChange, name, children }: DrawerProps) => {
 const DrawerContent = ({
   className,
   children,
-  open,
   isAnimatingIn,
   isClosing,
+  labelledBy,
+  contentRef,
 }: DrawerContentProps) => {
   return (
     <div
+      ref={contentRef}
       data-slot="drawer-content"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={labelledBy}
+      tabIndex={-1}
       className={cn(
         "min-w-[30rem] group/drawer-content bg-background fixed z-50 flex h-full flex-col rounded-l-md overflow-hidden pointer-events-auto",
         "inset-y-0 right-0 w-3/4 sm:max-w-sm",
@@ -128,9 +153,10 @@ const DrawerContent = ({
   );
 };
 
-const DrawerTitle = ({ className, children }: DrawerTitleProps) => {
+const DrawerTitle = ({ className, id, children }: DrawerTitleProps) => {
   return (
     <h2
+      id={id}
       data-slot="drawer-title"
       className={cn("text-foreground font-semibold", className)}
     >

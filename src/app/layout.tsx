@@ -5,6 +5,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { Geist, Geist_Mono } from "next/font/google";
 import ConvexClientProvider from "./convex.client.provider";
 import { AuthProvider } from "../components/providers/AuthProvider";
+import { HudScaleProvider } from "@/components/providers/HudScaleProvider";
+import { MotionProvider } from "@/motion";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,17 +30,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} h-screen overflow-hidden antialiased`}
       >
         <ClerkProvider afterSignOutUrl="/login">
-          <ConvexClientProvider>
-            <AuthProvider>
-              {children}
-              <Toaster />
-            </AuthProvider>
-          </ConvexClientProvider>
+          <ThemeProvider>
+            <ConvexClientProvider>
+              <AuthProvider>
+                <MotionProvider>
+                  <HudScaleProvider>
+                    {children}
+                    <Toaster />
+                  </HudScaleProvider>
+                </MotionProvider>
+              </AuthProvider>
+            </ConvexClientProvider>
+          </ThemeProvider>
         </ClerkProvider>
       </body>
     </html>

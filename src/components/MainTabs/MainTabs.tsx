@@ -1,16 +1,19 @@
 "use client";
 
-import React, { useEffect, useState, Suspense } from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { BarChart3, Home as HomeIcon, UserRound } from "lucide-react";
 
 const TABS = [
-  { key: "home", label: "INICIO", shortcut: "1" },
-  { key: "profile", label: "PERFIL", shortcut: "2" },
-  { key: "history", label: "HISTORIAL", shortcut: "3" },
+  { key: "home", label: "INICIO", shortcut: "1", icon: HomeIcon },
+  { key: "profile", label: "PERFIL", shortcut: "2", icon: UserRound },
+  { key: "history", label: "HISTORIAL", shortcut: "3", icon: BarChart3 },
 ];
 
-function MainTabsContent() {
+type MainTabsVariant = "vertical" | "horizontal";
+
+function MainTabsContent({ variant = "vertical" }: { variant?: MainTabsVariant }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -19,27 +22,27 @@ function MainTabsContent() {
   const currentTabFromURL = searchParams.get("tab") || "home";
   const [activeTab, setActiveTab] = useState(currentTabFromURL);
 
-  // Sync activeTab with URL changes
-  // useEffect(() => {
-  //   const currentTabFromURL = searchParams.get("tab") || "home";
-  //   if (currentTabFromURL !== activeTab) {
-  //     setActiveTab(currentTabFromURL);
-  //   }
-  // }, [searchParams, activeTab]);
+  useEffect(() => {
+    setActiveTab(currentTabFromURL);
+  }, [currentTabFromURL]);
 
   // Internal function to handle tab changes and URL updates
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    const params = new URLSearchParams(searchParams);
+  const handleTabChange = useCallback(
+    (tab: string) => {
+      setActiveTab(tab);
+      const params = new URLSearchParams(searchParams);
 
-    if (tab === "home") {
-      params.delete("tab");
-    } else {
-      params.set("tab", tab);
-    }
+      if (tab === "home") {
+        params.delete("tab");
+      } else {
+        params.set("tab", tab);
+      }
 
-    router.replace(`${pathname}?${params.toString()}`);
-  };
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname);
+    },
+    [pathname, router, searchParams]
+  );
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -55,63 +58,94 @@ function MainTabsContent() {
 
     document.addEventListener("keydown", handleKeyPress);
     return () => document.removeEventListener("keydown", handleKeyPress);
-  }, [searchParams, router, pathname]);
+  }, [handleTabChange]);
+
+  const isHorizontal = variant === "horizontal";
 
   return (
-    <div className="w-full flex items-center justify-center bg-transparent py-2 space-x-8">
-      {TABS.map((tab) => (
-        <div
-          key={tab.key}
-          className={cn(
-            "w-fit relative px-10  py-1 cursor-pointer text-lg font-extrabold tracking-wide text-center select-none border border-transparent transition-all",
-            activeTab === tab.key
-              ? "bg-gradient-to-r from-orange-500 to-red-500 text-white shadow"
-              : "bg-white text-blue-900 hover:bg-gray-100"
-          )}
-          onClick={() => handleTabChange(tab.key)}
-        >
-          {/* Keyboard shortcut indicator */}
-          <div
+    <nav
+      className={cn(
+        "flex h-full w-full items-center justify-center",
+        isHorizontal ? "flex-row gap-3" : "flex-col gap-10"
+      )}
+    >
+      {TABS.map((tab) => {
+        const Icon = tab.icon;
+        const isActive = activeTab === tab.key;
+
+        return (
+          <button
+            key={tab.key}
             className={cn(
-              "absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 backdrop-blur-sm text-xs font-medium rounded flex items-center justify-center border",
-              activeTab === tab.key
-                ? "bg-white/20 text-white border-white/30"
-                : "bg-neutral-100 text-neutral-400 border-neutral-300"
+              "group relative flex cursor-pointer items-center text-center transition-colors",
+              isHorizontal
+                ? "min-w-28 flex-row justify-center gap-2 rounded-full border px-4 py-3"
+                : "w-full flex-col gap-4 py-2",
+              isActive
+                ? isHorizontal
+                  ? "border-orange-500/35 bg-orange-500/10 text-orange-500 shadow-[0_0_24px_rgba(249,115,22,0.12)]"
+                  : "text-orange-500"
+                : isHorizontal
+                  ? "border-[var(--tw-home-border)] bg-[var(--tw-home-panel-strong)] text-[var(--tw-home-fg)] hover:border-blue-400/40 hover:text-blue-400"
+                  : "text-[var(--tw-home-fg)] hover:text-blue-400"
             )}
-            style={{
-              boxShadow:
-                "0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.1)",
-            }}
+            onClick={() => handleTabChange(tab.key)}
+            type="button"
           >
-            {tab.shortcut}
-          </div>
-          {tab.label}
-        </div>
-      ))}
-    </div>
+            <Icon
+              className={cn(
+                "stroke-[1.8] transition-colors",
+                isHorizontal ? "size-5" : "size-10",
+                isActive
+                  ? "text-orange-500 drop-shadow-[0_0_14px_rgba(249,115,22,0.55)]"
+                  : "text-blue-400/90 group-hover:text-blue-500"
+              )}
+            />
+            <span
+              className={cn(
+                "font-extrabold tracking-wide",
+                isHorizontal ? "text-xs" : "text-sm",
+                isActive ? "text-orange-500" : "text-[var(--tw-home-fg)]"
+              )}
+            >
+              {tab.label}
+            </span>
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
-export const MainTabs: React.FC = () => {
+export const MainTabs: React.FC<{ variant?: MainTabsVariant }> = ({
+  variant = "vertical",
+}) => {
+  const isHorizontal = variant === "horizontal";
+
   return (
     <Suspense
       fallback={
-        <div className="w-full flex items-center justify-center bg-transparent py-2 space-x-8">
+        <div
+          className={cn(
+            "flex h-full w-full items-center justify-center",
+            isHorizontal ? "flex-row gap-3" : "flex-col gap-10"
+          )}
+        >
           {TABS.map((tab) => (
             <div
               key={tab.key}
-              className="w-fit relative px-10 py-1 text-lg font-extrabold tracking-wide text-center select-none border border-transparent bg-gray-800 text-gray-400"
+              className={cn(
+                "animate-pulse rounded bg-white/5",
+                isHorizontal ? "h-11 w-28 rounded-full" : "h-20 w-full"
+              )}
             >
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 bg-gray-700 text-xs font-medium rounded flex items-center justify-center border border-gray-600">
-                {tab.shortcut}
-              </div>
-              {tab.label}
+              <span className="sr-only">{tab.label}</span>
             </div>
           ))}
         </div>
       }
     >
-      <MainTabsContent />
+      <MainTabsContent variant={variant} />
     </Suspense>
   );
 };

@@ -1,16 +1,64 @@
 import { v } from "convex/values";
 import { defineSchema, defineTable } from "convex/server";
 
+const gameProgress = v.record(
+  v.id("user"),
+  v.object({
+    phraseDone: v.optional(v.boolean()),
+    wordsDone: v.optional(v.boolean()),
+    lettersAndSymbolsDone: v.optional(v.boolean()),
+    holdsDone: v.optional(v.boolean()),
+    phraseMetrics: v.optional(
+      v.object({
+        errors: v.number(),
+        timeMs: v.number(),
+        accuracy: v.optional(v.number()),
+        wpm: v.optional(v.number()),
+      })
+    ),
+    wordsMetrics: v.optional(
+      v.object({
+        errors: v.number(),
+        timeMs: v.number(),
+        accuracy: v.optional(v.number()),
+        wpm: v.optional(v.number()),
+      })
+    ),
+    lettersAndSymbolsMetrics: v.optional(
+      v.object({
+        errors: v.number(),
+        timeMs: v.number(),
+        accuracy: v.optional(v.number()),
+        wpm: v.optional(v.number()),
+      })
+    ),
+    holdsMetrics: v.optional(
+      v.object({
+        errors: v.number(),
+        timeMs: v.number(),
+        accuracy: v.optional(v.number()),
+        wpm: v.optional(v.number()),
+      })
+    ),
+  })
+);
+
 export default defineSchema({
   user: defineTable({
     email: v.string(),
     authId: v.string(),
     nickname: v.string(),
-    games: v.array(v.id("game")),
+    nicknameSearch: v.optional(v.string()),
+    // Legacy denormalized arrays kept optional for existing rows. New code uses
+    // indexed gameHistory, friendships, and friendRequests tables instead.
+    games: v.optional(v.array(v.id("game"))),
     friends: v.optional(v.array(v.id("user"))),
     friendRequests: v.optional(v.array(v.id("user"))),
+    gold: v.optional(v.number()),
+    highestPracticeWpm: v.optional(v.number()),
     avatar: v.optional(v.string()),
-    queueId: v.optional(v.string()),
+    avatarSeed: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
     queuedAt: v.optional(v.number()),
     activeGame: v.optional(v.id("game")),
     status: v.optional(
@@ -21,7 +69,48 @@ export default defineSchema({
         v.literal("in_game")
       )
     ),
-  }).index("by_auth_id", ["authId"]),
+  })
+    .index("by_auth_id", ["authId"])
+    .index("by_nickname_search", ["nicknameSearch"])
+    .index("by_status_queued_at", ["status", "queuedAt"]),
+
+  friendRequests: defineTable({
+    requesterId: v.id("user"),
+    receiverId: v.id("user"),
+    pairKey: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("accepted"),
+      v.literal("rejected"),
+      v.literal("canceled")
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_receiver_status", ["receiverId", "status"])
+    .index("by_receiver_status_created_at", [
+      "receiverId",
+      "status",
+      "createdAt",
+    ])
+    .index("by_pair_status", ["pairKey", "status"])
+    .index("by_requester_receiver_status", [
+      "requesterId",
+      "receiverId",
+      "status",
+    ]),
+
+  friendships: defineTable({
+    userAId: v.id("user"),
+    userBId: v.id("user"),
+    pairKey: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_pair", ["pairKey"])
+    .index("by_user_a", ["userAId"])
+    .index("by_user_a_created_at", ["userAId", "createdAt"])
+    .index("by_user_b", ["userBId"])
+    .index("by_user_b_created_at", ["userBId", "createdAt"]),
 
   practice: defineTable({
     user: v.id("user"),
@@ -43,59 +132,33 @@ export default defineSchema({
       })
     ),
     againstBot: v.optional(v.boolean()),
+    botProfile: v.optional(
+      v.object({
+        userId: v.id("user"),
+        nickname: v.string(),
+        avatarSeed: v.optional(v.string()),
+        avatarUrl: v.optional(v.string()),
+      })
+    ),
     lettersAndSymbols: v.array(v.string()),
     playersAccepted: v.array(v.id("user")),
     winner: v.optional(v.id("user")),
     language: v.union(v.literal("en"), v.literal("es")),
-    progress: v.optional(
-      v.record(
-        v.id("user"),
-        v.object({
-          phraseDone: v.optional(v.boolean()),
-          wordsDone: v.optional(v.boolean()),
-          lettersAndSymbolsDone: v.optional(v.boolean()),
-          holdsDone: v.optional(v.boolean()),
-          phraseMetrics: v.optional(
-            v.object({
-              errors: v.number(),
-              timeMs: v.number(),
-              accuracy: v.optional(v.number()),
-              wpm: v.optional(v.number()),
-            })
-          ),
-          wordsMetrics: v.optional(
-            v.object({
-              errors: v.number(),
-              timeMs: v.number(),
-              accuracy: v.optional(v.number()),
-              wpm: v.optional(v.number()),
-            })
-          ),
-          lettersAndSymbolsMetrics: v.optional(
-            v.object({
-              errors: v.number(),
-              timeMs: v.number(),
-              accuracy: v.optional(v.number()),
-              wpm: v.optional(v.number()),
-            })
-          ),
-          holdsMetrics: v.optional(
-            v.object({
-              errors: v.number(),
-              timeMs: v.number(),
-              accuracy: v.optional(v.number()),
-              wpm: v.optional(v.number()),
-            })
-          ),
-        })
-      )
-    ),
+    progress: v.optional(gameProgress),
   }),
 
   gameHistory: defineTable({
     userId: v.id("user"),
     players: v.array(v.id("user")),
     againstBot: v.optional(v.boolean()),
+    botProfile: v.optional(
+      v.object({
+        userId: v.id("user"),
+        nickname: v.string(),
+        avatarSeed: v.optional(v.string()),
+        avatarUrl: v.optional(v.string()),
+      })
+    ),
     phrase: v.string(),
     words: v.array(v.string()),
     holds: v.array(
@@ -108,49 +171,9 @@ export default defineSchema({
     playersAccepted: v.array(v.id("user")),
     winner: v.optional(v.id("user")),
     language: v.union(v.literal("en"), v.literal("es")),
-    progress: v.optional(
-      v.record(
-        v.id("user"),
-        v.object({
-          phraseDone: v.optional(v.boolean()),
-          wordsDone: v.optional(v.boolean()),
-          lettersAndSymbolsDone: v.optional(v.boolean()),
-          holdsDone: v.optional(v.boolean()),
-          phraseMetrics: v.optional(
-            v.object({
-              errors: v.number(),
-              timeMs: v.number(),
-              accuracy: v.optional(v.number()),
-              wpm: v.optional(v.number()),
-            })
-          ),
-          wordsMetrics: v.optional(
-            v.object({
-              errors: v.number(),
-              timeMs: v.number(),
-              accuracy: v.optional(v.number()),
-              wpm: v.optional(v.number()),
-            })
-          ),
-          lettersAndSymbolsMetrics: v.optional(
-            v.object({
-              errors: v.number(),
-              timeMs: v.number(),
-              accuracy: v.optional(v.number()),
-              wpm: v.optional(v.number()),
-            })
-          ),
-          holdsMetrics: v.optional(
-            v.object({
-              errors: v.number(),
-              timeMs: v.number(),
-              accuracy: v.optional(v.number()),
-              wpm: v.optional(v.number()),
-            })
-          ),
-        })
-      )
-    ),
+    progress: v.optional(gameProgress),
     createdAt: v.number(),
-  }).index("by_user_id", ["userId"]),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_user_created_at", ["userId", "createdAt"]),
 });

@@ -16,7 +16,9 @@ export const calculateAccuracy = (
 ): number => {
   if (totalCharacters === 0) return 100;
 
-  const accuracy = ((totalCharacters - errors) / totalCharacters) * 100;
+  const boundedErrors = Math.min(Math.max(errors, 0), totalCharacters);
+  const accuracy =
+    ((totalCharacters - boundedErrors) / totalCharacters) * 100;
   return Math.round(accuracy);
 };
 

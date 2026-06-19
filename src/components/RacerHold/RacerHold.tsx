@@ -1,9 +1,18 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { motion } from "@/motion";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { Text } from "../Typography";
+import {
+  applyHoldInput,
+  createHoldTypingState,
+  getCurrentHold,
+  isCopyPasteShortcut,
+  pressHoldKey,
+  releaseHoldKey,
+  type HoldTypingState,
+} from "@/domain/typingEngine";
 
 interface RacerHoldProps {
   holds: { word: string; number: number }[];
@@ -18,20 +27,25 @@ export function RacerHold({
   className = "",
   hideBullets = false,
 }: RacerHoldProps) {
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
-  const [userInput, setUserInput] = useState("");
-  const [errors, setErrors] = useState<number[]>([]);
-  const [isKeyPressed, setIsKeyPressed] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
-  const [completedWords, setCompletedWords] = useState(0);
-  const [startTime, setStartTime] = useState<number | null>(null);
-  const [totalErrors, setTotalErrors] = useState(0);
-  const totalErrorsRef = useRef(0);
-
+  const [holdState, setHoldState] = useState<HoldTypingState>(() =>
+    createHoldTypingState(holds)
+  );
   const inputRef = useRef<HTMLInputElement>(null);
-  const keyListenerRef = useRef<boolean>(false);
+  const completionNotifiedRef = useRef(false);
 
-  const currentWord = holds[currentWordIndex] || "";
+  const currentWord = useMemo(
+    () => getCurrentHold(holdState) || { word: "", number: 0 },
+    [holdState]
+  );
+  const userInput = holdState.input;
+  const isKeyPressed = holdState.isRequiredKeyPressed;
+  const isComplete = holdState.hasCompleted;
+  const completedWords = holdState.completedWords;
+
+  useEffect(() => {
+    setHoldState(createHoldTypingState(holds));
+    completionNotifiedRef.current = false;
+  }, [holds]);
 
   // Auto focus input
   useEffect(() => {
@@ -46,14 +60,7 @@ export function RacerHold({
     const timeoutId = setTimeout(focusInput, 100);
 
     return () => clearTimeout(timeoutId);
-  }, [isComplete, currentWordIndex]);
-
-  // Start timer when first key is pressed
-  useEffect(() => {
-    if (isKeyPressed && !startTime) {
-      setStartTime(Date.now());
-    }
-  }, [isKeyPressed, startTime]);
+  }, [isComplete, holdState.currentIndex]);
 
   // Maintain focus
   useEffect(() => {
@@ -79,9 +86,8 @@ export function RacerHold({
 
       // Only handle the specific required key
       if (e.key === currentWord.number.toString() && !e.repeat) {
-        console.log("Required key pressed:", currentWord.number); // Debug log
         e.preventDefault(); // Prevent default behavior for the number key
-        setIsKeyPressed(true);
+        setHoldState((state) => pressHoldKey(state, e.key, Date.now()));
       }
     };
 
@@ -90,14 +96,8 @@ export function RacerHold({
 
       // Only handle the specific required key
       if (e.key === currentWord.number.toString()) {
-        console.log("Required key released:", currentWord.number); // Debug log
         e.preventDefault(); // Prevent default behavior for the number key
-        setIsKeyPressed(false);
-        // Reset word when key is released
-        if (userInput.length > 0) {
-          setUserInput("");
-          setErrors([]);
-        }
+        setHoldState((state) => releaseHoldKey(state, e.key));
       }
     };
 
@@ -108,81 +108,36 @@ export function RacerHold({
       document.removeEventListener("keydown", handleKeyDown, { capture: true });
       document.removeEventListener("keyup", handleKeyUp, { capture: true });
     };
-  }, [currentWord.number, userInput.length]);
+  }, [currentWord]);
 
   // Check for word completion
   useEffect(() => {
-    if (userInput === currentWord.word && userInput.length > 0) {
-      // Word completed successfully
-      setCompletedWords((prev) => prev + 1);
-      totalErrorsRef.current += errors.length;
-
-      setTimeout(() => {
-        if (currentWordIndex + 1 >= holds.length) {
-          // All words completed
-          setIsComplete(true);
-          if (onSuccess && startTime) {
-            const endTime = Date.now();
-            const totalTime = endTime - startTime;
-            onSuccess({
-              errors: totalErrorsRef.current,
-              timeMs: totalTime,
-            });
-          } else {
-            onSuccess?.();
-          }
-        } else {
-          // Move to next word and reset key press state
-          setCurrentWordIndex((prev) => prev + 1);
-          setIsKeyPressed(false); // Reset key press when changing words
-          setUserInput(""); // Reset input for the new word
-          setErrors([]); // Reset errors for the new word
-        }
-      }, 500);
+    if (!holdState.hasCompleted || completionNotifiedRef.current) {
+      return;
     }
-  }, [
-    userInput,
-    currentWord,
-    currentWordIndex,
-    holds.length,
-    onSuccess,
-    startTime,
-  ]);
+
+    completionNotifiedRef.current = true;
+    if (onSuccess && holdState.startedAt !== null) {
+      onSuccess({
+        errors: holdState.totalErrors,
+        timeMs: holdState.elapsedMs,
+      });
+    } else {
+      onSuccess?.();
+    }
+  }, [holdState, onSuccess]);
 
   // Handle input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isComplete) return;
 
-    console.log("Input change:", e.target.value, "Key pressed:", isKeyPressed); // Debug log
-
-    if (!isKeyPressed) {
-      console.log("Key not pressed, ignoring input"); // Debug log
-      return;
-    }
-
     const value = e.target.value;
-
-    // Only allow typing if we haven't exceeded the word length
-    if (value.length <= currentWord.word.length) {
-      console.log("Setting user input:", value); // Debug log
-      setUserInput(value);
-
-      // Check for errors
-      if (value.length > 0) {
-        const lastCharIndex = value.length - 1;
-        const lastChar = value[lastCharIndex];
-        const expectedChar = currentWord.word[lastCharIndex];
-
-        if (lastChar !== expectedChar) {
-          setErrors((prev) => [...prev, lastCharIndex]);
-        }
-      }
-    }
+    setHoldState((state) => applyHoldInput(state, value, Date.now()));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // Prevent copy/paste operations
-    if (e.ctrlKey && (e.key === "c" || e.key === "v" || e.key === "x")) {
+    if (isCopyPasteShortcut(e)) {
       e.preventDefault();
       return;
     }
@@ -306,7 +261,7 @@ export function RacerHold({
 
       {/* Game Box */}
       <motion.div
-        key={currentWordIndex}
+        key={holdState.currentIndex}
         initial={{ opacity: 0, scale: 0.5, rotateY: 180 }}
         animate={{ opacity: 1, scale: 1, rotateY: 0 }}
         transition={{ duration: 0.6, ease: "backOut" }}

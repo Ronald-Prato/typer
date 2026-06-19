@@ -76,7 +76,7 @@ export function Text({
   weight = "regular",
   variant,
 }: ITextProps) {
-  const CustomTag = `${as ?? "span"}` as keyof React.JSX.IntrinsicElements;
+  const CustomTag: React.ElementType = as ?? "span";
   const hasTextColor = className?.includes("text-");
 
   return (

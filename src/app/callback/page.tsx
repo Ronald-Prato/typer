@@ -1,7 +1,6 @@
 // app/callback/page.tsx
 "use client";
 
-import Image from "next/image";
 import { LoaderCircleIcon } from "lucide-react";
 import { AuthenticateWithRedirectCallback } from "@clerk/nextjs";
 

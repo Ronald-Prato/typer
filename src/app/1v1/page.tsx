@@ -2,19 +2,15 @@
 
 import { MainLayout } from "@/components";
 import { Stage1 } from "@/components/domains/1v1";
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useBotMatch } from "@/hooks";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export default function OneVsOnePage() {
   const router = useRouter();
   const handleStageCompleted = () => {};
 
-  const ownUser = useQuery(api.user.getOwnUser);
-
-  useBotMatch();
+  const ownUser = useCurrentUser();
 
   useEffect(() => {
     if (!ownUser) return;
@@ -22,10 +18,10 @@ export default function OneVsOnePage() {
     if (!ownUser.activeGame) {
       router.push("/home");
     }
-  }, [ownUser]);
+  }, [ownUser, router]);
 
   return (
-    <MainLayout withOutImage>
+    <MainLayout>
       <div className="flex flex-col justify-start h-full w-full">
         <Stage1 onStageCompleted={handleStageCompleted} />
       </div>
