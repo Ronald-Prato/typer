@@ -13,7 +13,11 @@ import {
   useHomeBackgroundDash,
   useSetHomeBackgroundTheme,
 } from "@/components/layouts/HomeBackground";
-import { getActiveGameRoute, HOME_GAME_MODES } from "@/domain/homeGameMode";
+import {
+  getActiveGameRoute,
+  getQueuedHomeGameMode,
+  HOME_GAME_MODES,
+} from "@/domain/homeGameMode";
 import {
   AnimatePresence,
   homePanelEntrance,
@@ -86,7 +90,12 @@ export const Home = () => {
   const selectedMode = HOME_GAME_MODES[currentSlide] ?? HOME_GAME_MODES[0];
   const activeMode =
     currentGame?.game?.mode === "scroll" ? HOME_GAME_MODES[1] : HOME_GAME_MODES[0];
-  const displayMode = hasActiveGame ? activeMode : selectedMode;
+  const queuedMode = getQueuedHomeGameMode(ownUser?.queuedMode);
+  const displayMode = hasActiveGame
+    ? activeMode
+    : isInQueue
+      ? queuedMode
+      : selectedMode;
   const modeChrome = homeModeChromeByTheme[displayMode.theme];
 
   useEffect(() => {
@@ -286,7 +295,7 @@ export const Home = () => {
       ? "Continuar partida"
     : selectedMode.action;
   const modeContentKey = isInQueue
-    ? "queue"
+    ? `queue-${queuedMode.key}`
     : hasActiveGame
       ? `active-${currentGame?.game?.mode ?? "classic"}`
       : selectedMode.key;
@@ -404,6 +413,11 @@ export const Home = () => {
                   >
                     {primaryTitle}
                   </span>
+                  {isInQueue ? (
+                    <span className="mt-3 text-xs font-black uppercase leading-none text-emerald-300/90">
+                      Buscando {queuedMode.title}
+                    </span>
+                  ) : null}
                   <span className="mt-4 text-xl font-bold text-[var(--tw-home-muted)]">
                     {primaryAction}
                   </span>

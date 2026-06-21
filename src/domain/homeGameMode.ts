@@ -39,7 +39,11 @@ export const getHomeGameModeKeyAtIndex = (index: number) =>
 
 export const getQueuedHomeGameModeTitle = (
   queuedMode: string | null | undefined
-) => (queuedMode === "scroll" ? "Scroll" : "Clásico");
+) => getQueuedHomeGameMode(queuedMode).title;
+
+export const getQueuedHomeGameMode = (
+  queuedMode: string | null | undefined
+) => (queuedMode === "scroll" ? HOME_GAME_MODES[1] : HOME_GAME_MODES[0]);
 
 export const getActiveGameRoute = (mode: string | null | undefined) =>
   mode === "scroll" ? "/scroll" : "/1v1";

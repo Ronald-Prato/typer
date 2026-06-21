@@ -25,6 +25,7 @@ import {
   HomeBackground,
   HomeBackgroundDashProvider,
 } from "@/components/layouts/HomeBackground";
+import { getQueuedHomeGameModeTitle } from "@/domain/homeGameMode";
 
 type MainLayoutProps = {
   children: React.ReactNode;
@@ -58,6 +59,7 @@ function MainLayoutContent({
   const keyboardShortcut = isMacOS ? "⌘ I" : "Ctrl I";
   const exitQueueShortcut = isMacOS ? "⌘ X" : "Ctrl+X";
   const isInQueue = dbUser?.status === "in_queue";
+  const queuedModeTitle = getQueuedHomeGameModeTitle(dbUser?.queuedMode);
   const currentHomeTab = searchParams.get("tab") || "home";
   const showCompactQueueIndicator =
     pathname === "/home" && currentHomeTab !== "home" && isInQueue;
@@ -193,7 +195,7 @@ function MainLayoutContent({
       {showCompactQueueIndicator ? (
         <m.div
           animate="animate"
-          aria-label="Sigues en cola"
+          aria-label={`Sigues en cola en modo ${queuedModeTitle}`}
           className="flex items-center gap-3 rounded-full border border-emerald-300/45 bg-gradient-to-r from-emerald-400/22 to-blue-500/18 px-3 py-2 text-xs font-extrabold uppercase tracking-wide text-emerald-700 shadow-[0_0_28px_rgba(16,185,129,0.2),0_0_26px_rgba(59,130,246,0.12)] backdrop-blur-xl dark:text-emerald-100"
           exit="exit"
           initial="initial"
@@ -206,6 +208,9 @@ function MainLayoutContent({
             aria-hidden="true"
           />
           <span>En cola</span>
+          <span className="rounded-md border border-emerald-300/30 bg-white/25 px-1.5 py-0.5 text-[0.65rem] font-black leading-none text-emerald-800 dark:border-white/10 dark:bg-white/10 dark:text-emerald-100">
+            {queuedModeTitle}
+          </span>
           <span className="font-black text-blue-700 tabular-nums dark:text-blue-100">
             {formatQueueTime(queueSeconds)}
           </span>

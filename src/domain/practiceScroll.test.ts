@@ -17,6 +17,7 @@ import {
   getPracticeScrollText,
   getPracticeScrollSpeedPxPerSecond,
   getPracticeScrollWordLines,
+  getRandomizedPracticeScrollText,
   getRandomizedPracticeScrollParagraphsAfterPrevious,
   getRandomizedPracticeScrollParagraphs,
   getRandomPracticeScrollParagraphIndex,
@@ -59,6 +60,17 @@ describe("practiceScroll", () => {
     expect(
       getPracticeScrollText(["  Primer texto.  ", "", "Segundo texto."])
     ).toBe("Primer texto. Segundo texto.");
+  });
+
+  it("builds a continuous scroll target from randomized paragraph order", () => {
+    const randomValues = [0.8, 0, 0.4];
+
+    expect(
+      getRandomizedPracticeScrollText(
+        ["Primero.", "Segundo.", "Tercero.", "Cuarto."],
+        () => randomValues.shift() ?? 0
+      )
+    ).toBe("Segundo. Tercero. Primero. Cuarto.");
   });
 
   it("randomizes the first scroll paragraph and the remaining paragraph order", () => {

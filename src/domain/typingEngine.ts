@@ -40,6 +40,14 @@ export interface KeyboardLike {
   metaKey?: boolean;
 }
 
+export function getTypingSequenceContentKey(targets: string[]): string {
+  return JSON.stringify(targets);
+}
+
+export function getHoldTypingContentKey(holds: HoldTarget[]): string {
+  return JSON.stringify(holds.map((hold) => [hold.word, hold.number]));
+}
+
 export function createTypingState(target: string): TypingState {
   return {
     target,

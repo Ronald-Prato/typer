@@ -4,6 +4,7 @@ import {
   getActiveGameRoute,
   getHomeGameModeIndex,
   getHomeGameModeKeyAtIndex,
+  getQueuedHomeGameMode,
   getQueuedHomeGameModeTitle,
   HOME_GAME_MODES,
   isHomeGameModeKey,
@@ -40,6 +41,23 @@ describe("homeGameMode", () => {
     expect(getQueuedHomeGameModeTitle("classic")).toBe("Clásico");
     expect(getQueuedHomeGameModeTitle("scroll")).toBe("Scroll");
     expect(getQueuedHomeGameModeTitle(undefined)).toBe("Clásico");
+  });
+
+  it("resolves queued backend modes to their home mode presentation", () => {
+    expect(getQueuedHomeGameMode("classic")).toMatchObject({
+      key: "1v1",
+      title: "Clásico",
+      theme: "orangeYellow",
+    });
+    expect(getQueuedHomeGameMode("scroll")).toMatchObject({
+      key: "scroll",
+      title: "Scroll",
+      theme: "orangeGreen",
+    });
+    expect(getQueuedHomeGameMode("stale-mode")).toMatchObject({
+      key: "1v1",
+      title: "Clásico",
+    });
   });
 
   it("routes active matches by backend game mode", () => {

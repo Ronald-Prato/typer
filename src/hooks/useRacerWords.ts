@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   applyTypingSequenceInput,
   createTypingSequenceState,
   formatTypingTime,
+  getTypingSequenceContentKey,
   getTypingTextVariant,
   type TypingSequenceState,
 } from "@/domain/typingEngine";
@@ -51,12 +52,15 @@ export function useRacerWords({
   words,
   onCompleted,
 }: UseRacerWordsProps): UseRacerWordsReturn {
+  const wordsContentKey = getTypingSequenceContentKey(words);
+  const wordsRef = useRef(words);
+  wordsRef.current = words;
   const [isActive, setIsActive] = useState(false);
   const [sequenceState, setSequenceState] = useState<TypingSequenceState>(() =>
     createTypingSequenceState(words)
   );
 
-  const totalWords = words.length;
+  const totalWords = sequenceState.targets.length;
   const currentWord = sequenceState.current.target;
   const userInput = sequenceState.current.input;
   const errors = sequenceState.current.errors;
@@ -73,7 +77,7 @@ export function useRacerWords({
   } = useTypingInputSession({
     isComplete: allWordsCompleted,
     startTime,
-    resetKey: words,
+    resetKey: wordsContentKey,
     getCompletionMetrics: () =>
       sequenceState.startedAt === null
         ? null
@@ -87,8 +91,8 @@ export function useRacerWords({
   });
 
   useEffect(() => {
-    setSequenceState(createTypingSequenceState(words));
-  }, [words]);
+    setSequenceState(createTypingSequenceState(wordsRef.current));
+  }, [wordsContentKey]);
 
   useEffect(() => {
     setIsActive(sessionIsActive);

@@ -9,6 +9,7 @@ import {
   applyHoldInput,
   createHoldTypingState,
   getCurrentHold,
+  getHoldTypingContentKey,
   isCopyPasteShortcut,
   pressHoldKey,
   releaseHoldKey,
@@ -28,6 +29,9 @@ export function RacerHold({
   className = "",
   hideBullets = false,
 }: RacerHoldProps) {
+  const holdsContentKey = getHoldTypingContentKey(holds);
+  const holdsRef = useRef(holds);
+  holdsRef.current = holds;
   const [holdState, setHoldState] = useState<HoldTypingState>(() =>
     createHoldTypingState(holds)
   );
@@ -45,9 +49,9 @@ export function RacerHold({
   const completedWords = holdState.completedWords;
 
   useEffect(() => {
-    setHoldState(createHoldTypingState(holds));
+    setHoldState(createHoldTypingState(holdsRef.current));
     completionNotifiedRef.current = false;
-  }, [holds]);
+  }, [holdsContentKey]);
 
   // Auto focus input
   useEffect(() => {
@@ -247,7 +251,7 @@ export function RacerHold({
           className="flex justify-center"
         >
           <div className="flex space-x-1">
-            {Array.from({ length: holds.length }).map((_, index) => (
+            {Array.from({ length: holdState.holds.length }).map((_, index) => (
               <div
                 key={index}
                 className={`w-2 h-2 rounded-full transition-all duration-300 ${

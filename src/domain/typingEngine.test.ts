@@ -4,6 +4,8 @@ import {
   applyTypingInput,
   createHoldTypingState,
   createTypingState,
+  getHoldTypingContentKey,
+  getTypingSequenceContentKey,
   isCopyPasteShortcut,
   releaseHoldKey,
   pressHoldKey,
@@ -77,5 +79,29 @@ describe("typingEngine", () => {
     expect(isCopyPasteShortcut({ key: "v", ctrlKey: true })).toBe(true);
     expect(isCopyPasteShortcut({ key: "x", metaKey: true })).toBe(true);
     expect(isCopyPasteShortcut({ key: "a", ctrlKey: true })).toBe(false);
+  });
+
+  it("keeps content keys stable for equivalent sequence and hold arrays", () => {
+    expect(getTypingSequenceContentKey(["ab", "cd"])).toBe(
+      getTypingSequenceContentKey(["ab", "cd"])
+    );
+    expect(getTypingSequenceContentKey(["ab", "cd"])).not.toBe(
+      getTypingSequenceContentKey(["ab", "ce"])
+    );
+
+    expect(
+      getHoldTypingContentKey([
+        { word: "shift", number: 1 },
+        { word: "caps", number: 2 },
+      ])
+    ).toBe(
+      getHoldTypingContentKey([
+        { word: "shift", number: 1 },
+        { word: "caps", number: 2 },
+      ])
+    );
+    expect(getHoldTypingContentKey([{ word: "shift", number: 1 }])).not.toBe(
+      getHoldTypingContentKey([{ word: "shift", number: 2 }])
+    );
   });
 });

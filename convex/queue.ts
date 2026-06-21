@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import practiceScrollParagraphs from "../src/data/practiceScrollParagraphs.json";
-import { getPracticeScrollText } from "../src/domain/practiceScroll";
+import { getRandomizedPracticeScrollText } from "../src/domain/practiceScroll";
 import {
   getCurrentUser,
   getRandomGameSettings,
@@ -27,7 +27,7 @@ const SCROLL_PARAGRAPHS = practiceScrollParagraphs as string[];
 
 function getRandomScrollText() {
   return (
-    getPracticeScrollText(SCROLL_PARAGRAPHS) ||
+    getRandomizedPracticeScrollText(SCROLL_PARAGRAPHS) ||
     "El modo Scroll necesita texto disponible para crear una partida."
   );
 }

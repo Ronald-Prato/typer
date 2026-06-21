@@ -214,6 +214,15 @@ export function getPracticeScrollText(paragraphs: string[]): string {
     .join(" ");
 }
 
+export function getRandomizedPracticeScrollText(
+  paragraphs: string[],
+  random: () => number = Math.random
+): string {
+  return getPracticeScrollText(
+    getRandomizedPracticeScrollParagraphs(paragraphs, random)
+  );
+}
+
 export function getRandomizedPracticeScrollParagraphs(
   paragraphs: string[],
   random: () => number = Math.random
