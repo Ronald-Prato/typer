@@ -7,6 +7,7 @@ import {
   getBotScrollIndex,
   getCompetitiveScrollTravelPx,
   getCompetitiveScrollWinner,
+  getNextPracticeScrollTravelPx,
   getPracticeScrollCharacterLine,
   getPracticeScrollCrossedLine,
   getPracticeScrollDangerLinePx,
@@ -354,6 +355,35 @@ describe("practiceScroll", () => {
         speedIncrementPxPerSecond: 2,
       })
     ).toBe(22);
+  });
+
+  it("advances scroll travel incrementally without retroactive speed jumps", () => {
+    const travelBeforeLineCompletion = getNextPracticeScrollTravelPx({
+      currentTravelPx: 0,
+      elapsedMs: 10_000,
+      speedPxPerSecond: PRACTICE_SCROLL_SPEED_PX_PER_SECOND,
+    });
+    const nextTravelAfterLineCompletion = getNextPracticeScrollTravelPx({
+      currentTravelPx: travelBeforeLineCompletion,
+      elapsedMs: 16,
+      speedPxPerSecond:
+        PRACTICE_SCROLL_SPEED_PX_PER_SECOND +
+        PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
+    });
+
+    expect(travelBeforeLineCompletion).toBe(128);
+    expect(nextTravelAfterLineCompletion).toBeCloseTo(128.2112, 5);
+    expect(nextTravelAfterLineCompletion).toBeLessThan(129);
+  });
+
+  it("ignores invalid incremental scroll travel values", () => {
+    expect(
+      getNextPracticeScrollTravelPx({
+        currentTravelPx: -10,
+        elapsedMs: -1,
+        speedPxPerSecond: Number.NaN,
+      })
+    ).toBe(0);
   });
 
   it("waits to advance the scroll until typing starts", () => {

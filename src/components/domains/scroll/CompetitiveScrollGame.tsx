@@ -17,8 +17,10 @@ import {
   countCompletedPracticeScrollWords,
   getAverageBookPagesForWords,
   getCompetitiveScrollTravelPx,
+  getNextPracticeScrollTravelPx,
   getPracticeScrollDangerLinePx,
   getPracticeScrollProgress,
+  getPracticeScrollSpeedPxPerSecond,
   getPracticeScrollWordLines,
   getScrollMinimapWordBlocks,
   hasCompetitiveScrollStartSignal,
@@ -76,6 +78,7 @@ export function CompetitiveScrollGame() {
   const { isLowPerformanceMode } = useLowPerformanceMode();
   const scrollContentY = useMotionValue(SCROLL_CONFIG.startOffsetPx);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const lastFrameTimeRef = useRef<number | null>(null);
   const lastInputRef = useRef("");
   const scrollYRef = useRef(0);
   const lastSyncedAtRef = useRef(0);
@@ -101,6 +104,11 @@ export function CompetitiveScrollGame() {
     scrollLines,
     progress.currentIndex
   );
+  const scrollSpeedPxPerSecond = getPracticeScrollSpeedPxPerSecond({
+    baseSpeedPxPerSecond: SCROLL_SPEED_PX_PER_SECOND,
+    completedLineCount: currentCompletedLines,
+    speedIncrementPxPerSecond: SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
+  });
   const isFinished = Boolean(game?.winner) || failed || progress.completed;
   const hasScrollStartSignal = useMemo(
     () =>
@@ -205,16 +213,16 @@ export function CompetitiveScrollGame() {
   useEffect(() => {
     if (!shouldAdvanceScroll || localScrollStartedAt === undefined) return;
 
-    const tick = () => {
-      const nextScrollY = getCompetitiveScrollTravelPx({
-        baseSpeedPxPerSecond: SCROLL_SPEED_PX_PER_SECOND,
-        completedLineCount: currentCompletedLines,
-        now: Date.now(),
-        speedIncrementPxPerSecond: SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
-        startedAt: localScrollStartedAt,
+    const tick = (time: number) => {
+      const previousFrameTime = lastFrameTimeRef.current ?? time;
+      const nextScrollY = getNextPracticeScrollTravelPx({
+        currentTravelPx: scrollYRef.current,
+        elapsedMs: time - previousFrameTime,
+        speedPxPerSecond: scrollSpeedPxPerSecond,
       });
 
       scrollYRef.current = nextScrollY;
+      lastFrameTimeRef.current = time;
       scrollContentY.set(SCROLL_CONFIG.startOffsetPx - nextScrollY);
 
       if (
@@ -238,8 +246,8 @@ export function CompetitiveScrollGame() {
     };
 
     let frameId = 0;
-    const animate = () => {
-      if (tick()) {
+    const animate = (time: number) => {
+      if (tick(time)) {
         frameId = requestAnimationFrame(animate);
       }
     };
@@ -253,6 +261,7 @@ export function CompetitiveScrollGame() {
     localScrollStartedAt,
     scrollContentY,
     shouldAdvanceScroll,
+    scrollSpeedPxPerSecond,
     syncProgress,
   ]);
 

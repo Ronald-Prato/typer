@@ -184,6 +184,29 @@ export function getCompetitiveScrollTravelPx({
   return elapsedSeconds * scrollSpeedPxPerSecond;
 }
 
+export function getNextPracticeScrollTravelPx({
+  currentTravelPx,
+  elapsedMs,
+  speedPxPerSecond,
+}: {
+  currentTravelPx: number;
+  elapsedMs: number;
+  speedPxPerSecond: number;
+}): number {
+  const safeCurrentTravelPx =
+    Number.isFinite(currentTravelPx) && currentTravelPx > 0
+      ? currentTravelPx
+      : 0;
+  const safeElapsedMs =
+    Number.isFinite(elapsedMs) && elapsedMs > 0 ? elapsedMs : 0;
+  const safeSpeedPxPerSecond =
+    Number.isFinite(speedPxPerSecond) && speedPxPerSecond > 0
+      ? speedPxPerSecond
+      : 0;
+
+  return safeCurrentTravelPx + (safeElapsedMs / 1000) * safeSpeedPxPerSecond;
+}
+
 export function hasCompetitiveScrollLineFailed({
   currentIndex,
   lines,
