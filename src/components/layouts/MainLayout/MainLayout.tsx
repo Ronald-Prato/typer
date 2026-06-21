@@ -11,7 +11,7 @@ import {
   motionTransitions,
   useAnimation,
 } from "@/motion";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { MainTabs } from "@/components/MainTabs/MainTabs";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -26,11 +26,25 @@ import {
   HomeBackgroundDashProvider,
 } from "@/components/layouts/HomeBackground";
 
-export default function MainLayout({
-  children,
-}: {
+type MainLayoutProps = {
   children: React.ReactNode;
-}) {
+};
+
+function MainLayoutFallback() {
+  return <div className="min-h-screen bg-gray-950 text-white" />;
+}
+
+export default function MainLayout({ children }: MainLayoutProps) {
+  return (
+    <Suspense fallback={<MainLayoutFallback />}>
+      <MainLayoutContent>{children}</MainLayoutContent>
+    </Suspense>
+  );
+}
+
+function MainLayoutContent({
+  children,
+}: MainLayoutProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isSignedIn } = useUser();

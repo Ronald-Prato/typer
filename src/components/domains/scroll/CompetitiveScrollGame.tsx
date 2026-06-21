@@ -211,7 +211,7 @@ export function CompetitiveScrollGame() {
   useEffect(() => {
     if (!shouldAdvanceScroll || localScrollStartedAt === undefined) return;
 
-    const tick = (time: number) => {
+    const tick = () => {
       const nextScrollY = getCompetitiveScrollTravelPx({
         baseSpeedPxPerSecond: SCROLL_SPEED_PX_PER_SECOND,
         completedLineCount: currentCompletedLines,
@@ -244,8 +244,8 @@ export function CompetitiveScrollGame() {
     };
 
     let frameId = 0;
-    const animate = (time: number) => {
-      if (tick(time)) {
+    const animate = () => {
+      if (tick()) {
         frameId = requestAnimationFrame(animate);
       }
     };
