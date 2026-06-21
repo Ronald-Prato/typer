@@ -3,6 +3,7 @@
 import { motion } from "@/motion";
 import { Text } from "@/components/Typography";
 import { getOpponentProgressIndex } from "@/domain/matchProgress";
+import { useLowPerformanceMode } from "@/hooks";
 
 function ProgressStepMarker({
   colorClass,
@@ -15,6 +16,8 @@ function ProgressStepMarker({
   isCompleted: boolean;
   label: string;
 }) {
+  const { isLowPerformanceMode } = useLowPerformanceMode();
+
   return (
     <motion.div
       initial={{ scale: 0, opacity: 0 }}
@@ -28,7 +31,7 @@ function ProgressStepMarker({
         }`}
         whileHover={{ scale: 1.1 }}
         animate={
-          isCompleted
+          isCompleted && !isLowPerformanceMode
             ? {
                 scale: [1, 1.1, 1],
                 boxShadow: [
@@ -39,7 +42,10 @@ function ProgressStepMarker({
               }
             : {}
         }
-        transition={{ duration: 2, repeat: isCompleted ? Infinity : 0 }}
+        transition={{
+          duration: 2,
+          repeat: isCompleted && !isLowPerformanceMode ? Infinity : 0,
+        }}
       >
         {isCompleted && (
           <motion.svg
@@ -79,6 +85,7 @@ function FinalStepMarker({
   opponentSteps: number;
 }) {
   const isCompleted = currentUserSteps === 4 || opponentSteps === 4;
+  const { isLowPerformanceMode } = useLowPerformanceMode();
 
   return (
     <motion.div
@@ -95,7 +102,7 @@ function FinalStepMarker({
         }`}
         whileHover={{ scale: 1.1 }}
         animate={
-          isCompleted
+          isCompleted && !isLowPerformanceMode
             ? {
                 scale: [1, 1.1, 1],
                 boxShadow: [
@@ -106,7 +113,10 @@ function FinalStepMarker({
               }
             : {}
         }
-        transition={{ duration: 2, repeat: isCompleted ? Infinity : 0 }}
+        transition={{
+          duration: 2,
+          repeat: isCompleted && !isLowPerformanceMode ? Infinity : 0,
+        }}
       >
         {isCompleted && (
           <motion.svg

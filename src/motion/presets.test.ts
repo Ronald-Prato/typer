@@ -64,9 +64,8 @@ describe("motion presets", () => {
 
   it("exposes a longer deceleration for grid dash inertia", () => {
     expect(motionTransitions.gridDashInertia).toMatchObject({
-      duration: 2.08,
-      ease: [motionEasings.emphasized, motionEasings.standard],
-      times: [0, 0.135, 1],
+      duration: 3.6,
+      ease: motionEasings.gridDashTakeoff,
     });
   });
 });

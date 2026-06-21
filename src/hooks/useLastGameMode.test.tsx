@@ -11,7 +11,7 @@ describe("useLastGameMode", () => {
   });
 
   it("starts from the stored game mode after a reload", () => {
-    window.localStorage.setItem("typewars.last-game-mode", "practice");
+    window.localStorage.setItem("typewars.last-game-mode", "scroll");
 
     const { result } = renderHook(() => useLastGameMode());
 
@@ -22,11 +22,24 @@ describe("useLastGameMode", () => {
     const { result } = renderHook(() => useLastGameMode());
 
     act(() => {
+      result.current.setLastGameModeIndex(0);
+    });
+
+    expect(window.localStorage.getItem("typewars.last-game-mode")).toBe(
+      "1v1"
+    );
+    expect(result.current.lastGameModeIndex).toBe(0);
+  });
+
+  it("persists scroll as a playable game mode", () => {
+    const { result } = renderHook(() => useLastGameMode());
+
+    act(() => {
       result.current.setLastGameModeIndex(1);
     });
 
     expect(window.localStorage.getItem("typewars.last-game-mode")).toBe(
-      "practice"
+      "scroll"
     );
     expect(result.current.lastGameModeIndex).toBe(1);
   });
@@ -42,6 +55,8 @@ describe("useLastGameMode", () => {
   it("stores a valid default key when an invalid index is requested", () => {
     setStoredLastGameModeIndex(999);
 
-    expect(window.localStorage.getItem("typewars.last-game-mode")).toBe("1v1");
+    expect(window.localStorage.getItem("typewars.last-game-mode")).toBe(
+      "1v1"
+    );
   });
 });

@@ -6,7 +6,7 @@ import { useTheme } from "next-themes";
 import { Drawer } from "@/components/Drawer/Drawer";
 import { ProfileEdit } from "@/components/ProfileEdit";
 import { AddFriendsModal } from "../AddFriendsModal";
-import { useHudScale, useOS } from "@/hooks";
+import { useHudScale, useLowPerformanceMode, useOS } from "@/hooks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   isGameDrawerProfileEditShortcut,
@@ -27,6 +27,8 @@ export function GameDrawer({ isOpen, onOpenChange }: GameDrawerProps) {
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const { isMacOS } = useOS();
   const { scale: hudScale, setScale: setHudScale } = useHudScale();
+  const { isLowPerformanceMode, setLowPerformanceMode } =
+    useLowPerformanceMode();
   const { theme, setTheme } = useTheme();
 
   const handleProfileEdit = useCallback(() => {
@@ -78,9 +80,11 @@ export function GameDrawer({ isOpen, onOpenChange }: GameDrawerProps) {
             <GameDrawerSettingsContent
               dbUser={dbUser}
               hudScale={hudScale}
+              isLowPerformanceMode={isLowPerformanceMode}
               theme={theme}
               onAddFriend={handleAddFriend}
               onHudScaleChange={setHudScale}
+              onLowPerformanceModeChange={setLowPerformanceMode}
               onProfileEdit={handleProfileEdit}
               onSignOut={handleSignOut}
               onThemeChange={setTheme}

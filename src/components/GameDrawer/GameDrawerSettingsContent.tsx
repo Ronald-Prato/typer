@@ -25,9 +25,11 @@ interface DrawerUser {
 interface GameDrawerSettingsContentProps {
   dbUser: DrawerUser | null | undefined;
   hudScale: HudScale;
+  isLowPerformanceMode: boolean;
   theme?: string;
   onAddFriend: () => void;
   onHudScaleChange: (scale: HudScale) => void;
+  onLowPerformanceModeChange: (enabled: boolean) => void;
   onProfileEdit: () => void;
   onSignOut: () => void;
   onThemeChange: (theme: "system" | "light" | "dark") => void;
@@ -42,9 +44,11 @@ const themeOptions = [
 export function GameDrawerSettingsContent({
   dbUser,
   hudScale,
+  isLowPerformanceMode,
   theme,
   onAddFriend,
   onHudScaleChange,
+  onLowPerformanceModeChange,
   onProfileEdit,
   onSignOut,
   onThemeChange,
@@ -66,15 +70,13 @@ export function GameDrawerSettingsContent({
       <div className="flex-1 space-y-6">
         <div className="space-y-4">
           <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 rounded-full bg-[var(--tw-home-panel-strong)] border-2 border-[var(--tw-home-border)] overflow-hidden flex items-center justify-center relative">
-              <UserAvatarImage
-                avatarUrl={dbUser.avatarUrl}
-                avatarSeed={dbUser.avatarSeed}
-                nickname={dbUser.nickname}
-                className="w-16 h-16"
-                initialsClassName="text-lg"
-              />
-            </div>
+            <UserAvatarImage
+              avatarUrl={dbUser.avatarUrl}
+              avatarSeed={dbUser.avatarSeed}
+              nickname={dbUser.nickname}
+              className="w-16 h-16"
+              initialsClassName="text-lg"
+            />
 
             <div className="flex-1 flex flex-col justify-center">
               <Text className="text-lg font-semibold text-[var(--tw-home-fg)]">
@@ -111,6 +113,39 @@ export function GameDrawerSettingsContent({
                 </Text>
               </div>
             </button>
+          </div>
+        </div>
+
+        <div className="space-y-4 rounded-lg border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 space-y-1.5">
+              <Text
+                as="p"
+                variant="h6"
+                className="font-extrabold text-[var(--tw-home-fg)]"
+              >
+                Modo bajo rendimiento
+              </Text>
+              <Text
+                as="p"
+                variant="body2"
+                className="max-w-[16rem] text-[var(--tw-home-muted)]"
+              >
+                Reduce fondos animados, brillos y efectos pesados.
+              </Text>
+            </div>
+            <label className="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border border-[var(--tw-home-border)] bg-[var(--tw-home-panel-strong)] p-1">
+              <input
+                checked={isLowPerformanceMode}
+                onChange={(event) =>
+                  onLowPerformanceModeChange(event.target.checked)
+                }
+                className="peer sr-only"
+                type="checkbox"
+                aria-label="Modo bajo rendimiento"
+              />
+              <span className="size-5 rounded-full bg-[var(--tw-home-muted)] transition-transform peer-checked:translate-x-5 peer-checked:bg-orange-500" />
+            </label>
           </div>
         </div>
 

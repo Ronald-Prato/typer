@@ -9,6 +9,10 @@ Use this skill for feature work, refactors, or bugfixes in this repo when the
 change touches gameplay, typing flows, matchmaking, history, profile/friends, or
 Convex persistence.
 
+If the task touches avatars, profile imagery, the header profile pill, welcome
+avatar selection, profile edit, friends/social avatars, or avatar fields in
+Convex, also load `.codex/skills/typer-dicebear-avatar/SKILL.md` before editing.
+
 ## Workflow
 
 1. Inspect the exact route/component/mutation/hook involved before planning.
@@ -55,6 +59,9 @@ Convex persistence.
 - Can the core rule run without React or Convex?
 - Is the server still authoritative for order, ownership, status, rewards, and
   persisted metrics?
+- If avatars are involved, is the implementation still DiceBear
+  (`@dicebear/core`/`@dicebear/collection` or DiceBear URLs), not a custom visual
+  replacement?
 - Are route components thin enough to scan quickly?
 - Are new arrays/objects memoized by stable inputs instead of joined strings?
 - Do callbacks handle async failures intentionally instead of fire-and-forget

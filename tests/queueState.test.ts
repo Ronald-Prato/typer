@@ -5,19 +5,31 @@ import {
   buildBotProfile,
   canCreateBotMatchForUser,
   canCreateMatchForUser,
+  hasQueuedHumanOpponent,
+  type QueueableUser,
   MIN_BOT_MATCH_WAIT_MS,
+  normalizeGameMode,
   selectQueuedUsers,
+  selectQueuedUsersByMode,
 } from "../convex/queueState";
 
 describe("queueState", () => {
   it("does not accept or emit client-controlled queue ids", () => {
     expect(buildEnterQueuePatch(1234)).toEqual({
       queuedAt: 1234,
+      queuedMode: "classic",
+      status: "in_queue",
+      activeGame: undefined,
+    });
+    expect(buildEnterQueuePatch(1234, "scroll")).toEqual({
+      queuedAt: 1234,
+      queuedMode: "scroll",
       status: "in_queue",
       activeGame: undefined,
     });
     expect(buildExitQueuePatch()).toEqual({
       queuedAt: undefined,
+      queuedMode: undefined,
       status: "online",
       activeGame: undefined,
     });
@@ -41,6 +53,21 @@ describe("queueState", () => {
     expect(
       selectQueuedUsers([{ _id: "queued", status: "in_queue", queuedAt: 1 }], -1)
     ).toEqual([]);
+  });
+
+  it("selects queued users by game mode without mixing classic and scroll", () => {
+    const users: QueueableUser[] = [
+      { _id: "classic-legacy", status: "in_queue", queuedAt: 10 },
+      { _id: "scroll", status: "in_queue", queuedAt: 20, queuedMode: "scroll" },
+      { _id: "classic", status: "in_queue", queuedAt: 30, queuedMode: "classic" },
+    ];
+
+    expect(selectQueuedUsersByMode(users, "classic").map((user) => user._id))
+      .toEqual(["classic-legacy", "classic"]);
+    expect(selectQueuedUsersByMode(users, "scroll").map((user) => user._id))
+      .toEqual(["scroll"]);
+    expect(normalizeGameMode(undefined)).toBe("classic");
+    expect(normalizeGameMode("scroll")).toBe("scroll");
   });
 
   it("only creates matches for users still in queue without active games", () => {
@@ -92,6 +119,39 @@ describe("queueState", () => {
         queuedAt + MIN_BOT_MATCH_WAIT_MS
       )
     ).toBe(false);
+  });
+
+  it("blocks bot fallback while another compatible human is queued", () => {
+    const users: QueueableUser[] = [
+      {
+        _id: "candidate",
+        status: "in_queue",
+        queuedAt: 1,
+        queuedMode: "classic",
+      },
+      {
+        _id: "opponent",
+        status: "in_queue",
+        queuedAt: 2,
+        queuedMode: "classic",
+      },
+      {
+        _id: "scroll-player",
+        status: "in_queue",
+        queuedAt: 3,
+        queuedMode: "scroll",
+      },
+    ];
+
+    expect(hasQueuedHumanOpponent(users, "candidate", "classic")).toBe(true);
+    expect(
+      hasQueuedHumanOpponent(
+        users.filter((user) => user._id !== "opponent"),
+        "candidate",
+        "classic"
+      )
+    ).toBe(false);
+    expect(hasQueuedHumanOpponent(users, "scroll-player", "scroll")).toBe(false);
   });
 
   it("builds immutable bot profiles for game snapshots", () => {

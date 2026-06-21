@@ -2,46 +2,65 @@
 
 import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { BarChart3, Home as HomeIcon, UserRound } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { BarChart3, Dumbbell, Home as HomeIcon } from "lucide-react";
 
 const TABS = [
-  { key: "home", label: "INICIO", shortcut: "1", icon: HomeIcon },
-  { key: "profile", label: "PERFIL", shortcut: "2", icon: UserRound },
-  { key: "history", label: "HISTORIAL", shortcut: "3", icon: BarChart3 },
-];
+  { key: "home", label: "INICIO", shortcut: "1", href: "/home", icon: HomeIcon },
+  {
+    key: "practice",
+    label: "PRÁCTICA",
+    shortcut: "2",
+    href: "/home?tab=practice",
+    icon: Dumbbell,
+  },
+  {
+    key: "history",
+    label: "HISTORIAL",
+    shortcut: "3",
+    href: "/home?tab=history",
+    icon: BarChart3,
+  },
+] as const;
+
+type MainTabKey = (typeof TABS)[number]["key"];
 
 type MainTabsVariant = "vertical" | "horizontal";
+
+function getMainTabKey(tab: string | null): MainTabKey {
+  return TABS.some((item) => item.key === tab) ? (tab as MainTabKey) : "home";
+}
 
 function MainTabsContent({ variant = "vertical" }: { variant?: MainTabsVariant }) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const pathname = usePathname();
 
   // Get current tab from URL or default to "home"
-  const currentTabFromURL = searchParams.get("tab") || "home";
+  const currentTabFromURL = getMainTabKey(searchParams.get("tab"));
   const [activeTab, setActiveTab] = useState(currentTabFromURL);
 
   useEffect(() => {
     setActiveTab(currentTabFromURL);
   }, [currentTabFromURL]);
 
+  useEffect(() => {
+    TABS.forEach((tab) => {
+      router.prefetch(tab.href);
+    });
+  }, [router]);
+
   // Internal function to handle tab changes and URL updates
   const handleTabChange = useCallback(
-    (tab: string) => {
-      setActiveTab(tab);
-      const params = new URLSearchParams(searchParams);
-
-      if (tab === "home") {
-        params.delete("tab");
-      } else {
-        params.set("tab", tab);
+    (tabKey: MainTabKey) => {
+      const tab = TABS.find((item) => item.key === tabKey);
+      if (!tab) {
+        return;
       }
 
-      const query = params.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname);
+      setActiveTab(tabKey);
+      router.replace(tab.href);
     },
-    [pathname, router, searchParams]
+    [router]
   );
 
   // Keyboard shortcuts
@@ -50,7 +69,7 @@ function MainTabsContent({ variant = "vertical" }: { variant?: MainTabsVariant }
       if (event.key === "1") {
         handleTabChange("home");
       } else if (event.key === "2") {
-        handleTabChange("profile");
+        handleTabChange("practice");
       } else if (event.key === "3") {
         handleTabChange("history");
       }

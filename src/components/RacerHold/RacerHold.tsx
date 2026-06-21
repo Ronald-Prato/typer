@@ -4,6 +4,7 @@ import { motion } from "@/motion";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { Text } from "../Typography";
+import { useLowPerformanceMode } from "@/hooks";
 import {
   applyHoldInput,
   createHoldTypingState,
@@ -32,6 +33,7 @@ export function RacerHold({
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const completionNotifiedRef = useRef(false);
+  const { isLowPerformanceMode } = useLowPerformanceMode();
 
   const currentWord = useMemo(
     () => getCurrentHold(holdState) || { word: "", number: 0 },
@@ -168,14 +170,16 @@ export function RacerHold({
             "font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent drop-shadow-lg shadow-orange-500/50";
         } else {
           // Incorrect character - white arcade style
-          colorClass =
-            "text-white font-bold drop-shadow-md shadow-white/50 animate-pulse";
+          colorClass = isLowPerformanceMode
+            ? "text-white font-bold drop-shadow-md shadow-white/50"
+            : "text-white font-bold drop-shadow-md shadow-white/50 animate-pulse";
           displayChar = userInput[index];
         }
       } else if (index === userInput.length && isKeyPressed) {
         // Current character to type - orange cursor
-        colorClass =
-          "text-orange-500 bg-orange-500/20 animate-ping drop-shadow-lg shadow-orange-500/60";
+        colorClass = isLowPerformanceMode
+          ? "text-orange-500 bg-orange-500/20 drop-shadow-lg shadow-orange-500/60"
+          : "text-orange-500 bg-orange-500/20 animate-ping drop-shadow-lg shadow-orange-500/60";
       } else {
         // Not yet typed - dim arcade style
         colorClass = "text-gray-500 drop-shadow-sm";
@@ -185,7 +189,7 @@ export function RacerHold({
         <Text
           key={index}
           variant="h4"
-          className={`font-mono inline transform transition-all duration-200 ${colorClass}`}
+          className={`font-mono inline ${isLowPerformanceMode ? "" : "transform transition-all duration-200"} ${colorClass}`}
         >
           {displayChar}
         </Text>
@@ -270,7 +274,11 @@ export function RacerHold({
         {/* Arcade Box */}
         <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl border-4 border-gray-600 p-4 shadow-2xl w-fit min-w-[200px] h-fit">
           {/* Neon Border Effect */}
-          <div className="absolute inset-0 rounded-2xl border-2 border-orange-500/30 shadow-[0_0_20px_rgba(249,115,22,0.3)] animate-pulse" />
+          <div
+            className={`absolute inset-0 rounded-2xl border-2 border-orange-500/30 shadow-[0_0_20px_rgba(249,115,22,0.3)] ${
+              isLowPerformanceMode ? "" : "animate-pulse"
+            }`}
+          />
 
           {/* Number Display */}
           <div className="flex items-center gap-2">

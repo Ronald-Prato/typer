@@ -14,6 +14,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { Text } from "@/components/Typography";
 import { KeyIndicator } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useLowPerformanceMode } from "@/hooks";
 import {
   formatPracticeTime,
   summarizePracticeResults,
@@ -46,10 +48,12 @@ interface ResultsOverlayProps {
   }>;
   tipTitle?: string;
   tip?: string;
+  showTipPanel?: boolean;
   levelLabel?: string;
   levelProgress?: number;
   restartLabel?: string;
   restartShortcut?: string;
+  closeLabel?: string;
 }
 
 const CONFETTI_PIECES = [
@@ -61,6 +65,24 @@ const CONFETTI_PIECES = [
   { left: "73%", x: 48, rotate: -18, color: "bg-yellow-400", delay: 0.06 },
   { left: "86%", x: 76, rotate: 32, color: "bg-orange-400", delay: 0.12 },
 ];
+
+function isRestartShortcut(event: KeyboardEvent, shortcut?: string) {
+  if (!shortcut || event.metaKey || event.ctrlKey || event.altKey) {
+    return false;
+  }
+
+  const normalizedShortcut = shortcut.toLowerCase();
+
+  if (normalizedShortcut === "space") {
+    return event.code === "Space";
+  }
+
+  if (["backspace", "borrar", "delete"].includes(normalizedShortcut)) {
+    return event.key === "Backspace" || event.key === "Delete";
+  }
+
+  return event.key.toLowerCase() === normalizedShortcut;
+}
 
 export function ResultsOverlay({
   isVisible,
@@ -76,11 +98,14 @@ export function ResultsOverlay({
   stats,
   tipTitle = "Tip de práctica",
   tip,
+  showTipPanel = true,
   levelLabel,
   levelProgress,
   restartLabel = "Reintentar",
   restartShortcut,
+  closeLabel = "Volver",
 }: ResultsOverlayProps) {
+  const { isLowPerformanceMode } = useLowPerformanceMode();
   const summary = summarizePracticeResults(roundsData);
   const resultStats =
     stats ??
@@ -122,11 +147,7 @@ export function ResultsOverlay({
 
       if (
         onRestart &&
-        restartShortcut?.toLowerCase() === "space" &&
-        event.code === "Space" &&
-        !event.metaKey &&
-        !event.ctrlKey &&
-        !event.altKey
+        isRestartShortcut(event, restartShortcut)
       ) {
         event.preventDefault();
         onRestart();
@@ -145,45 +166,57 @@ export function ResultsOverlay({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#575279]/18 px-4 py-8 backdrop-blur-sm dark:bg-gray-950/72"
+          className={cn(
+            "fixed inset-0 z-50 flex items-center justify-center bg-[#575279]/18 px-4 py-8 dark:bg-gray-950/72",
+            !isLowPerformanceMode && "backdrop-blur-sm"
+          )}
         >
           <motion.div
             initial={{ scale: 0.92, opacity: 0, y: 28 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 16 }}
             transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-[39rem] overflow-hidden rounded-[1.75rem] border border-[var(--tw-home-border)] bg-[color-mix(in_srgb,var(--tw-home-panel-strong)_94%,white)] p-6 text-[var(--tw-home-fg)] shadow-[0_28px_90px_rgba(87,82,121,0.22),inset_0_1px_0_rgba(255,255,255,0.72)] backdrop-blur-xl dark:bg-[rgba(7,13,29,0.94)] dark:shadow-[0_28px_90px_rgba(0,0,0,0.46),inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-8"
+            className={cn(
+              "relative w-full max-w-[39rem] overflow-hidden rounded-[1.75rem] border border-[var(--tw-home-border)] bg-[color-mix(in_srgb,var(--tw-home-panel-strong)_94%,white)] p-6 text-[var(--tw-home-fg)] dark:bg-[rgba(7,13,29,0.94)] sm:p-8",
+              isLowPerformanceMode
+                ? "shadow-none"
+                : "shadow-[0_28px_90px_rgba(87,82,121,0.22),inset_0_1px_0_rgba(255,255,255,0.72)] backdrop-blur-xl dark:shadow-[0_28px_90px_rgba(0,0,0,0.46),inset_0_1px_0_rgba(255,255,255,0.08)]"
+            )}
           >
-            <motion.div
-              aria-hidden="true"
-              initial={{ opacity: 1 }}
-              animate={{ opacity: 0 }}
-              transition={{ delay: 1.2, duration: 0.5 }}
-              className="pointer-events-none absolute inset-x-0 top-0 h-40 overflow-hidden"
-            >
-              {CONFETTI_PIECES.map((piece, index) => (
-                <motion.span
-                  key={`${piece.left}-${index}`}
-                  initial={{ y: -20, x: 0, opacity: 0, rotate: 0 }}
-                  animate={{
-                    y: 118,
-                    x: piece.x,
-                    opacity: [0, 1, 1, 0],
-                    rotate: piece.rotate,
-                  }}
-                  transition={{
-                    delay: piece.delay,
-                    duration: 1.05,
-                    ease: "easeOut",
-                  }}
-                  className={`absolute top-0 h-3 w-1.5 rounded-full ${piece.color}`}
-                  style={{ left: piece.left }}
-                />
-              ))}
-            </motion.div>
+            {!isLowPerformanceMode && (
+              <motion.div
+                aria-hidden="true"
+                initial={{ opacity: 1 }}
+                animate={{ opacity: 0 }}
+                transition={{ delay: 1.2, duration: 0.5 }}
+                className="pointer-events-none absolute inset-x-0 top-0 h-40 overflow-hidden"
+              >
+                {CONFETTI_PIECES.map((piece, index) => (
+                  <motion.span
+                    key={`${piece.left}-${index}`}
+                    initial={{ y: -20, x: 0, opacity: 0, rotate: 0 }}
+                    animate={{
+                      y: 118,
+                      x: piece.x,
+                      opacity: [0, 1, 1, 0],
+                      rotate: piece.rotate,
+                    }}
+                    transition={{
+                      delay: piece.delay,
+                      duration: 1.05,
+                      ease: "easeOut",
+                    }}
+                    className={`absolute top-0 h-3 w-1.5 rounded-full ${piece.color}`}
+                    style={{ left: piece.left }}
+                  />
+                ))}
+              </motion.div>
+            )}
 
             <div className="pointer-events-none absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-orange-400/70 to-transparent" />
-            <div className="pointer-events-none absolute -top-24 left-1/2 h-52 w-52 -translate-x-1/2 rounded-full bg-orange-400/16 blur-3xl dark:bg-orange-500/12" />
+            {!isLowPerformanceMode && (
+              <div className="pointer-events-none absolute -top-24 left-1/2 h-52 w-52 -translate-x-1/2 rounded-full bg-orange-400/16 blur-3xl dark:bg-orange-500/12" />
+            )}
 
             <button
               onClick={onClose}
@@ -260,45 +293,47 @@ export function ResultsOverlay({
               ))}
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.36, duration: 0.26 }}
-              className="relative z-10 mt-4 rounded-2xl border border-orange-500/18 bg-orange-500/[0.06] p-4 dark:bg-orange-500/[0.08]"
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0 text-left">
-                  <Text
-                    as="p"
-                    variant="body2"
-                    className="font-bold text-[var(--tw-home-fg)]"
-                  >
-                    {tipTitle}
-                  </Text>
-                  <Text
-                    as="p"
-                    variant="body2"
-                    className="mt-1 text-[var(--tw-home-muted)]"
-                  >
-                    {resolvedTip}
-                  </Text>
-                </div>
-                <div className="w-full shrink-0 sm:w-40">
-                  <div className="mb-2 flex items-center justify-between text-xs font-bold text-[var(--tw-home-muted)]">
-                    <span>Nivel actual</span>
-                    <span>{resolvedLevelLabel}</span>
+            {showTipPanel && (
+              <motion.div
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.36, duration: 0.26 }}
+                className="relative z-10 mt-4 rounded-2xl border border-orange-500/18 bg-orange-500/[0.06] p-4 dark:bg-orange-500/[0.08]"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 text-left">
+                    <Text
+                      as="p"
+                      variant="body2"
+                      className="font-bold text-[var(--tw-home-fg)]"
+                    >
+                      {tipTitle}
+                    </Text>
+                    <Text
+                      as="p"
+                      variant="body2"
+                      className="mt-1 text-[var(--tw-home-muted)]"
+                    >
+                      {resolvedTip}
+                    </Text>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-[var(--tw-home-border)]">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${resolvedLevelProgress}%` }}
-                      transition={{ delay: 0.5, duration: 0.48 }}
-                      className="h-full rounded-full bg-gradient-to-r from-orange-500 to-red-500"
-                    />
+                  <div className="w-full shrink-0 sm:w-40">
+                    <div className="mb-2 flex items-center justify-between text-xs font-bold text-[var(--tw-home-muted)]">
+                      <span>Nivel actual</span>
+                      <span>{resolvedLevelLabel}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-[var(--tw-home-border)]">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${resolvedLevelProgress}%` }}
+                        transition={{ delay: 0.5, duration: 0.48 }}
+                        className="h-full rounded-full bg-gradient-to-r from-orange-500 to-red-500"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            )}
 
             <motion.div
               initial={{ opacity: 0, y: 18 }}
@@ -318,7 +353,7 @@ export function ResultsOverlay({
                     <KeyIndicator
                       shortcut={restartShortcut}
                       size="sm"
-                      className="ml-1 !border-[var(--tw-home-border)] !bg-[color-mix(in_srgb,var(--tw-home-bg)_88%,white)] !text-[var(--tw-home-muted)] dark:!border-white/20 dark:!bg-white/10 dark:!text-white/80"
+                      className="ml-1 !h-5 !w-auto min-w-9 px-2 !border-[var(--tw-home-border)] !bg-[color-mix(in_srgb,var(--tw-home-bg)_88%,white)] !text-[var(--tw-home-muted)] dark:!border-white/20 dark:!bg-white/10 dark:!text-white/80"
                     />
                   )}
                 </button>
@@ -328,7 +363,7 @@ export function ResultsOverlay({
                 className="inline-flex h-12 flex-[1.35] items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-5 font-black text-white shadow-[0_14px_34px_rgba(249,115,22,0.28)] transition-transform hover:scale-[1.01] active:scale-[0.99]"
                 type="button"
               >
-                Volver
+                {closeLabel}
                 <span className="flex size-7 items-center justify-center rounded-lg border border-white/25 bg-white/18">
                   <ArrowUturnLeftIcon className="size-4" />
                 </span>

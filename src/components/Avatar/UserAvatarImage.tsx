@@ -1,5 +1,11 @@
 "use client";
 
+import { useState } from "react";
+import {
+  dicebearAvatarDataUriFromSeed,
+  resolveAvatarUrl,
+} from "@/domain/avatar";
+
 interface UserAvatarImageProps {
   avatarUrl?: string | null;
   avatarSeed?: string | null;
@@ -8,9 +14,6 @@ interface UserAvatarImageProps {
   initialsClassName?: string;
   alt?: string;
 }
-
-const DICEBEAR_AVATAR_BASE = "https://api.dicebear.com/7.x/avataaars/svg";
-const DICEBEAR_URL_PREFIX = "https://api.dicebear.com/";
 
 const getInitials = (nickname?: string | null) => {
   return (
@@ -31,14 +34,11 @@ export function UserAvatarImage({
   initialsClassName = "text-sm",
   alt,
 }: UserAvatarImageProps) {
-  const generatedAvatarUrl =
-    typeof avatarSeed === "string" && avatarSeed.trim()
-      ? `${DICEBEAR_AVATAR_BASE}?seed=${encodeURIComponent(avatarSeed.trim())}`
-      : null;
-  const safeAvatarUrl =
-    typeof avatarUrl === "string" && avatarUrl.startsWith(DICEBEAR_URL_PREFIX)
-      ? avatarUrl
-      : generatedAvatarUrl;
+  const [didImageFail, setDidImageFail] = useState(false);
+  const safeAvatarUrl = didImageFail
+    ? null
+    : dicebearAvatarDataUriFromSeed(avatarSeed) ??
+      resolveAvatarUrl({ avatarSeed: null, avatarUrl });
 
   if (!safeAvatarUrl) {
     return (
@@ -60,6 +60,7 @@ export function UserAvatarImage({
         src={safeAvatarUrl}
         className="h-full w-full object-cover"
         loading="lazy"
+        onError={() => setDidImageFail(true)}
         referrerPolicy="no-referrer"
       />
     </div>

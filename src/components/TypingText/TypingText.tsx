@@ -1,6 +1,7 @@
 "use client";
 
 import { Text } from "../Typography";
+import { useLowPerformanceMode } from "@/hooks";
 
 interface TypingTextProps {
   targetText: string;
@@ -10,13 +11,17 @@ interface TypingTextProps {
 
 export function TypingText({ targetText, userInput, variant }: TypingTextProps) {
   const hasStartedTyping = userInput.length > 0;
+  const { isLowPerformanceMode } = useLowPerformanceMode();
 
   return targetText.split("").map((char, index) => {
     let colorClass = "";
     let displayChar = char;
-    let interactionClass = "transition-all duration-200 hover:scale-105";
+    let interactionClass = isLowPerformanceMode
+      ? ""
+      : "transition-all duration-200 hover:scale-105";
 
     if (index < userInput.length) {
+      interactionClass = "";
       if (userInput[index] === char) {
         colorClass =
           "font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent drop-shadow-lg shadow-orange-500/50";
@@ -31,7 +36,9 @@ export function TypingText({ targetText, userInput, variant }: TypingTextProps) 
     } else if (index === userInput.length) {
       colorClass = hasStartedTyping
         ? "text-gray-300 bg-gray-600/90 drop-shadow-lg shadow-gray-400/60 backdrop-blur-sm"
-        : "text-gray-300 bg-gray-600/70 animate-pulse drop-shadow-lg shadow-gray-400/60 backdrop-blur-sm";
+        : isLowPerformanceMode
+          ? "text-gray-300 bg-gray-600/70 drop-shadow-lg shadow-gray-400/60 backdrop-blur-sm"
+          : "text-gray-300 bg-gray-600/70 animate-pulse drop-shadow-lg shadow-gray-400/60 backdrop-blur-sm";
       if (hasStartedTyping) {
         interactionClass = "";
       }

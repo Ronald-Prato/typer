@@ -24,9 +24,18 @@ export interface HistoryGame {
   playersAccepted: string[];
   winner?: string;
   againstBot?: boolean;
+  botProfile?: HistoryOpponentSnapshot;
+  opponentSnapshot?: HistoryOpponentSnapshot;
   language: "en" | "es";
   progress?: Record<string, HistoryProgress>;
   createdAt: number;
+}
+
+export interface HistoryOpponentSnapshot {
+  userId: string;
+  nickname: string;
+  avatarSeed?: string;
+  avatarUrl?: string;
 }
 
 export type HistoryFilter = "all" | "wins" | "losses" | "1v1" | "bot";
@@ -152,6 +161,12 @@ export function summarizeHistoryPage(
     averageWpm,
     averageAccuracy,
   };
+}
+
+export function getHistoryOpponent(
+  game: HistoryGame
+): HistoryOpponentSnapshot | undefined {
+  return game.opponentSnapshot ?? game.botProfile;
 }
 
 export function formatHistoryTime(timeMs: number) {

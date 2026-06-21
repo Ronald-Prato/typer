@@ -6,8 +6,7 @@ import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
 export function MotionProvider({ children }: { children: ReactNode }) {
   return (
     <LazyMotion features={domAnimation}>
-      <MotionConfig reducedMotion="user">{children}</MotionConfig>
+      <MotionConfig reducedMotion="never">{children}</MotionConfig>
     </LazyMotion>
   );
 }
-

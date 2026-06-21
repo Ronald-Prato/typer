@@ -8,6 +8,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Modal, type ModalRefProps } from "../Modal";
 import { UserAvatarImage } from "../Avatar";
+import { avatarUrlFromSeed } from "@/domain/avatar";
 
 interface ProfileEditProps {
   currentNickname: string;
@@ -16,9 +17,6 @@ interface ProfileEditProps {
   onClose: () => void;
   onUpdate: () => void;
 }
-
-const avatarUrlFromSeed = (seed: string) =>
-  `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
 
 export function ProfileEdit({
   currentNickname,

@@ -7,6 +7,7 @@ import ConvexClientProvider from "./convex.client.provider";
 import { AuthProvider } from "../components/providers/AuthProvider";
 import { HudScaleProvider } from "@/components/providers/HudScaleProvider";
 import { MotionProvider } from "@/motion";
+import { PerformanceModeProvider } from "@/components/providers/PerformanceModeProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
 const geistSans = Geist({
@@ -38,12 +39,14 @@ export default function RootLayout({
           <ThemeProvider>
             <ConvexClientProvider>
               <AuthProvider>
-                <MotionProvider>
-                  <HudScaleProvider>
-                    {children}
-                    <Toaster />
-                  </HudScaleProvider>
-                </MotionProvider>
+                <PerformanceModeProvider>
+                  <MotionProvider>
+                    <HudScaleProvider>
+                      {children}
+                      <Toaster />
+                    </HudScaleProvider>
+                  </MotionProvider>
+                </PerformanceModeProvider>
               </AuthProvider>
             </ConvexClientProvider>
           </ThemeProvider>

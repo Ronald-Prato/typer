@@ -10,9 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserAvatarImage } from "@/components/Avatar";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-
-const avatarUrlFromSeed = (seed: string) =>
-  `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
+import { avatarUrlFromSeed } from "@/domain/avatar";
 
 export default function WelcomePage() {
   const { user, isLoaded } = useUser();

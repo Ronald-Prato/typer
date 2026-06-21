@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "@/motion";
-import { Bot, CircleX, Coins, Swords, Trophy } from "lucide-react";
+import { CircleX, Coins, Swords, Trophy } from "lucide-react";
+import { UserAvatarImage } from "@/components/Avatar";
 import { Text } from "@/components/Typography";
 import {
   AccordionContent,
@@ -14,6 +15,7 @@ import {
   formatHistoryAccuracy,
   formatHistoryTime,
   formatHistoryWpm,
+  getHistoryOpponent,
   historyStageLabels,
   type HistoryGame,
   type HistoryMetric,
@@ -36,7 +38,7 @@ export function MatchHistoryGameCard({
 }: MatchHistoryGameCardProps) {
   const isWinner = game.winner === userId;
   const avgMetrics = calculateHistoryAverageMetrics(game.progress, userId);
-  const modeLabel = game.againstBot ? "Bot" : "1v1";
+  const opponent = getHistoryOpponent(game);
   const stageMetrics = game.progress?.[userId];
 
   return (
@@ -89,13 +91,22 @@ export function MatchHistoryGameCard({
                   >
                     {isWinner ? "VICTORIA" : "DERROTA"}
                   </Text>
-                  <span className="inline-flex items-center gap-1 rounded-md border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] px-2 py-0.5 text-xs font-semibold text-[var(--tw-home-muted)]">
-                    {game.againstBot ? (
-                      <Bot className="size-3" />
+                  <span className="inline-flex max-w-full items-center gap-2 rounded-md border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] px-2 py-0.5 text-xs font-semibold text-[var(--tw-home-muted)]">
+                    {opponent ? (
+                      <UserAvatarImage
+                        avatarUrl={opponent.avatarUrl}
+                        avatarSeed={opponent.avatarSeed}
+                        nickname={opponent.nickname}
+                        className="size-4"
+                        initialsClassName="text-[0.55rem]"
+                        alt={`Avatar de ${opponent.nickname}`}
+                      />
                     ) : (
-                      <Swords className="size-3" />
+                      <Swords className="size-3 shrink-0" />
                     )}
-                    {modeLabel}
+                    <span className="min-w-0 truncate">
+                      {opponent?.nickname ?? "1v1"}
+                    </span>
                   </span>
                 </div>
                 <Text variant="caption" className="mt-1 text-[var(--tw-home-muted)]">

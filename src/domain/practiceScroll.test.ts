@@ -4,6 +4,9 @@ import {
   countCompletedPracticeScrollLines,
   countCompletedPracticeScrollWords,
   getAverageBookPagesForWords,
+  getBotScrollIndex,
+  getCompetitiveScrollTravelPx,
+  getCompetitiveScrollWinner,
   getPracticeScrollCharacterLine,
   getPracticeScrollCrossedLine,
   getPracticeScrollDangerLinePx,
@@ -14,9 +17,18 @@ import {
   getPracticeScrollText,
   getPracticeScrollSpeedPxPerSecond,
   getPracticeScrollWordLines,
+  getRandomizedPracticeScrollParagraphsAfterPrevious,
+  getRandomizedPracticeScrollParagraphs,
   getRandomPracticeScrollParagraphIndex,
+  getScrollMinimapWordBlocks,
+  hasCompetitiveScrollStartSignal,
+  hasCompetitiveScrollLineFailed,
+  hasPracticeScrollLineReachedDangerLine,
   hasPracticeScrollMeasuredLineFailed,
   hasPracticeScrollReachedDangerLine,
+  normalizeCompetitiveScrollProgress,
+  PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
+  PRACTICE_SCROLL_SPEED_PX_PER_SECOND,
   shouldAdvancePracticeScroll,
 } from "./practiceScroll";
 
@@ -47,6 +59,37 @@ describe("practiceScroll", () => {
     expect(
       getPracticeScrollText(["  Primer texto.  ", "", "Segundo texto."])
     ).toBe("Primer texto. Segundo texto.");
+  });
+
+  it("randomizes the first scroll paragraph and the remaining paragraph order", () => {
+    const paragraphs = ["Primero.", "Segundo.", "Tercero.", "Cuarto."];
+    const randomValues = [0.8, 0, 0.4];
+
+    expect(
+      getRandomizedPracticeScrollParagraphs(paragraphs, () =>
+        randomValues.shift() ?? 0
+      )
+    ).toEqual(["Segundo.", "Tercero.", "Primero.", "Cuarto."]);
+    expect(paragraphs).toEqual(["Primero.", "Segundo.", "Tercero.", "Cuarto."]);
+  });
+
+  it("removes empty scroll paragraphs before randomizing", () => {
+    expect(
+      getRandomizedPracticeScrollParagraphs(
+        ["  Primero.  ", "", "Segundo."],
+        () => 0
+      )
+    ).toEqual(["Segundo.", "Primero."]);
+  });
+
+  it("starts a new randomized scroll run with a different first paragraph when possible", () => {
+    expect(
+      getRandomizedPracticeScrollParagraphsAfterPrevious({
+        paragraphs: ["Primero.", "Segundo.", "Tercero."],
+        previousFirstParagraph: "Primero.",
+        random: () => 0,
+      })
+    ).toEqual(["Segundo.", "Tercero.", "Primero."]);
   });
 
   it("counts completed paragraphs inside the continuous scroll target", () => {
@@ -180,22 +223,82 @@ describe("practiceScroll", () => {
     ).toBe(true);
   });
 
-  it("builds scroll lines from whole-word groups of three or four words", () => {
+  it("detects crossed incomplete word lines from scroll geometry", () => {
+    const lines = getPracticeScrollWordLines(
+      "La ciudad despertaba bajo una lluvia naranja. En la ventana"
+    );
+    const config = {
+      dangerLinePx: 280,
+      lineHeightPx: 70,
+      startOffsetPx: 430,
+    };
+
+    expect(
+      hasPracticeScrollLineReachedDangerLine({
+        currentIndex: lines[0].endIndex,
+        lines,
+        travelPx: 185,
+        config,
+      })
+    ).toBe(false);
+    expect(
+      hasPracticeScrollLineReachedDangerLine({
+        currentIndex: lines[0].endIndex,
+        lines,
+        travelPx: 256,
+        config,
+      })
+    ).toBe(true);
+  });
+
+  it("ignores invalid line heights for geometry failure checks", () => {
+    expect(
+      hasPracticeScrollLineReachedDangerLine({
+        currentIndex: 0,
+        lines: getPracticeScrollWordLines("texto corto"),
+        travelPx: 999,
+        config: {
+          dangerLinePx: 280,
+          lineHeightPx: 0,
+          startOffsetPx: 430,
+        },
+      })
+    ).toBe(false);
+  });
+
+  it("builds scroll lines from whole-word groups of three words", () => {
     const lines = getPracticeScrollWordLines(
       "La ciudad despertaba bajo una lluvia naranja. En la ventana"
     );
 
     expect(lines.map((line) => line.text)).toEqual([
-      "La ciudad despertaba bajo",
-      "una lluvia naranja.",
-      "En la ventana",
+      "La ciudad despertaba",
+      "bajo una lluvia",
+      "naranja. En la",
+      "ventana",
     ]);
     expect(lines.map((line) => line.text.split(/\s+/).length)).toEqual([
-      4, 3, 3,
+      3, 3, 3, 1,
     ]);
     expect(lines[1]).toMatchObject({
-      startIndex: 26,
-      endIndex: 45,
+      startIndex: 21,
+      endIndex: 36,
+    });
+  });
+
+  it("preserves a short final line when fewer than three words remain", () => {
+    const lines = getPracticeScrollWordLines("uno dos tres cuatro cinco");
+
+    expect(lines.map((line) => line.text)).toEqual([
+      "uno dos tres",
+      "cuatro cinco",
+    ]);
+    expect(lines.map((line) => line.text.split(/\s+/).length)).toEqual([
+      3, 2,
+    ]);
+    expect(lines[1]).toMatchObject({
+      startIndex: 13,
+      endIndex: 25,
     });
   });
 
@@ -291,5 +394,201 @@ describe("practiceScroll", () => {
     expect(countCompletedPracticeScrollWords("uno dos tres", 7)).toBe(2);
     expect(getAverageBookPagesForWords(25)).toBe("0.1");
     expect(getAverageBookPagesForWords(250)).toBe("1.0");
+  });
+
+  it("normalizes competitive scroll progress with completed word counts", () => {
+    expect(
+      normalizeCompetitiveScrollProgress({
+        currentIndex: 7,
+        errors: 2,
+        now: 1000,
+        startedAt: 500,
+        text: "uno dos tres",
+      })
+    ).toEqual({
+      currentIndex: 7,
+      typedWords: 2,
+      failed: false,
+      completed: false,
+      startedAt: 500,
+      finishedAt: undefined,
+      errors: 2,
+    });
+
+    expect(
+      normalizeCompetitiveScrollProgress({
+        currentIndex: 99,
+        errors: 0,
+        now: 2000,
+        previousProgress: {
+          currentIndex: 7,
+          typedWords: 2,
+          failed: false,
+          completed: false,
+          startedAt: 1000,
+          errors: 2,
+        },
+        text: "uno dos",
+      })
+    ).toMatchObject({
+      currentIndex: 7,
+      typedWords: 2,
+      completed: true,
+      startedAt: 1000,
+      finishedAt: 2000,
+    });
+  });
+
+  it("decides the competitive scroll winner from completion or failure", () => {
+    expect(
+      getCompetitiveScrollWinner({
+        playerIds: ["alice", "bob"],
+        progressByPlayerId: {
+          alice: {
+            currentIndex: 10,
+            typedWords: 2,
+            failed: false,
+            completed: true,
+            startedAt: 1,
+            finishedAt: 2,
+            errors: 0,
+          },
+        },
+      })
+    ).toBe("alice");
+
+    expect(
+      getCompetitiveScrollWinner({
+        playerIds: ["alice", "bob"],
+        progressByPlayerId: {
+          alice: {
+            currentIndex: 4,
+            typedWords: 1,
+            failed: true,
+            completed: false,
+            startedAt: 1,
+            finishedAt: 2,
+            errors: 1,
+          },
+        },
+      })
+    ).toBe("bob");
+  });
+
+  it("treats persisted competitive scroll timing as a start signal only", () => {
+    expect(hasCompetitiveScrollStartSignal({})).toBe(false);
+    expect(
+      hasCompetitiveScrollStartSignal({
+        scrollStartedAt: 1_000,
+      })
+    ).toBe(true);
+    expect(
+      hasCompetitiveScrollStartSignal({
+        progressByPlayerId: {
+          alice: {
+            currentIndex: 1,
+            typedWords: 0,
+            failed: false,
+            completed: false,
+            startedAt: 2_000,
+            errors: 0,
+          },
+        },
+      })
+    ).toBe(true);
+  });
+
+  it("builds proportional minimap word blocks", () => {
+    expect(getScrollMinimapWordBlocks("uno larguisima", 3)).toEqual([
+      {
+        text: "uno",
+        startIndex: 0,
+        endIndex: 3,
+        width: 12,
+        completed: true,
+      },
+      {
+        text: "larguisima",
+        startIndex: 4,
+        endIndex: 14,
+        width: 40,
+        completed: false,
+      },
+    ]);
+  });
+
+  it("calculates slow bot scroll progress from elapsed time", () => {
+    expect(
+      getBotScrollIndex({
+        charsPerSecond: 5,
+        now: 3_500,
+        startedAt: 1_000,
+        textLength: 20,
+      })
+    ).toBe(12);
+    expect(
+      getBotScrollIndex({
+        charsPerSecond: 50,
+        now: 3_500,
+        startedAt: 1_000,
+        textLength: 20,
+      })
+    ).toBe(20);
+  });
+
+  it("calculates competitive scroll travel from persisted start time", () => {
+    expect(
+      getCompetitiveScrollTravelPx({
+        baseSpeedPxPerSecond: PRACTICE_SCROLL_SPEED_PX_PER_SECOND,
+        completedLineCount: 4,
+        now: 4_000,
+        speedIncrementPxPerSecond: PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
+        startedAt: 1_000,
+      })
+    ).toBe(54);
+    expect(
+      getCompetitiveScrollTravelPx({
+        baseSpeedPxPerSecond: PRACTICE_SCROLL_SPEED_PX_PER_SECOND,
+        completedLineCount: 4,
+        finishedAt: 2_000,
+        now: 4_000,
+        speedIncrementPxPerSecond: PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
+        startedAt: 1_000,
+      })
+    ).toBe(18);
+    expect(
+      getCompetitiveScrollTravelPx({
+        baseSpeedPxPerSecond: PRACTICE_SCROLL_SPEED_PX_PER_SECOND,
+        completedLineCount: 4,
+        now: 4_000,
+        speedIncrementPxPerSecond: PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
+      })
+    ).toBe(0);
+  });
+
+  it("detects competitive scroll failure from crossed word lines", () => {
+    const lines = getPracticeScrollWordLines("uno dos tres cuatro cinco");
+    const config = {
+      lineHeightPx: 40,
+      startOffsetPx: 120,
+      dangerLinePx: 80,
+    };
+
+    expect(
+      hasCompetitiveScrollLineFailed({
+        currentIndex: lines[1].endIndex,
+        lines,
+        travelPx: 80,
+        config,
+      })
+    ).toBe(false);
+    expect(
+      hasCompetitiveScrollLineFailed({
+        currentIndex: lines[1].endIndex - 1,
+        lines,
+        travelPx: 80,
+        config,
+      })
+    ).toBe(true);
   });
 });

@@ -43,6 +43,21 @@ const gameProgress = v.record(
   })
 );
 
+const gameMode = v.union(v.literal("classic"), v.literal("scroll"));
+
+const scrollProgress = v.record(
+  v.id("user"),
+  v.object({
+    currentIndex: v.number(),
+    typedWords: v.number(),
+    failed: v.boolean(),
+    completed: v.boolean(),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    errors: v.number(),
+  })
+);
+
 export default defineSchema({
   user: defineTable({
     email: v.string(),
@@ -60,6 +75,7 @@ export default defineSchema({
     avatarSeed: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
     queuedAt: v.optional(v.number()),
+    queuedMode: v.optional(gameMode),
     activeGame: v.optional(v.id("game")),
     status: v.optional(
       v.union(
@@ -122,8 +138,10 @@ export default defineSchema({
   }),
 
   game: defineTable({
+    mode: v.optional(gameMode),
     players: v.array(v.id("user")),
     phrase: v.string(),
+    scrollText: v.optional(v.string()),
     words: v.array(v.string()),
     holds: v.array(
       v.object({
@@ -145,9 +163,19 @@ export default defineSchema({
     winner: v.optional(v.id("user")),
     language: v.union(v.literal("en"), v.literal("es")),
     progress: v.optional(gameProgress),
+    scrollStartedAt: v.optional(v.number()),
+    scrollProgress: v.optional(scrollProgress),
+    botScrollPlan: v.optional(
+      v.object({
+        botId: v.id("user"),
+        startedAt: v.number(),
+        charsPerSecond: v.number(),
+      })
+    ),
   }),
 
   gameHistory: defineTable({
+    mode: v.optional(gameMode),
     userId: v.id("user"),
     players: v.array(v.id("user")),
     againstBot: v.optional(v.boolean()),
@@ -159,7 +187,16 @@ export default defineSchema({
         avatarUrl: v.optional(v.string()),
       })
     ),
+    opponentSnapshot: v.optional(
+      v.object({
+        userId: v.id("user"),
+        nickname: v.string(),
+        avatarSeed: v.optional(v.string()),
+        avatarUrl: v.optional(v.string()),
+      })
+    ),
     phrase: v.string(),
+    scrollText: v.optional(v.string()),
     words: v.array(v.string()),
     holds: v.array(
       v.object({
@@ -172,6 +209,8 @@ export default defineSchema({
     winner: v.optional(v.id("user")),
     language: v.union(v.literal("en"), v.literal("es")),
     progress: v.optional(gameProgress),
+    scrollStartedAt: v.optional(v.number()),
+    scrollProgress: v.optional(scrollProgress),
     createdAt: v.number(),
   })
     .index("by_user_id", ["userId"])

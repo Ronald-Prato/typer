@@ -135,3 +135,10 @@ domain/state/lifecycle/testing patterns.
 The repo also includes `.codex/skills/typer-motion-animation/SKILL.md`. Use it
 whenever creating, modifying, reviewing, or refactoring animation behavior so
 Motion usage stays centralized, accessible, performant, and scalable.
+
+The repo also includes `.codex/skills/typer-dicebear-avatar/SKILL.md`. Use it
+whenever creating, fixing, reviewing, or refactoring avatars, profile imagery,
+header profile pills, welcome avatar selection, profile edit, friends/social
+avatars, bot identity snapshots, or avatar fields in Convex. Typer avatars must
+remain DiceBear-based; do not replace them with custom SVG, initials-only, or
+another avatar implementation.

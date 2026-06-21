@@ -1,6 +1,20 @@
 export const HOME_GAME_MODES = [
-  { key: "1v1", label: "1V1", action: "Buscar partida" },
-  { key: "practice", label: "PRÁCTICA", action: "Entrenar solo" },
+  {
+    key: "1v1",
+    label: "Clásico",
+    badgeLabel: "1V1",
+    title: "Clásico",
+    action: "Buscar partida",
+    theme: "orangeYellow",
+  },
+  {
+    key: "scroll",
+    label: "Scroll",
+    badgeLabel: "1V1",
+    title: "Scroll",
+    action: "Buscar partida",
+    theme: "orangeGreen",
+  },
 ] as const;
 
 export type HomeGameMode = (typeof HOME_GAME_MODES)[number];
@@ -22,3 +36,10 @@ export const getHomeGameModeIndex = (key: string | null) => {
 
 export const getHomeGameModeKeyAtIndex = (index: number) =>
   HOME_GAME_MODES[index]?.key ?? HOME_GAME_MODES[DEFAULT_HOME_GAME_MODE_INDEX].key;
+
+export const getQueuedHomeGameModeTitle = (
+  queuedMode: string | null | undefined
+) => (queuedMode === "scroll" ? "Scroll" : "Clásico");
+
+export const getActiveGameRoute = (mode: string | null | undefined) =>
+  mode === "scroll" ? "/scroll" : "/1v1";

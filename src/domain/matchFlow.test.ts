@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   deriveStepFromProgress,
+  getAcceptedMatchRoute,
   getNextStepSubmission,
+  isAcceptedMatchReadyToEnter,
 } from "./matchFlow";
 
 const content = {
@@ -49,5 +51,52 @@ describe("matchFlow", () => {
         metrics: { errors: 0, timeMs: 30_000, accuracy: 100, wpm: 2 },
       },
     });
+  });
+
+  it("routes accepted matches by backend mode", () => {
+    expect(getAcceptedMatchRoute("scroll")).toBe("/scroll");
+    expect(getAcceptedMatchRoute("classic")).toBe("/1v1");
+    expect(getAcceptedMatchRoute(undefined)).toBe("/1v1");
+  });
+
+  it("allows entering after all players accepted even when the user is already in_game", () => {
+    expect(
+      isAcceptedMatchReadyToEnter({
+        activeGame: "game-1",
+        status: "in_game",
+        players: ["alice", "bob"],
+        playersAccepted: ["bob", "alice"],
+      })
+    ).toBe(true);
+  });
+
+  it("waits until every player accepted before entering", () => {
+    expect(
+      isAcceptedMatchReadyToEnter({
+        activeGame: "game-1",
+        status: "game_found",
+        players: ["alice", "bob"],
+        playersAccepted: ["alice"],
+      })
+    ).toBe(false);
+  });
+
+  it("does not enter without an active match state", () => {
+    expect(
+      isAcceptedMatchReadyToEnter({
+        activeGame: undefined,
+        status: "in_game",
+        players: ["alice", "bob"],
+        playersAccepted: ["alice", "bob"],
+      })
+    ).toBe(false);
+    expect(
+      isAcceptedMatchReadyToEnter({
+        activeGame: "game-1",
+        status: "online",
+        players: ["alice", "bob"],
+        playersAccepted: ["alice", "bob"],
+      })
+    ).toBe(false);
   });
 });

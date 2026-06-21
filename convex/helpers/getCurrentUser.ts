@@ -3,13 +3,13 @@ import {
   practicePhrases,
   practiceWords,
 } from "../../src/constants";
+import { avatarUrlFromSeed, DEFAULT_AVATAR_SEED } from "../../src/domain/avatar";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 type AuthCtx = QueryCtx | MutationCtx;
 
-const DICEBEAR_AVATAR_BASE = "https://api.dicebear.com/7.x/avataaars/svg";
-const DEFAULT_AVATAR_SEED = "typewars-player";
+export { avatarUrlFromSeed };
 
 export const sanitizeNickname = (nickname: string) => {
   const trimmed = nickname.trim();
@@ -32,10 +32,6 @@ export const sanitizeAvatarSeed = (
     .slice(0, 64);
 
   return safeSeed || DEFAULT_AVATAR_SEED;
-};
-
-export const avatarUrlFromSeed = (seed: string) => {
-  return `${DICEBEAR_AVATAR_BASE}?seed=${encodeURIComponent(seed)}`;
 };
 
 export const toPublicUserDto = (user: Doc<"user"> | null) => {

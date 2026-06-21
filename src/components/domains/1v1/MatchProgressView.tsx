@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "@/motion";
 import { Text } from "@/components/Typography";
 import { UserAvatarImage } from "@/components/Avatar";
 import { MatchProgressBar } from "./MatchProgressBar";
+import { useLowPerformanceMode } from "@/hooks";
 
 interface MatchProgressViewProps {
   currentUser: any;
@@ -136,6 +137,8 @@ function PlayersRow({
 }
 
 export function MatchProgressView(props: MatchProgressViewProps) {
+  const { isLowPerformanceMode } = useLowPerformanceMode();
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
@@ -148,7 +151,7 @@ export function MatchProgressView(props: MatchProgressViewProps) {
         isWinner={props.isWinner}
       />
 
-      {props.isGameFinished && props.isWinner && (
+      {props.isGameFinished && props.isWinner && !isLowPerformanceMode && (
         <ReactConfetti
           width={props.viewport.width}
           height={props.viewport.height}

@@ -5,6 +5,7 @@ import { useEffect, Suspense } from "react";
 import { MatchHistory } from "@/components/domains/MatchHistory";
 import { Profile } from "@/components/domains/home";
 import { Home } from "@/components/domains/home/Home";
+import { PracticeView } from "@/components/domains/practice";
 
 function HomeLoadingState() {
   return (
@@ -79,6 +80,8 @@ function HomePageContent() {
         <div className="w-full">
           <MatchHistory />
         </div>
+      ) : currentTab === "practice" ? (
+        <PracticeView showBackground={false} />
       ) : currentTab === "profile" ? (
         <div className="w-full">
           <Profile />

@@ -11,6 +11,7 @@ export const motionEasings = {
   easeInOut: [0.42, 0, 0.58, 1],
   standard: [0.22, 1, 0.36, 1],
   emphasized: [0.16, 1, 0.3, 1],
+  gridDashTakeoff: [0.12, 0.78, 0.24, 0.82],
   exit: [0.4, 0, 1, 1],
 } as const;
 
@@ -42,9 +43,12 @@ export const motionTransitions = {
     ease: motionEasings.emphasized,
   },
   gridDashInertia: {
-    duration: 2.08,
-    ease: [motionEasings.emphasized, motionEasings.standard],
-    times: [0, 0.135, 1],
+    duration: 3.6,
+    ease: motionEasings.gridDashTakeoff,
+  },
+  homeBackgroundTheme: {
+    duration: 0.9,
+    ease: motionEasings.easeInOut,
   },
 } satisfies Record<string, Transition>;
 

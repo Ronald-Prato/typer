@@ -1,6 +1,9 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { practicePhrases } from "@/constants";
+import { selectPracticePhrases } from "@/domain/practicePhraseSelection";
+
+const practicePhraseSeenStorageKey = "typer.practice.phrases.seen";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -21,16 +24,41 @@ export function truncateEmail(email: string) {
   return `${firstTwo}***${lastTwo}${domainPart}`;
 }
 
-export const getShuffledPhrases = () => {
-  // Crear una copia del arreglo para no mutar el original
-  const shuffled = [...practicePhrases];
+function getSeenPracticePhrases(): string[] {
+  if (typeof window === "undefined") return [];
 
-  // Algoritmo Fisher-Yates para mezclar completamente
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  try {
+    const storedValue = window.sessionStorage.getItem(
+      practicePhraseSeenStorageKey
+    );
+    const parsedValue = storedValue ? JSON.parse(storedValue) : [];
+
+    return Array.isArray(parsedValue)
+      ? parsedValue.filter(
+          (phrase): phrase is string => typeof phrase === "string"
+        )
+      : [];
+  } catch {
+    return [];
   }
+}
 
-  // Tomar las primeras 5 frases del arreglo completamente mezclado
-  return shuffled.slice(0, 5);
+function setSeenPracticePhrases(phrases: string[]) {
+  if (typeof window === "undefined") return;
+
+  window.sessionStorage.setItem(
+    practicePhraseSeenStorageKey,
+    JSON.stringify(phrases)
+  );
+}
+
+export const getShuffledPhrases = () => {
+  const selection = selectPracticePhrases(
+    practicePhrases,
+    getSeenPracticePhrases()
+  );
+
+  setSeenPracticePhrases(selection.seenPhrases);
+
+  return selection.phrases;
 };

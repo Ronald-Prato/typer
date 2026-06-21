@@ -10,6 +10,7 @@ import {
 } from "react";
 
 export type HomeBackgroundDashDirection = "left" | "right";
+export type HomeBackgroundTheme = "orangeGreen" | "orangeYellow";
 
 type HomeBackgroundDashRequest = {
   direction: HomeBackgroundDashDirection;
@@ -18,6 +19,8 @@ type HomeBackgroundDashRequest = {
 
 type HomeBackgroundDashContextValue = {
   dashRequest: HomeBackgroundDashRequest | null;
+  setTheme: (theme: HomeBackgroundTheme) => void;
+  theme: HomeBackgroundTheme;
   triggerDash: (direction: HomeBackgroundDashDirection) => void;
 };
 
@@ -31,6 +34,7 @@ export function HomeBackgroundDashProvider({
 }) {
   const [dashRequest, setDashRequest] =
     useState<HomeBackgroundDashRequest | null>(null);
+  const [theme, setTheme] = useState<HomeBackgroundTheme>("orangeGreen");
 
   const triggerDash = useCallback((direction: HomeBackgroundDashDirection) => {
     setDashRequest((current) => ({
@@ -42,9 +46,11 @@ export function HomeBackgroundDashProvider({
   const value = useMemo(
     () => ({
       dashRequest,
+      setTheme,
+      theme,
       triggerDash,
     }),
-    [dashRequest, triggerDash],
+    [dashRequest, theme, triggerDash],
   );
 
   return (
@@ -60,4 +66,12 @@ export function useHomeBackgroundDash() {
 
 export function useHomeBackgroundDashRequest() {
   return useContext(HomeBackgroundDashContext)?.dashRequest ?? null;
+}
+
+export function useHomeBackgroundTheme() {
+  return useContext(HomeBackgroundDashContext)?.theme ?? "orangeGreen";
+}
+
+export function useSetHomeBackgroundTheme() {
+  return useContext(HomeBackgroundDashContext)?.setTheme;
 }

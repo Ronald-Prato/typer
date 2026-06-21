@@ -19,14 +19,14 @@ const modes = [
     title: "Frases",
     description: "Rondas clásicas con frases cortas y precisión limpia.",
     asset: "/assets/svg/practice-phrases.svg",
-    shortcut: "1",
+    shortcut: "Q",
   },
   {
     id: "scroll",
     title: "Scroll",
     description: "Escribe antes de que el párrafo cruce la línea roja.",
     asset: "/assets/svg/practice-scroll.svg",
-    shortcut: "2",
+    shortcut: "E",
   },
 ] satisfies Array<{
   id: PracticeMode;
@@ -57,12 +57,14 @@ export function PracticeModeSelect({ onSelectMode }: PracticeModeSelectProps) {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
-      if (event.key === "1") {
+      const key = event.key.toLowerCase();
+
+      if (key === "q") {
         event.preventDefault();
         setSelectedMode("phrases");
       }
 
-      if (event.key === "2") {
+      if (key === "e") {
         event.preventDefault();
         setSelectedMode("scroll");
       }

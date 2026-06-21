@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   getFinishedGameHistoryUserIds,
+  getHistoryOpponentSnapshot,
   getWinnerGoldPatch,
   shouldRewardWinner,
+  toPlayerSnapshot,
 } from "../convex/gameLifecycle";
 
 describe("gameLifecycle", () => {
@@ -22,6 +24,57 @@ describe("gameLifecycle", () => {
         botPlayerId: "bot",
       })
     ).toEqual(["human"]);
+  });
+
+  it("snapshots the other human player for each history owner", () => {
+    const alice = toPlayerSnapshot({
+      _id: "alice",
+      nickname: "Alice",
+      avatarSeed: "alice-seed",
+    });
+    const bob = toPlayerSnapshot({
+      _id: "bob",
+      nickname: "Bobby",
+      avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=bob",
+    });
+
+    expect(
+      getHistoryOpponentSnapshot({
+        historyUserId: "alice",
+        players: ["alice", "bob"],
+        playerSnapshotsById: { alice, bob },
+      })
+    ).toEqual(bob);
+    expect(
+      getHistoryOpponentSnapshot({
+        historyUserId: "bob",
+        players: ["alice", "bob"],
+        playerSnapshotsById: { alice, bob },
+      })
+    ).toEqual(alice);
+  });
+
+  it("uses the per-match bot profile as the opponent snapshot", () => {
+    const botProfile = {
+      userId: "bot",
+      nickname: "Tecla Turbo",
+      avatarSeed: "tecla-turbo",
+    };
+
+    expect(
+      getHistoryOpponentSnapshot({
+        historyUserId: "human",
+        players: ["human", "bot"],
+        playerSnapshotsById: {
+          bot: {
+            userId: "bot",
+            nickname: "Generic Bot",
+          },
+        },
+        againstBot: true,
+        botProfile,
+      })
+    ).toEqual(botProfile);
   });
 
   it("builds the winner reward patch from missing or existing gold", () => {

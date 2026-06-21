@@ -1,17 +1,19 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { useRouter } from "next/navigation";
 import { api } from "../../../../convex/_generated/api";
-import { useResetAtom } from "jotai/utils";
-import { practiceAtom } from "@/states/practice.states";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useLowPerformanceMode } from "@/hooks";
 import { useLastGameMode } from "@/hooks/useLastGameMode";
-import { useHomeBackgroundDash } from "@/components/layouts/HomeBackground";
-import { HOME_GAME_MODES } from "@/domain/homeGameMode";
+import {
+  useHomeBackgroundDash,
+  useSetHomeBackgroundTheme,
+} from "@/components/layouts/HomeBackground";
+import { getActiveGameRoute, HOME_GAME_MODES } from "@/domain/homeGameMode";
 import {
   AnimatePresence,
   homePanelEntrance,
@@ -22,9 +24,41 @@ import {
   motionTransitions,
 } from "@/motion";
 
+const homeModeChromeByTheme = {
+  orangeGreen: {
+    accentText: "text-emerald-400",
+    arrowHover: "hover:border-emerald-400/50 hover:text-emerald-300",
+    buttonBorder:
+      "border-emerald-400/95 shadow-[0_0_56px_rgba(16,185,129,0.24),inset_0_0_42px_rgba(14,165,233,0.1)]",
+    innerBorder: "border-emerald-300/35",
+    shortcut:
+      "border-emerald-400/65 shadow-[var(--tw-home-shadow),0_0_24px_rgba(16,185,129,0.18)]",
+    stats:
+      "border-emerald-400/22 shadow-[var(--tw-home-shadow),0_0_32px_rgba(16,185,129,0.12)]",
+    statsDivider: "border-emerald-400/18",
+    selectedPill:
+      "border-emerald-400 bg-emerald-400/15 text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.14)] dark:text-emerald-300",
+  },
+  orangeYellow: {
+    accentText: "text-yellow-300",
+    arrowHover: "hover:border-yellow-400/50 hover:text-yellow-300",
+    buttonBorder:
+      "border-orange-500/95 shadow-[0_0_56px_rgba(249,115,22,0.24),inset_0_0_42px_rgba(250,204,21,0.08)]",
+    innerBorder: "border-yellow-300/35",
+    shortcut:
+      "border-yellow-400/65 shadow-[var(--tw-home-shadow),0_0_24px_rgba(250,204,21,0.16)]",
+    stats:
+      "border-yellow-400/22 shadow-[var(--tw-home-shadow),0_0_32px_rgba(250,204,21,0.1)]",
+    statsDivider: "border-yellow-400/18",
+    selectedPill:
+      "border-yellow-400 bg-yellow-400/15 text-yellow-500 shadow-[0_0_20px_rgba(250,204,21,0.12)] dark:text-yellow-300",
+  },
+} as const;
+
 export const Home = () => {
   const router = useRouter();
   const ownUser = useCurrentUser();
+  const currentGame = useQuery(api.game.getGameData);
   const [isPending, startTransition] = useTransition();
   const [queueSeconds, setQueueSeconds] = useState(0);
   const { lastGameModeIndex, setLastGameModeIndex } = useLastGameMode();
@@ -34,10 +68,12 @@ export const Home = () => {
   const [keyboardClick, setKeyboardClick] = useState(false);
   const hasMountedPanel = useRef(false);
   const triggerBackgroundDash = useHomeBackgroundDash();
+  const setBackgroundTheme = useSetHomeBackgroundTheme();
+  const { isLowPerformanceMode } = useLowPerformanceMode();
 
-  const resetPractice = useResetAtom(practiceAtom);
   const getInQueue = useMutation(api.queue.getInQueue);
   const exitQueue = useMutation(api.queue.exitQueue);
+  const finishGame = useMutation(api.game.finishGame);
 
   const isMac =
     typeof window !== "undefined" &&
@@ -45,7 +81,17 @@ export const Home = () => {
   const exitShortcut = isMac ? "⌘ X" : "Ctrl+X";
   const startShortcut = isMac ? "⌘ Enter" : "Ctrl+Enter";
   const isInQueue = ownUser?.status === "in_queue";
+  const hasActiveGame = Boolean(ownUser?.activeGame && !isInQueue);
+  const activeGameRoute = getActiveGameRoute(currentGame?.game?.mode);
   const selectedMode = HOME_GAME_MODES[currentSlide] ?? HOME_GAME_MODES[0];
+  const activeMode =
+    currentGame?.game?.mode === "scroll" ? HOME_GAME_MODES[1] : HOME_GAME_MODES[0];
+  const displayMode = hasActiveGame ? activeMode : selectedMode;
+  const modeChrome = homeModeChromeByTheme[displayMode.theme];
+
+  useEffect(() => {
+    setBackgroundTheme?.(displayMode.theme);
+  }, [displayMode.theme, setBackgroundTheme]);
 
   useEffect(() => {
     setCurrentSlide(lastGameModeIndex);
@@ -75,30 +121,62 @@ export const Home = () => {
   };
 
   const goToPreviousMode = useCallback(() => {
-    triggerBackgroundDash?.("left");
+    if (isInQueue || hasActiveGame) return;
+
+    if (!isLowPerformanceMode) {
+      triggerBackgroundDash?.("left");
+    }
     setCurrentSlide(
       currentSlide === 0 ? HOME_GAME_MODES.length - 1 : currentSlide - 1
     );
     setPanelRotation((rotation) => rotation - 90);
-  }, [currentSlide, setCurrentSlide, triggerBackgroundDash]);
+  }, [
+    currentSlide,
+    hasActiveGame,
+    isInQueue,
+    isLowPerformanceMode,
+    setCurrentSlide,
+    triggerBackgroundDash,
+  ]);
 
   const goToNextMode = useCallback(() => {
-    triggerBackgroundDash?.("right");
+    if (isInQueue || hasActiveGame) return;
+
+    if (!isLowPerformanceMode) {
+      triggerBackgroundDash?.("right");
+    }
     setCurrentSlide((currentSlide + 1) % HOME_GAME_MODES.length);
     setPanelRotation((rotation) => rotation + 90);
-  }, [currentSlide, setCurrentSlide, triggerBackgroundDash]);
+  }, [
+    currentSlide,
+    hasActiveGame,
+    isInQueue,
+    isLowPerformanceMode,
+    setCurrentSlide,
+    triggerBackgroundDash,
+  ]);
 
   const goToMode = useCallback(
     (index: number) => {
+      if (isInQueue || hasActiveGame) return;
       if (index === currentSlide) return;
 
-      triggerBackgroundDash?.(index > currentSlide ? "right" : "left");
+      if (!isLowPerformanceMode) {
+        triggerBackgroundDash?.(index > currentSlide ? "right" : "left");
+      }
       setPanelRotation((rotation) =>
         index > currentSlide ? rotation + 90 : rotation - 90
       );
       setCurrentSlide(index);
     },
-    [currentSlide, setCurrentSlide, triggerBackgroundDash]
+    [
+      currentSlide,
+      hasActiveGame,
+      isInQueue,
+      isLowPerformanceMode,
+      setCurrentSlide,
+      triggerBackgroundDash,
+    ]
   );
 
   useEffect(() => {
@@ -107,11 +185,13 @@ export const Home = () => {
       return;
     }
 
+    if (isLowPerformanceMode) return;
+
     setIsPanelSpinning(true);
     const timeout = window.setTimeout(() => setIsPanelSpinning(false), 140);
 
     return () => window.clearTimeout(timeout);
-  }, [panelRotation]);
+  }, [isLowPerformanceMode, panelRotation]);
 
   const handleExitQueue = useCallback(() => {
     if (!isInQueue) return;
@@ -122,27 +202,47 @@ export const Home = () => {
   }, [exitQueue, isInQueue]);
 
   const handleStart = useCallback(async () => {
-    setLastGameModeIndex(currentSlide);
+    if (isInQueue) return;
 
-    if (selectedMode.key === "practice") {
-      resetPractice();
-      router.push("/practice");
+    if (hasActiveGame) {
+      router.push(activeGameRoute);
       return;
     }
 
-    if (selectedMode.key === "1v1") {
+    setLastGameModeIndex(currentSlide);
+
+    if (selectedMode.key === "1v1" || selectedMode.key === "scroll") {
       startTransition(async () => {
-        await getInQueue({});
+        await getInQueue({
+          mode: selectedMode.key === "scroll" ? "scroll" : "classic",
+        });
       });
     }
   }, [
     currentSlide,
+    activeGameRoute,
     getInQueue,
-    resetPractice,
+    hasActiveGame,
+    isInQueue,
     router,
     selectedMode.key,
     setLastGameModeIndex,
   ]);
+
+  const handleAbandonActiveGame = useCallback(() => {
+    if (!hasActiveGame) return;
+    if (
+      !window.confirm(
+        "Estas en medio de una partida. Si sales, abandonaras la partida. ¿Quieres salir?"
+      )
+    ) {
+      return;
+    }
+
+    startTransition(async () => {
+      await finishGame();
+    });
+  }, [finishGame, hasActiveGame]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -162,37 +262,58 @@ export const Home = () => {
 
       if (event.key === "ArrowLeft") {
         event.preventDefault();
+        if (isInQueue) return;
         goToPreviousMode();
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
+        if (isInQueue) return;
         goToNextMode();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [goToNextMode, goToPreviousMode, handleExitQueue, handleStart]);
+  }, [goToNextMode, goToPreviousMode, handleExitQueue, handleStart, isInQueue]);
 
-  const primaryTitle = isInQueue ? "En cola" : selectedMode.label;
+  const primaryTitle = hasActiveGame
+    ? displayMode.title
+    : isInQueue
+      ? "En cola"
+      : selectedMode.title;
   const primaryAction = isInQueue
     ? formatTime(queueSeconds)
+    : hasActiveGame
+      ? "Continuar partida"
     : selectedMode.action;
-  const modeContentKey = isInQueue ? "queue" : selectedMode.key;
+  const modeContentKey = isInQueue
+    ? "queue"
+    : hasActiveGame
+      ? `active-${currentGame?.game?.mode ?? "classic"}`
+      : selectedMode.key;
 
   return (
     <section className="relative flex h-full min-h-0 w-full items-center justify-center overflow-hidden px-8">
-      <div className="pointer-events-none absolute left-1/2 top-[45%] h-[31rem] w-[31rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/10" />
-      <div className="pointer-events-none absolute left-1/2 top-[45%] h-[25rem] w-[25rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-[var(--tw-home-border)]" />
-      <div className="pointer-events-none absolute left-1/2 top-[45%] h-[20rem] w-[20rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/20" />
-
-      <div className="relative flex w-full max-w-[36rem] flex-col items-center">
-        <button
-          onClick={goToPreviousMode}
-          className="absolute left-0 top-1/2 z-20 flex size-12 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] text-[var(--tw-home-fg)] transition-colors hover:border-orange-500/50 hover:text-orange-400"
-          type="button"
-        >
-          <ChevronLeft className="size-6" />
-        </button>
+      <div className="relative flex h-[29.5rem] w-full max-w-[36rem] flex-col items-center">
+        <AnimatePresence initial={false}>
+          {!isInQueue && !hasActiveGame ? (
+            <m.button
+              key="previous-mode"
+              animate="animate"
+              className={cn(
+                "absolute left-0 top-1/2 z-20 flex size-12 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] text-[var(--tw-home-fg)] transition-colors",
+                modeChrome.arrowHover
+              )}
+              exit="exit"
+              initial="initial"
+              onClick={goToPreviousMode}
+              transition={motionTransitions.fast}
+              type="button"
+              variants={modeContentSwitch}
+            >
+              <ChevronLeft className="size-6" />
+            </m.button>
+          ) : null}
+        </AnimatePresence>
 
         <m.div
           animate="animate"
@@ -206,9 +327,12 @@ export const Home = () => {
         >
           <m.button
             animate={{
-              filter: isPanelSpinning ? ["blur(1.4px)", "blur(0px)"] : "blur(0px)",
+              filter:
+                !isLowPerformanceMode && isPanelSpinning
+                  ? ["blur(1.4px)", "blur(0px)"]
+                  : "blur(0px)",
               rotate: panelRotation,
-              scale: keyboardClick ? 0.96 : 1,
+              scale: isInQueue ? 1.06 : keyboardClick ? 0.96 : 1,
             }}
             disabled={isPending}
             onClick={isInQueue ? handleExitQueue : handleStart}
@@ -223,33 +347,55 @@ export const Home = () => {
               },
               scale: motionTransitions.fast,
             }}
-            whileHover={{ scale: isPending ? 1 : 1.02 }}
-            whileTap={{ scale: 0.96 }}
+            whileHover={{
+              scale: isPending
+                ? isInQueue
+                  ? 1.06
+                  : 1
+                : isInQueue
+                  ? 1.08
+                  : 1.02,
+            }}
+            whileTap={{ scale: isInQueue ? 1.03 : 0.96 }}
             className={cn(
-              "group relative grid size-full place-items-center rounded-[3.8rem] bg-gradient-to-br p-[0.55rem] shadow-[0_0_56px_rgba(249,115,22,0.24)] outline-none transition-opacity",
-              isInQueue
-                ? "from-emerald-400 to-blue-500"
-                : "from-orange-500 via-orange-600 to-red-500",
+              "group relative grid size-full place-items-center overflow-hidden rounded-[3.8rem] border-[0.55rem] bg-[color-mix(in_srgb,var(--tw-home-panel)_44%,transparent)] outline-none backdrop-blur-xl backdrop-saturate-150 transition-[background-color,border-color,box-shadow,opacity]",
+              isLowPerformanceMode
+                ? isInQueue
+                  ? "border-emerald-400/75"
+                  : "border-orange-500/75"
+                : isInQueue
+                  ? "border-emerald-400/95 shadow-[0_0_56px_rgba(16,185,129,0.24),inset_0_0_42px_rgba(59,130,246,0.08)]"
+                  : modeChrome.buttonBorder,
               isPending && "cursor-wait opacity-80"
             )}
             type="button"
           >
-            <span className="absolute -inset-7 rounded-full border border-orange-500/25 opacity-80" />
-            <span className="absolute -inset-11 rounded-full border border-dashed border-[var(--tw-home-border)]" />
-            <span className="absolute inset-[0.7rem] rounded-[3.25rem] border border-[var(--tw-home-border)] bg-[color-mix(in_srgb,var(--tw-home-panel-strong)_92%,black)] shadow-[inset_0_0_38px_rgba(255,255,255,0.04)]" />
+            <span
+              className={cn(
+                "pointer-events-none absolute inset-0 rounded-[3.2rem] border bg-[linear-gradient(145deg,rgba(255,255,255,0.38),rgba(255,255,255,0.12)_44%,rgba(255,255,255,0.22))] shadow-[inset_0_1px_0_rgba(255,255,255,0.42),inset_0_-28px_58px_rgba(255,255,255,0.08)] transition-colors duration-300 dark:bg-[linear-gradient(145deg,rgba(255,255,255,0.16),rgba(255,255,255,0.05)_46%,rgba(255,255,255,0.09))]",
+                modeChrome.innerBorder
+              )}
+            />
 
             <span className="relative z-10 grid min-h-[7.5rem] w-[13rem] place-items-center text-center">
               <AnimatePresence mode="wait" initial={false}>
                 <m.span
                   key={modeContentKey}
                   animate="animate"
-                  className="flex w-full flex-col items-center"
+                  className="relative flex w-full flex-col items-center"
                   exit="exit"
                   initial="initial"
-                  style={{ rotate: -panelRotation }}
+                  style={{
+                    rotate: -panelRotation,
+                  }}
                   transition={motionTransitions.base}
                   variants={modeContentSwitch}
                 >
+                  {!isInQueue && !hasActiveGame ? (
+                    <span className="absolute left-1/2 -top-12 -translate-x-1/2 text-sm font-black leading-none text-[var(--tw-home-fg)]/50">
+                      {selectedMode.badgeLabel}
+                    </span>
+                  ) : null}
                   <span
                     className={cn(
                       "font-black leading-none tracking-tight text-[var(--tw-home-fg)] drop-shadow-[0_12px_24px_rgba(0,0,0,0.18)]",
@@ -264,14 +410,18 @@ export const Home = () => {
                 </m.span>
               </AnimatePresence>
             </span>
-
           </m.button>
 
           <AnimatePresence mode="wait" initial={false}>
             <m.span
               key={modeContentKey}
               animate="animate"
-              className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-xl border border-orange-500/70 bg-[var(--tw-home-panel-strong)] px-5 py-3 text-lg font-extrabold text-[var(--tw-home-fg)] shadow-[var(--tw-home-shadow),0_0_20px_rgba(249,115,22,0.18)] backdrop-blur"
+              className={cn(
+                "absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-xl border bg-[var(--tw-home-panel-strong)] px-5 py-3 text-lg font-extrabold text-[var(--tw-home-fg)] backdrop-blur transition-colors duration-300",
+                isInQueue
+                  ? "border-emerald-400/65 shadow-[var(--tw-home-shadow),0_0_24px_rgba(16,185,129,0.18)]"
+                  : modeChrome.shortcut
+              )}
               exit="exit"
               initial="initial"
               transition={motionTransitions.fast}
@@ -282,46 +432,129 @@ export const Home = () => {
           </AnimatePresence>
         </m.div>
 
-        <button
-          onClick={goToNextMode}
-          className="absolute right-0 top-1/2 z-20 flex size-12 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] text-[var(--tw-home-fg)] transition-colors hover:border-orange-500/50 hover:text-orange-400"
-          type="button"
-        >
-          <ChevronRight className="size-6" />
-        </button>
-
-        <div className="mt-12 flex overflow-hidden rounded-xl border border-[var(--tw-home-border)] bg-[var(--tw-home-panel-strong)] shadow-[var(--tw-home-shadow)] backdrop-blur">
-          <div className="min-w-36 border-r border-[var(--tw-home-border)] px-7 py-3.5 text-center">
-            <p className="text-xs font-extrabold tracking-wide text-blue-400">
-              WPM
-            </p>
-            <p className="mt-1 text-xl font-black text-[var(--tw-home-fg)]">--</p>
-          </div>
-          <div className="min-w-36 px-7 py-3.5 text-center">
-            <p className="text-xs font-extrabold tracking-wide text-blue-400">
-              Precisión
-            </p>
-            <p className="mt-1 text-xl font-black text-[var(--tw-home-fg)]">--</p>
-          </div>
-        </div>
-
-        <div className="mt-5 flex gap-3">
-          {HOME_GAME_MODES.map((mode, index) => (
-            <button
-              key={mode.key}
-              onClick={() => goToMode(index)}
+        <AnimatePresence initial={false}>
+          {!isInQueue && !hasActiveGame ? (
+            <m.button
+              key="next-mode"
+              animate="animate"
               className={cn(
-                "rounded-full border px-5 py-2 text-sm font-extrabold tracking-wide transition-colors",
-                selectedMode.key === mode.key
-                  ? "border-orange-500 bg-orange-500/15 text-orange-400"
-                  : "border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] text-[var(--tw-home-muted)] hover:text-[var(--tw-home-fg)]"
+                "absolute right-0 top-1/2 z-20 flex size-12 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] text-[var(--tw-home-fg)] transition-colors",
+                modeChrome.arrowHover
               )}
+              exit="exit"
+              initial="initial"
+              onClick={goToNextMode}
+              transition={motionTransitions.fast}
               type="button"
+              variants={modeContentSwitch}
             >
-              {mode.label}
-            </button>
-          ))}
-        </div>
+              <ChevronRight className="size-6" />
+            </m.button>
+          ) : null}
+        </AnimatePresence>
+
+        <AnimatePresence initial={false}>
+          {!isInQueue && !hasActiveGame ? (
+            <m.div
+              key="home-stats"
+              animate="animate"
+              className={cn(
+                "mt-12 flex overflow-hidden rounded-xl border bg-[var(--tw-home-panel-strong)] backdrop-blur transition-colors duration-300",
+                modeChrome.stats
+              )}
+              exit="exit"
+              initial="initial"
+              transition={motionTransitions.fast}
+              variants={modeContentSwitch}
+            >
+              <div
+                className={cn(
+                  "min-w-36 border-r px-7 py-3.5 text-center transition-colors duration-300",
+                  modeChrome.statsDivider
+                )}
+              >
+                <p className={cn("text-xs font-extrabold tracking-wide", modeChrome.accentText)}>
+                  WPM
+                </p>
+                <p className="mt-1 text-xl font-black text-[var(--tw-home-fg)]">--</p>
+              </div>
+              <div className="min-w-36 px-7 py-3.5 text-center">
+                <p className={cn("text-xs font-extrabold tracking-wide", modeChrome.accentText)}>
+                  Precisión
+                </p>
+                <p className="mt-1 text-xl font-black text-[var(--tw-home-fg)]">--</p>
+              </div>
+            </m.div>
+          ) : null}
+        </AnimatePresence>
+
+        <AnimatePresence initial={false}>
+          {hasActiveGame ? (
+            <m.div
+              key="active-game-actions"
+              animate="animate"
+              className={cn(
+                "mt-12 flex overflow-hidden rounded-xl border bg-[var(--tw-home-panel-strong)] backdrop-blur transition-colors duration-300",
+                modeChrome.stats
+              )}
+              exit="exit"
+              initial="initial"
+              transition={motionTransitions.fast}
+              variants={modeContentSwitch}
+            >
+              <button
+                className={cn(
+                  "min-w-36 border-r px-7 py-3.5 text-center text-sm font-extrabold transition-colors duration-300",
+                  modeChrome.statsDivider,
+                  "text-[var(--tw-home-fg)] hover:text-orange-500"
+                )}
+                disabled={isPending}
+                onClick={() => router.push(activeGameRoute)}
+                type="button"
+              >
+                Continuar
+              </button>
+              <button
+                className="min-w-36 px-7 py-3.5 text-center text-sm font-extrabold text-[var(--tw-home-muted)] transition-colors hover:text-red-500"
+                disabled={isPending}
+                onClick={handleAbandonActiveGame}
+                type="button"
+              >
+                Abandonar
+              </button>
+            </m.div>
+          ) : null}
+        </AnimatePresence>
+
+        <AnimatePresence initial={false}>
+          {!isInQueue && !hasActiveGame ? (
+            <m.div
+              key="home-mode-pills"
+              animate="animate"
+              className="mt-5 flex gap-3"
+              exit="exit"
+              initial="initial"
+              transition={motionTransitions.fast}
+              variants={modeContentSwitch}
+            >
+              {HOME_GAME_MODES.map((mode, index) => (
+                <button
+                  key={mode.key}
+                  onClick={() => goToMode(index)}
+                  className={cn(
+                    "rounded-full border px-5 py-2 text-sm font-extrabold tracking-wide transition-colors",
+                    selectedMode.key === mode.key
+                      ? homeModeChromeByTheme[mode.theme].selectedPill
+                      : "border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] text-[var(--tw-home-muted)] hover:text-[var(--tw-home-fg)]"
+                  )}
+                  type="button"
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </m.div>
+          ) : null}
+        </AnimatePresence>
       </div>
     </section>
   );

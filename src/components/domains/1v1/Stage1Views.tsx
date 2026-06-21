@@ -37,11 +37,11 @@ interface FinishedMatchViewProps {
 
 interface ActiveMatchViewProps extends StageGameContentProps {
   canContinue: boolean;
-  onFinishGame: () => void;
+  onLeaveActiveGame: () => void;
   onNextStep: () => void;
 }
 
-function PlatformKeyHint({ mac, other }: { mac: string; other: string }) {
+export function PlatformKeyHint({ mac, other }: { mac: string; other: string }) {
   const label =
     typeof window !== "undefined" &&
     navigator.platform.toUpperCase().indexOf("MAC") >= 0
@@ -201,13 +201,13 @@ export function FinishedMatchView({
 
 export function ActiveMatchView({
   canContinue,
-  onFinishGame,
+  onLeaveActiveGame,
   onNextStep,
   ...contentProps
 }: ActiveMatchViewProps) {
   return (
     <div className="w-full h-full flex flex-col items-center justify-start space-y-6">
-      <Button onClick={onFinishGame}>
+      <Button onClick={onLeaveActiveGame}>
         <div className="flex items-center space-x-3">
           <ArrowRightOnRectangleIcon className="size-3 text-white" />
           <Text variant="body2" className="text-white font-bold">

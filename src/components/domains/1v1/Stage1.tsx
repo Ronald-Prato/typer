@@ -16,6 +16,7 @@ export const Stage1 = (_props: Stage1Props) => {
     canContinue,
     gameData,
     handleFinishGame,
+    handleLeaveActiveGame,
     handleNextStep,
     handleRacerCompleted,
     handleRacerHoldSuccess,
@@ -49,7 +50,8 @@ export const Stage1 = (_props: Stage1Props) => {
     scope: "match",
     key: "x",
     modifier: "primary",
-    onShortcut: handleFinishGame,
+    enabled: !isGameFinished,
+    onShortcut: handleLeaveActiveGame,
   });
 
   useGlobalShortcut({
@@ -83,7 +85,7 @@ export const Stage1 = (_props: Stage1Props) => {
       phrase={gameData?.game?.phrase || ""}
       step={step}
       words={memoWords}
-      onFinishGame={handleFinishGame}
+      onLeaveActiveGame={handleLeaveActiveGame}
       onNextStep={handleNextStep}
       onRacerCompleted={handleRacerCompleted}
       onRacerHoldSuccess={handleRacerHoldSuccess}

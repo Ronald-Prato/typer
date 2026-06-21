@@ -45,6 +45,28 @@ export interface MatchStepSubmission {
   };
 }
 
+export function getAcceptedMatchRoute(mode: string | null | undefined) {
+  return mode === "scroll" ? "/scroll" : "/1v1";
+}
+
+export function isAcceptedMatchReadyToEnter({
+  activeGame,
+  players,
+  playersAccepted,
+  status,
+}: {
+  activeGame?: string | null;
+  players?: string[] | null;
+  playersAccepted?: string[] | null;
+  status?: string | null;
+}) {
+  if (!activeGame) return false;
+  if (status !== "game_found" && status !== "in_game") return false;
+  if (!players?.length || !playersAccepted?.length) return false;
+
+  return players.every((playerId) => playersAccepted.includes(playerId));
+}
+
 export function deriveStepFromProgress(
   progress?: MatchProgressFlags | null
 ): MatchStageStep {

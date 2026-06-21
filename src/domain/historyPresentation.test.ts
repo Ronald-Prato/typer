@@ -5,6 +5,7 @@ import {
   formatHistoryAccuracy,
   formatHistoryTime,
   formatHistoryWpm,
+  getHistoryOpponent,
   summarizeHistoryPage,
   type HistoryGame,
 } from "./historyPresentation";
@@ -73,6 +74,45 @@ describe("historyPresentation", () => {
       errors: 1,
       accuracy: 95,
       wpm: 50,
+    });
+  });
+
+  it("uses opponent snapshots before legacy bot profile labels", () => {
+    expect(
+      getHistoryOpponent(
+        makeGame({
+          opponentSnapshot: {
+            userId: "bot",
+            nickname: "Tecla Turbo",
+            avatarSeed: "tecla-turbo",
+          },
+          botProfile: {
+            userId: "bot",
+            nickname: "Bot",
+          },
+        })
+      )
+    ).toEqual({
+      userId: "bot",
+      nickname: "Tecla Turbo",
+      avatarSeed: "tecla-turbo",
+    });
+  });
+
+  it("falls back to old bot profiles for existing history rows", () => {
+    expect(
+      getHistoryOpponent(
+        makeGame({
+          againstBot: true,
+          botProfile: {
+            userId: "bot",
+            nickname: "Retro Bot",
+          },
+        })
+      )
+    ).toEqual({
+      userId: "bot",
+      nickname: "Retro Bot",
     });
   });
 

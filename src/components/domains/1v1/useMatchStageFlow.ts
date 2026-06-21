@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "../../../../convex/_generated/api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { usePendingMatchExitGuard } from "@/hooks/usePendingMatchExitGuard";
 import {
   deriveStepFromProgress,
   getNextStepSubmission,
@@ -92,15 +93,26 @@ export function useMatchStageFlow() {
   ]);
 
   const handleFinishGame = useCallback(async () => {
-    void finishGame();
+    await finishGame();
     router.push("/home");
   }, [finishGame, router]);
+
+  const handleConfirmedExit = useCallback(async () => {
+    await finishGame();
+  }, [finishGame]);
+
+  const { confirmAndExitToHome } = usePendingMatchExitGuard({
+    activeGame: ownUser?.activeGame,
+    isFinished: isGameFinished,
+    onConfirmExit: handleConfirmedExit,
+  });
 
   return {
     canContinue,
     currentStepMetrics,
     gameData,
     handleFinishGame,
+    handleLeaveActiveGame: confirmAndExitToHome,
     handleNextStep,
     handleRacerCompleted,
     handleRacerHoldSuccess,

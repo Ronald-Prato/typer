@@ -2,13 +2,18 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { api } from "../../../convex/_generated/api";
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import {
+  getAcceptedMatchRoute,
+  isAcceptedMatchReadyToEnter,
+} from "@/domain/matchFlow";
 
 export function useMatchmakingOverlayController() {
   const router = useRouter();
+  const pathname = usePathname();
   const { isAuthenticated } = useConvexAuth();
   const ownUser = useCurrentUser();
   const currentGame = useQuery(
@@ -96,13 +101,29 @@ export function useMatchmakingOverlayController() {
   });
 
   useEffect(() => {
+    const route = getAcceptedMatchRoute(currentGame?.game?.mode);
+
+    if (pathname === route) return;
+
     if (
-      currentGame?.game?.playersAccepted &&
-      currentGame.game.playersAccepted.length >= 2
+      isAcceptedMatchReadyToEnter({
+        activeGame: ownUser?.activeGame,
+        status: ownUser?.status,
+        players: currentGame?.game?.players,
+        playersAccepted: currentGame?.game?.playersAccepted,
+      })
     ) {
-      router.push("/1v1");
+      router.push(route);
     }
-  }, [currentGame?.game?.playersAccepted, router]);
+  }, [
+    currentGame?.game?.mode,
+    currentGame?.game?.players,
+    currentGame?.game?.playersAccepted,
+    ownUser?.activeGame,
+    ownUser?.status,
+    pathname,
+    router,
+  ]);
 
   return {
     hasAccepted,

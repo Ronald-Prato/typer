@@ -2,6 +2,18 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
+  getBotScrollIndex,
+  getCompetitiveScrollWinner,
+  getPracticeScrollDangerLinePx,
+  getPracticeScrollSpeedPxPerSecond,
+  getPracticeScrollWordLines,
+  hasCompetitiveScrollLineFailed,
+  normalizeCompetitiveScrollProgress,
+  PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
+  PRACTICE_SCROLL_SPEED_PX_PER_SECOND,
+  type CompetitiveScrollProgress,
+} from "../src/domain/practiceScroll";
+import {
   getCurrentUser,
   getCurrentUserOrNull,
 } from "./helpers/getCurrentUser";
@@ -16,8 +28,11 @@ import {
 } from "./gameStateMachine";
 import {
   getFinishedGameHistoryUserIds,
+  getHistoryOpponentSnapshot,
   getWinnerGoldPatch,
   shouldRewardWinner,
+  toPlayerSnapshot,
+  type PlayerSnapshot,
 } from "./gameLifecycle";
 
 const gameStepValidator = v.union(
@@ -41,6 +56,17 @@ const botStepDelays: Record<GameStep, number> = {
   holds: 18000,
 };
 
+const SCROLL_BOT_TICK_MS = 1_000;
+const SCROLL_CONTAINER_HEIGHT_PX = 560;
+const SCROLL_SERVER_CONFIG = {
+  lineHeightPx: 70,
+  startOffsetPx: 430,
+  dangerLinePx: getPracticeScrollDangerLinePx(SCROLL_CONTAINER_HEIGHT_PX),
+};
+const SCROLL_SPEED_PX_PER_SECOND = PRACTICE_SCROLL_SPEED_PX_PER_SECOND;
+const SCROLL_SPEED_INCREMENT_PX_PER_SECOND =
+  PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND;
+
 function createBotMetrics(): GameMetrics {
   const errors = Math.floor(Math.random() * 3);
 
@@ -60,13 +86,31 @@ async function saveFinishedGameHistory(
   userIds: Id<"user">[]
 ) {
   const createdAt = Date.now();
+  const playerDocs = await Promise.all(
+    game.players.map((playerId) => ctx.db.get(playerId))
+  );
+  const playerSnapshotsById = Object.fromEntries(
+    playerDocs
+      .filter((player): player is Doc<"user"> => Boolean(player))
+      .map((player) => [player._id, toPlayerSnapshot(player)])
+  ) as Partial<Record<Id<"user">, PlayerSnapshot<Id<"user">>>>;
 
   await Promise.all(
-    userIds.map((userId) =>
-      ctx.db.insert("gameHistory", {
+    userIds.map((userId) => {
+      const opponentSnapshot = getHistoryOpponentSnapshot({
+        historyUserId: userId,
+        players: game.players,
+        playerSnapshotsById,
+        againstBot: game.againstBot,
+        botProfile: game.botProfile,
+      });
+
+      return ctx.db.insert("gameHistory", {
         userId,
+        mode: game.mode,
         players: game.players,
         phrase: game.phrase,
+        scrollText: game.scrollText,
         words: game.words,
         holds: game.holds,
         lettersAndSymbols: game.lettersAndSymbols,
@@ -74,11 +118,64 @@ async function saveFinishedGameHistory(
         winner,
         language: game.language,
         progress,
+        scrollProgress: game.scrollProgress,
         againstBot: game.againstBot,
         botProfile: game.botProfile,
+        opponentSnapshot,
         createdAt,
-      })
-    )
+      });
+    })
+  );
+}
+
+async function saveFinishedScrollGameHistory(
+  ctx: { db: any },
+  game: Doc<"game">,
+  winner: Id<"user">,
+  scrollProgress: Record<string, CompetitiveScrollProgress>,
+  userIds: Id<"user">[]
+) {
+  const createdAt = Date.now();
+  const playerDocs = await Promise.all(
+    game.players.map((playerId) => ctx.db.get(playerId))
+  );
+  const playerSnapshotsById = Object.fromEntries(
+    playerDocs
+      .filter((player): player is Doc<"user"> => Boolean(player))
+      .map((player) => [player._id, toPlayerSnapshot(player)])
+  ) as Partial<Record<Id<"user">, PlayerSnapshot<Id<"user">>>>;
+
+  await Promise.all(
+    userIds.map((userId) => {
+      const opponentSnapshot = getHistoryOpponentSnapshot({
+        historyUserId: userId,
+        players: game.players,
+        playerSnapshotsById,
+        againstBot: game.againstBot,
+        botProfile: game.botProfile,
+      });
+
+      return ctx.db.insert("gameHistory", {
+        userId,
+        mode: "scroll",
+        players: game.players,
+        phrase: game.phrase,
+        scrollText: game.scrollText,
+        words: game.words,
+        holds: game.holds,
+        lettersAndSymbols: game.lettersAndSymbols,
+        playersAccepted: game.playersAccepted,
+        winner,
+        language: game.language,
+        progress: game.progress,
+        scrollStartedAt: game.scrollStartedAt,
+        scrollProgress,
+        againstBot: game.againstBot,
+        botProfile: game.botProfile,
+        opponentSnapshot,
+        createdAt,
+      });
+    })
   );
 }
 
@@ -166,15 +263,32 @@ export const acceptGame = mutation({
 
     const result = await ctx.db.patch(game._id, {
       playersAccepted: acceptedState.playersAccepted,
+      ...(againstBot && acceptedState.allAccepted && game.mode === "scroll"
+        ? {
+            scrollStartedAt: Date.now(),
+            botScrollPlan: {
+              botId: theOtherPlayerId,
+              startedAt: Date.now(),
+              charsPerSecond: game.botScrollPlan?.charsPerSecond ?? 5,
+            },
+          }
+        : {}),
     });
 
     if (againstBot && acceptedState.allAccepted && !wasAlreadyAccepted) {
-      await scheduleNextBotStep(
-        ctx,
-        game._id,
-        theOtherPlayerId,
-        game.progress as GameProgress | undefined
-      );
+      if (game.mode === "scroll") {
+        await ctx.scheduler.runAfter(SCROLL_BOT_TICK_MS, internal.game.tickScrollBot, {
+          gameId: game._id,
+          botId: theOtherPlayerId,
+        });
+      } else {
+        await scheduleNextBotStep(
+          ctx,
+          game._id,
+          theOtherPlayerId,
+          game.progress as GameProgress | undefined
+        );
+      }
     }
 
     return result;
@@ -320,6 +434,209 @@ export const setStepDone = mutation({
     return await ctx.db.patch(game._id, {
       progress: nextState.progress,
     });
+  },
+});
+
+export const updateScrollProgress = mutation({
+  args: {
+    currentIndex: v.number(),
+    errors: v.number(),
+    failed: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const ownUser = await getCurrentUser(ctx);
+
+    if (!ownUser?.activeGame) {
+      throw new Error("No tienes un juego activo");
+    }
+
+    const game = await ctx.db.get(ownUser.activeGame);
+
+    if (!game) {
+      throw new Error("Juego no encontrado");
+    }
+
+    if (game.mode !== "scroll" || !game.scrollText) {
+      throw new Error("Esta partida no es Scroll");
+    }
+
+    if (ownUser.status !== "in_game") {
+      throw new Error("User must be in_game to progress");
+    }
+
+    if (!game.playersAccepted.includes(ownUser._id)) {
+      throw new Error("Player must have accepted the game");
+    }
+
+    if (game.winner) {
+      return game;
+    }
+
+    const previousProgress =
+      game.scrollProgress?.[ownUser._id] as CompetitiveScrollProgress | undefined;
+    if (
+      previousProgress &&
+      args.currentIndex < previousProgress.currentIndex
+    ) {
+      throw new Error("Scroll progress cannot move backwards");
+    }
+
+    const now = Date.now();
+    const scrollStartedAt = game.scrollStartedAt ?? now;
+    const nextPlayerProgress = normalizeCompetitiveScrollProgress({
+      currentIndex: args.currentIndex,
+      errors: args.errors,
+      failed: Boolean(args.failed),
+      now,
+      previousProgress,
+      startedAt: scrollStartedAt,
+      text: game.scrollText,
+    });
+    const scrollProgress = {
+      ...(game.scrollProgress as Record<string, CompetitiveScrollProgress> | undefined),
+      [ownUser._id]: nextPlayerProgress,
+    };
+    const winner = getCompetitiveScrollWinner({
+      playerIds: game.players,
+      progressByPlayerId: scrollProgress,
+    });
+
+    if (winner) {
+      const historyUserIds = getFinishedGameHistoryUserIds({
+        players: game.players,
+        againstBot: game.againstBot,
+        botPlayerId: game.againstBot
+          ? (game.botProfile?.userId as Id<"user"> | undefined)
+          : undefined,
+      });
+
+      await saveFinishedScrollGameHistory(
+        ctx,
+        game,
+        winner as Id<"user">,
+        scrollProgress,
+        historyUserIds
+      );
+
+      if (
+        shouldRewardWinner({
+          winnerId: winner,
+          humanPlayerId: ownUser._id,
+          againstBot: game.againstBot,
+        })
+      ) {
+        await ctx.db.patch(ownUser._id, getWinnerGoldPatch(ownUser.gold));
+      }
+
+      return await ctx.db.patch(game._id, {
+        scrollProgress,
+        ...(game.scrollStartedAt !== undefined ? {} : { scrollStartedAt }),
+        winner: winner as Id<"user">,
+      });
+    }
+
+    return await ctx.db.patch(game._id, {
+      scrollProgress,
+      ...(game.scrollStartedAt !== undefined ? {} : { scrollStartedAt }),
+    });
+  },
+});
+
+export const tickScrollBot = internalMutation({
+  args: {
+    gameId: v.id("game"),
+    botId: v.id("user"),
+  },
+  handler: async (ctx, args) => {
+    const game = await ctx.db.get(args.gameId);
+
+    if (!game || game.winner) return null;
+    if (game.mode !== "scroll" || !game.scrollText) return null;
+    if (!game.againstBot || game.botProfile?.userId !== args.botId) {
+      throw new Error("Bot no pertenece a esta partida Scroll");
+    }
+
+    const plan = game.botScrollPlan;
+    const now = Date.now();
+    const startedAt = plan?.startedAt ?? now;
+    const charsPerSecond = plan?.charsPerSecond ?? 5;
+    const previousProgress =
+      game.scrollProgress?.[args.botId] as CompetitiveScrollProgress | undefined;
+    const currentIndex = getBotScrollIndex({
+      charsPerSecond,
+      now,
+      startedAt,
+      textLength: game.scrollText.length,
+    });
+    const lines = getPracticeScrollWordLines(game.scrollText);
+    const completedLineCount = lines.filter(
+      (line) => currentIndex >= line.endIndex
+    ).length;
+    const scrollSpeedPxPerSecond = getPracticeScrollSpeedPxPerSecond({
+      baseSpeedPxPerSecond: SCROLL_SPEED_PX_PER_SECOND,
+      completedLineCount,
+      speedIncrementPxPerSecond: SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
+    });
+    const elapsedSeconds = Math.max(0, (now - startedAt) / 1000);
+    const failed = hasCompetitiveScrollLineFailed({
+      currentIndex,
+      lines,
+      travelPx: elapsedSeconds * scrollSpeedPxPerSecond,
+      config: SCROLL_SERVER_CONFIG,
+    });
+    const nextBotProgress = normalizeCompetitiveScrollProgress({
+      currentIndex,
+      errors: previousProgress?.errors ?? 0,
+      failed,
+      now,
+      previousProgress,
+      text: game.scrollText,
+    });
+    const scrollProgress = {
+      ...(game.scrollProgress as Record<string, CompetitiveScrollProgress> | undefined),
+      [args.botId]: nextBotProgress,
+    };
+    const winner = getCompetitiveScrollWinner({
+      playerIds: game.players,
+      progressByPlayerId: scrollProgress,
+    });
+
+    if (winner) {
+      const historyUserIds = getFinishedGameHistoryUserIds({
+        players: game.players,
+        againstBot: game.againstBot,
+        botPlayerId: args.botId,
+      });
+
+      await saveFinishedScrollGameHistory(
+        ctx,
+        game,
+        winner as Id<"user">,
+        scrollProgress,
+        historyUserIds
+      );
+
+      return await ctx.db.patch(game._id, {
+        scrollProgress,
+        winner: winner as Id<"user">,
+      });
+    }
+
+    const result = await ctx.db.patch(game._id, {
+      botScrollPlan: {
+        botId: args.botId,
+        startedAt,
+        charsPerSecond,
+      },
+      scrollProgress,
+    });
+
+    await ctx.scheduler.runAfter(SCROLL_BOT_TICK_MS, internal.game.tickScrollBot, {
+      gameId: game._id,
+      botId: args.botId,
+    });
+
+    return result;
   },
 });
 

@@ -3,10 +3,17 @@ import { useUser } from "@clerk/nextjs";
 import { Text } from "@/components";
 import Link from "next/link";
 import { MatchMakingComponent } from "@/components/MatchMakingComponent/MatchMakingComponent";
-import { motion, useAnimation } from "@/motion";
+import {
+  AnimatePresence,
+  fadeIn,
+  m,
+  motion,
+  motionTransitions,
+  useAnimation,
+} from "@/motion";
 import { useEffect, useState } from "react";
 import { MainTabs } from "@/components/MainTabs/MainTabs";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { GameDrawer } from "@/components/GameDrawer";
 import { useOS } from "@/hooks";
@@ -25,16 +32,27 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isSignedIn } = useUser();
   const dbUser = useCurrentUser();
   const headerControls = useAnimation();
   const [currentAuraColor, setCurrentAuraColor] = useState<string>("none");
   const [isGameDrawerOpen, setIsGameDrawerOpen] = useState(false);
+  const [queueSeconds, setQueueSeconds] = useState(0);
 
   const { isMacOS } = useOS();
   const keyboardShortcut = isMacOS ? "⌘ I" : "Ctrl I";
+  const exitQueueShortcut = isMacOS ? "⌘ X" : "Ctrl+X";
   const isInQueue = dbUser?.status === "in_queue";
+  const currentHomeTab = searchParams.get("tab") || "home";
+  const showCompactQueueIndicator =
+    pathname === "/home" && currentHomeTab !== "home" && isInQueue;
   const highestPracticeWpm = dbUser?.highestPracticeWpm ?? 0;
+  const isPracticeSurface =
+    pathname === "/practice" ||
+    (pathname === "/home" && searchParams.get("tab") === "practice");
+  const isScrollSurface = pathname === "/scroll";
+  const isHomeSystemSurface = isPracticeSurface || isScrollSurface;
 
   // Control header animations based on user state
   useEffect(() => {
@@ -102,6 +120,34 @@ export default function MainLayout({
     }
   }, [isInQueue, headerControls, currentAuraColor]);
 
+  useEffect(() => {
+    if (!dbUser?.queuedAt || !isInQueue) {
+      setQueueSeconds(0);
+      return;
+    }
+
+    const queuedAt = dbUser.queuedAt;
+    const getElapsedSeconds = () =>
+      Math.max(0, Math.floor((Date.now() - queuedAt) / 1000));
+
+    setQueueSeconds(getElapsedSeconds());
+
+    const interval = window.setInterval(() => {
+      setQueueSeconds(getElapsedSeconds());
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [dbUser?.queuedAt, isInQueue]);
+
+  const formatQueueTime = (totalSeconds: number) => {
+    const safeSeconds = Math.max(0, totalSeconds);
+    const minutes = Math.floor(safeSeconds / 60);
+    const remainingSeconds = safeSeconds % 60;
+    return `${minutes.toString().padStart(2, "0")}:${remainingSeconds
+      .toString()
+      .padStart(2, "0")}`;
+  };
+
   // Simple avatar component
   const AvatarDisplay = () => {
     if (!isSignedIn || !dbUser) {
@@ -128,6 +174,36 @@ export default function MainLayout({
     );
   };
 
+  const CompactQueueIndicator = () => (
+    <AnimatePresence initial={false}>
+      {showCompactQueueIndicator ? (
+        <m.div
+          animate="animate"
+          aria-label="Sigues en cola"
+          className="flex items-center gap-3 rounded-full border border-emerald-300/45 bg-gradient-to-r from-emerald-400/22 to-blue-500/18 px-3 py-2 text-xs font-extrabold uppercase tracking-wide text-emerald-700 shadow-[0_0_28px_rgba(16,185,129,0.2),0_0_26px_rgba(59,130,246,0.12)] backdrop-blur-xl dark:text-emerald-100"
+          exit="exit"
+          initial="initial"
+          role="status"
+          transition={motionTransitions.base}
+          variants={fadeIn}
+        >
+          <span
+            className="size-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.85)]"
+            aria-hidden="true"
+          />
+          <span>En cola</span>
+          <span className="font-black text-blue-700 tabular-nums dark:text-blue-100">
+            {formatQueueTime(queueSeconds)}
+          </span>
+          <span className="rounded-md border border-emerald-300/40 bg-white/35 px-1.5 py-0.5 text-[0.65rem] font-black leading-none text-emerald-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.42)] dark:border-white/15 dark:bg-white/10 dark:text-emerald-100">
+            {exitQueueShortcut}
+          </span>
+          <span className="sr-only">para salir de la cola</span>
+        </m.div>
+      ) : null}
+    </AnimatePresence>
+  );
+
   if (pathname === "/home") {
     return (
       <HomeBackgroundDashProvider>
@@ -137,46 +213,49 @@ export default function MainLayout({
           {<MatchMakingComponent />}
 
           <header className="fixed left-0 right-0 top-0 z-30 grid h-24 grid-cols-[1fr_auto_1fr] items-center px-10">
-          <Link href="/home" className="justify-self-start">
-            <h1 className="text-2xl font-extrabold tracking-tight text-[var(--tw-home-fg)]">
-              typewars.io
-            </h1>
-          </Link>
+            <Link href="/home" className="justify-self-start">
+              <h1 className="text-2xl font-extrabold tracking-tight text-[var(--tw-home-fg)]">
+                typewars.io
+              </h1>
+            </Link>
 
-          <div className="justify-self-center">
-            <MainTabs variant="horizontal" />
-          </div>
+            <div className="justify-self-center">
+              <MainTabs variant="horizontal" />
+            </div>
 
-          <button
-            onClick={() => setIsGameDrawerOpen(true)}
-            className="flex min-w-[11.75rem] items-center gap-3 justify-self-end rounded-full border border-white/45 bg-white/35 px-3 py-2 shadow-[0_10px_34px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.72),inset_0_-1px_0_rgba(255,255,255,0.18)] backdrop-blur-2xl backdrop-saturate-150 transition-transform hover:scale-[1.02] dark:border-white/15 dark:bg-white/[0.09] dark:shadow-[0_14px_42px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.14)]"
-            type="button"
-            aria-label="Abrir perfil"
-          >
-            <span className="rounded-full border border-orange-500 p-1 shadow-[0_0_14px_rgba(249,115,22,0.26)]">
-              {isSignedIn && dbUser ? (
-                <UserAvatarImage
-                  avatarUrl={dbUser.avatarUrl}
-                  avatarSeed={dbUser.avatarSeed}
-                  nickname={dbUser.nickname}
-                  className="w-10 h-10"
-                />
-              ) : (
-                <span className="flex w-10 h-10 items-center justify-center rounded-full bg-gray-800">
-                  <span className="w-5 h-5 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+            <div className="flex items-center gap-3 justify-self-end">
+              <CompactQueueIndicator />
+              <button
+                onClick={() => setIsGameDrawerOpen(true)}
+                className="flex min-w-[11.75rem] items-center gap-3 rounded-full border border-white/45 bg-white/35 px-3 py-2 shadow-[0_10px_34px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.72),inset_0_-1px_0_rgba(255,255,255,0.18)] backdrop-blur-2xl backdrop-saturate-150 transition-transform hover:scale-[1.02] dark:border-white/15 dark:bg-white/[0.09] dark:shadow-[0_14px_42px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.14)]"
+                type="button"
+                aria-label="Abrir perfil"
+              >
+                {isSignedIn && dbUser ? (
+                  <span className="rounded-full border border-orange-500 p-1 shadow-[0_0_14px_rgba(249,115,22,0.26)]">
+                    <UserAvatarImage
+                      avatarUrl={dbUser.avatarUrl}
+                      avatarSeed={dbUser.avatarSeed}
+                      nickname={dbUser.nickname}
+                      className="w-10 h-10"
+                    />
+                  </span>
+                ) : (
+                  <span className="flex w-12 h-12 items-center justify-center rounded-full border border-orange-500 bg-gray-800 shadow-[0_0_14px_rgba(249,115,22,0.26)]">
+                    <span className="w-5 h-5 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+                  </span>
+                )}
+                <span className="flex flex-col items-start">
+                  <span className="max-w-32 truncate text-[0.95rem] font-extrabold leading-tight text-[var(--tw-home-fg)]">
+                    {dbUser?.nickname || "Player"}
+                  </span>
+                  <span className="mt-1 flex items-center gap-1 text-xs font-extrabold leading-tight text-orange-500 dark:text-orange-300">
+                    <Zap className="size-3 fill-current" aria-hidden="true" />
+                    {highestPracticeWpm} WPM
+                  </span>
                 </span>
-              )}
-            </span>
-            <span className="flex flex-col items-start">
-              <span className="max-w-32 truncate text-[0.95rem] font-extrabold leading-tight text-[var(--tw-home-fg)]">
-                {dbUser?.nickname || "Player"}
-              </span>
-              <span className="mt-1 flex items-center gap-1 text-xs font-extrabold leading-tight text-orange-500 dark:text-orange-300">
-                <Zap className="size-3 fill-current" aria-hidden="true" />
-                {highestPracticeWpm} WPM
-              </span>
-            </span>
-          </button>
+              </button>
+            </div>
           </header>
 
           <main className="relative z-10 h-screen overflow-hidden">
@@ -199,12 +278,17 @@ export default function MainLayout({
   return (
     <div
       className={cn(
-        "min-h-screen bg-gray-950 text-white relative grid",
+        "min-h-screen relative grid",
+        isHomeSystemSurface
+          ? "bg-[var(--tw-home-bg)] text-[var(--tw-home-fg)]"
+          : "bg-gray-950 text-white",
         pathname === "/home"
           ? "grid-rows-[80px_1fr_100px]"
           : "grid-rows-[1fr_100px]"
       )}
     >
+      {isScrollSurface && <HomeBackground variant="practice" />}
+
       {pathname === "/home" && (
         <motion.header
           className="bg-gray-950/95 backdrop-blur-sm  relative z-20 h-20"
@@ -257,13 +341,13 @@ export default function MainLayout({
       <div
         className={cn(
           "relative z-10 flex h-full flex-col items-center justify-center",
-          pathname === "/practice" ? "px-0 py-0" : "px-12 py-8"
+          isHomeSystemSurface ? "px-0 py-0" : "px-12 py-8"
         )}
       >
         <div
           className={cn(
             "h-full w-full",
-            pathname === "/practice" ? "max-w-none" : "mx-auto max-w-[60rem]"
+            isHomeSystemSurface ? "max-w-none" : "mx-auto max-w-[60rem]"
           )}
         >
           {children}

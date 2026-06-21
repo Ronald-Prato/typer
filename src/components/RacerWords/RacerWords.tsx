@@ -4,6 +4,7 @@ import { motion } from "@/motion";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { Text } from "../Typography";
 import { useRacerWords } from "@/hooks/useRacerWords";
+import { useLowPerformanceMode } from "@/hooks";
 
 interface RacerWordsProps {
   words: string[];
@@ -40,6 +41,7 @@ export function RacerWords({
     allWordsCompleted,
     isComplete,
   } = useRacerWords({ words, onCompleted });
+  const { isLowPerformanceMode } = useLowPerformanceMode();
 
   const renderText = () => {
     const textVariant = getTextVariant();
@@ -66,8 +68,9 @@ export function RacerWords({
         }
       } else if (index === userInput.length) {
         // Current character to type - cursor with improved visibility
-        colorClass =
-          "text-gray-300 bg-gray-600/70 animate-pulse drop-shadow-lg shadow-gray-400/60 backdrop-blur-sm";
+        colorClass = isLowPerformanceMode
+          ? "text-gray-300 bg-gray-600/70 drop-shadow-lg shadow-gray-400/60 backdrop-blur-sm"
+          : "text-gray-300 bg-gray-600/70 animate-pulse drop-shadow-lg shadow-gray-400/60 backdrop-blur-sm";
       } else {
         // Not yet typed - sunken clay effect
         colorClass = "text-gray-500 drop-shadow-sm shadow-gray-600/20";
@@ -77,7 +80,7 @@ export function RacerWords({
         <Text
           key={index}
           variant={textVariant as "h4" | "h5" | "h6"}
-          className={`font-mono inline transform transition-all duration-200 hover:scale-105 ${colorClass}`}
+          className={`font-mono inline ${isLowPerformanceMode ? "" : "transform transition-all duration-200 hover:scale-105"} ${colorClass}`}
         >
           {displayChar}
         </Text>
