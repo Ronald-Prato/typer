@@ -4,8 +4,8 @@ export interface PracticeScrollProgress {
   failed: boolean;
 }
 
-export const PRACTICE_SCROLL_SPEED_PX_PER_SECOND = 16;
-export const PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND = 0.5;
+export const PRACTICE_SCROLL_SPEED_PX_PER_SECOND = 12.8;
+export const PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND = 0.4;
 
 export interface PracticeScrollFailureConfig {
   charsPerLine: number;

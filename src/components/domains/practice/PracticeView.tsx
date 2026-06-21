@@ -221,11 +221,15 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
 
   const totalRounds = practiceSet?.phrases?.length || 0;
   const progress = totalRounds > 0 ? (currentRound / totalRounds) * 100 : 0;
+  const isEmbeddedInHome = !showBackground;
 
   return (
     <div
       className={cn(
-        "relative min-h-[calc(100vh-100px)] overflow-hidden text-[var(--tw-home-fg)]",
+        "relative overflow-hidden text-[var(--tw-home-fg)]",
+        isEmbeddedInHome
+          ? "h-full min-h-0"
+          : "min-h-[calc(100vh-100px)]",
         showBackground && "bg-[var(--tw-home-bg)]"
       )}
     >
@@ -240,8 +244,20 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
         restartShortcut="Borrar"
       />
 
-      <main className="relative z-10 flex min-h-[calc(100vh-100px)] flex-col items-center justify-center px-5 py-8 sm:px-8">
-        <div className="absolute top-8 left-1/2 -translate-x-1/2">
+      <main
+        className={cn(
+          "relative z-10 flex flex-col items-center px-5 sm:px-8",
+          isEmbeddedInHome
+            ? "h-full min-h-0 justify-start py-0"
+            : "min-h-[calc(100vh-100px)] justify-center py-8"
+        )}
+      >
+        <div
+          className={cn(
+            "absolute left-1/2 -translate-x-1/2",
+            isEmbeddedInHome ? "top-4" : "top-8"
+          )}
+        >
           <Button
             variant="ghost"
             shortcut="Cmd+J"
@@ -272,13 +288,22 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
 
         <section
           className={cn(
-            "flex w-full flex-1 flex-col items-center pb-12",
-            selectedMode === null
-              ? "justify-start pt-44 sm:pt-40"
-              : "justify-start pt-40 sm:pt-36"
+            "flex w-full flex-1 flex-col items-center",
+            isEmbeddedInHome
+              ? selectedMode === null
+                ? "min-h-0 justify-center pb-8 pt-24"
+                : "min-h-0 justify-start pb-4 pt-24"
+              : selectedMode === null
+                ? "justify-start pb-12 pt-44 sm:pt-40"
+                : "justify-start pb-12 pt-40 sm:pt-36"
           )}
         >
-          <div className="mb-8 flex flex-col items-center text-center">
+          <div
+            className={cn(
+              "flex flex-col items-center text-center",
+              isEmbeddedInHome ? "mb-5" : "mb-8"
+            )}
+          >
             <Text
               variant="h5"
               className="bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-xl font-extrabold text-transparent"
@@ -310,7 +335,10 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
             {selectedMode === null ? (
               <PracticeModeSelect onSelectMode={handleSelectMode} />
             ) : selectedMode === "scroll" ? (
-              <PracticeScrollGame onBackToModes={handleBackToModes} />
+              <PracticeScrollGame
+                isCompactLayout={isEmbeddedInHome}
+                onBackToModes={handleBackToModes}
+              />
             ) : currentPhrase ? (
               <Racer
                 className="w-full space-y-10 [&>div:first-child]:!min-h-[180px] [&>div:first-child]:rounded-[1.75rem] [&>div:first-child]:border [&>div:first-child]:border-[#575279]/10 [&>div:first-child]:bg-[#575279]/[0.035] [&>div:first-child]:shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_18px_54px_rgba(87,82,121,0.08)] [&>div:first-child]:backdrop-blur-[2px] dark:[&>div:first-child]:border-white/10 dark:[&>div:first-child]:bg-[rgba(7,13,29,0.46)] dark:[&>div:first-child]:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_24px_90px_rgba(0,0,0,0.24)] dark:[&>div:first-child]:backdrop-blur-md [&>div:first-child>div]:px-5 [&>div:first-child>div]:py-10 sm:[&>div:first-child>div]:px-14 [&>div:last-child]:h-auto [&>div:last-child]:min-h-0 [&>div:last-child]:flex-wrap [&>div:last-child]:justify-center [&>div:last-child]:gap-3 [&>div:last-child]:space-x-0 [&>div:last-child>div]:min-w-[8rem] [&>div:last-child>div]:rounded-xl [&>div:last-child>div]:border [&>div:last-child>div]:border-[#575279]/10 [&>div:last-child>div]:bg-white/20 [&>div:last-child>div]:px-4 [&>div:last-child>div]:py-3 [&>div:last-child>div]:shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] [&>div:last-child>div]:backdrop-blur dark:[&>div:last-child>div]:border-white/10 dark:[&>div:last-child>div]:bg-white/[0.045] dark:[&>div:last-child>div]:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"

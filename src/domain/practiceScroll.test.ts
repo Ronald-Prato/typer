@@ -545,7 +545,7 @@ describe("practiceScroll", () => {
         speedIncrementPxPerSecond: PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
         startedAt: 1_000,
       })
-    ).toBe(54);
+    ).toBe(43.2);
     expect(
       getCompetitiveScrollTravelPx({
         baseSpeedPxPerSecond: PRACTICE_SCROLL_SPEED_PX_PER_SECOND,
@@ -555,7 +555,7 @@ describe("practiceScroll", () => {
         speedIncrementPxPerSecond: PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
         startedAt: 1_000,
       })
-    ).toBe(18);
+    ).toBe(14.4);
     expect(
       getCompetitiveScrollTravelPx({
         baseSpeedPxPerSecond: PRACTICE_SCROLL_SPEED_PX_PER_SECOND,

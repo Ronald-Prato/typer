@@ -19,7 +19,6 @@ import {
   getCompetitiveScrollTravelPx,
   getPracticeScrollDangerLinePx,
   getPracticeScrollProgress,
-  getPracticeScrollSpeedPxPerSecond,
   getPracticeScrollWordLines,
   getScrollMinimapWordBlocks,
   hasCompetitiveScrollStartSignal,
@@ -45,7 +44,7 @@ import {
 
 const SCROLL_CONTAINER_HEIGHT_PX = 560;
 const SCROLL_CONFIG = {
-  lineHeightPx: 70,
+  lineHeightPx: 60,
   startOffsetPx: 430,
   dangerLinePx: getPracticeScrollDangerLinePx(SCROLL_CONTAINER_HEIGHT_PX),
 };
@@ -102,11 +101,6 @@ export function CompetitiveScrollGame() {
     scrollLines,
     progress.currentIndex
   );
-  const scrollSpeedPxPerSecond = getPracticeScrollSpeedPxPerSecond({
-    baseSpeedPxPerSecond: SCROLL_SPEED_PX_PER_SECOND,
-    completedLineCount: currentCompletedLines,
-    speedIncrementPxPerSecond: SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
-  });
   const isFinished = Boolean(game?.winner) || failed || progress.completed;
   const hasScrollStartSignal = useMemo(
     () =>
@@ -419,7 +413,7 @@ export function CompetitiveScrollGame() {
       />
 
       <div
-        className="relative h-[560px] w-full max-w-[48rem] cursor-text overflow-hidden rounded-[1.75rem] border border-[#575279]/10 bg-[#575279]/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_24px_70px_rgba(87,82,121,0.1)] backdrop-blur-[2px] dark:border-white/10 dark:bg-[rgba(7,13,29,0.52)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_30px_100px_rgba(0,0,0,0.26)] dark:backdrop-blur-md"
+        className="relative h-[560px] w-full max-w-[58rem] cursor-text overflow-hidden rounded-[1.75rem] border border-[#575279]/10 bg-[#575279]/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_24px_70px_rgba(87,82,121,0.1)] backdrop-blur-[2px] dark:border-white/10 dark:bg-[rgba(7,13,29,0.52)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_30px_100px_rgba(0,0,0,0.26)] dark:backdrop-blur-md"
         onClick={focusInput}
       >
         <div
@@ -428,18 +422,17 @@ export function CompetitiveScrollGame() {
         {!isLowPerformanceMode && (
           <div className="absolute left-0 right-0 top-1/2 z-10 h-12 -translate-y-1/2 bg-gradient-to-r from-transparent via-red-500/10 to-transparent blur-md" />
         )}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-44 bg-gradient-to-b from-[#faf4ed]/90 via-[#faf4ed]/44 to-transparent dark:from-[#030712]/90 dark:via-[#030712]/44" />
-        <div className="pointer-events-none absolute inset-x-[-2rem] top-[-1.5rem] z-10 h-24 rounded-b-full bg-[#575279]/10 blur-3xl dark:bg-white/10" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-32 bg-gradient-to-t from-[#faf4ed]/95 via-[#faf4ed]/58 to-transparent dark:from-[#030712]/95 dark:via-[#030712]/58" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-[linear-gradient(to_bottom,rgba(250,244,237,0.94)_0%,rgba(250,244,237,0.58)_38%,rgba(250,244,237,0.14)_76%,transparent_100%)] dark:bg-[linear-gradient(to_bottom,rgba(3,7,18,0.94)_0%,rgba(3,7,18,0.6)_38%,rgba(3,7,18,0.14)_76%,transparent_100%)]" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-[linear-gradient(to_top,rgba(250,244,237,0.95)_0%,rgba(250,244,237,0.58)_40%,rgba(250,244,237,0.14)_78%,transparent_100%)] dark:bg-[linear-gradient(to_top,rgba(3,7,18,0.95)_0%,rgba(3,7,18,0.62)_40%,rgba(3,7,18,0.14)_78%,transparent_100%)]" />
 
         <m.div
-          className="absolute left-1/2 top-0 w-[34ch] -translate-x-1/2 font-mono text-[34px] font-semibold leading-[70px] tracking-normal"
+          className="absolute left-1/2 top-0 w-[34ch] -translate-x-1/2 font-mono text-[32px] font-semibold leading-[60px] tracking-normal"
           style={{ y: scrollContentY }}
         >
           {scrollLines.map((line) => (
             <div
               key={`${line.startIndex}-${line.endIndex}`}
-              className="h-[70px] whitespace-pre text-center"
+              className="h-[60px] whitespace-pre text-center"
             >
               <ScrollLineText
                 hasStarted={input.length > 0}
@@ -468,22 +461,6 @@ export function CompetitiveScrollGame() {
         />
       </div>
 
-      <div className="flex min-h-[76px] flex-wrap justify-center gap-4 text-center">
-        <Metric label="Progreso" value={`${typedPercent}%`} tone="orange" />
-        <Metric label="Palabras" value={String(completedWords)} tone="orange" />
-        <Metric
-          label="Rival"
-          value={String(opponentProgress?.typedWords ?? 0)}
-          tone="blue"
-        />
-        <Metric
-          label="Velocidad"
-          value={`${scrollSpeedPxPerSecond}px/s`}
-          tone="blue"
-        />
-        <Metric label="Errores" value={String(errors)} tone="red" />
-        <Metric label="Tiempo" value={formatTypingTime(elapsedMs)} tone="blue" />
-      </div>
     </m.section>
   );
 }
@@ -618,27 +595,4 @@ function ScrollLineText({
       </span>
     );
   });
-}
-
-function Metric({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "orange" | "red" | "blue";
-}) {
-  const toneClass = {
-    orange: "text-orange-500",
-    red: "text-red-400",
-    blue: "text-blue-400",
-  }[tone];
-
-  return (
-    <div className="flex min-w-[9rem] flex-col justify-center rounded-xl border border-[#575279]/10 bg-white/20 px-5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <p className={`${toneClass} text-lg font-black`}>{value}</p>
-      <p className="text-xs font-bold text-[var(--tw-home-muted)]">{label}</p>
-    </div>
-  );
 }

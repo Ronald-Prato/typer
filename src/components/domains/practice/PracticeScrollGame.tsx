@@ -24,6 +24,7 @@ import {
   formatTypingTime,
   isCopyPasteShortcut,
 } from "@/domain/typingEngine";
+import { cn } from "@/lib/utils";
 import { m, motionTransitions, popIn, useMotionValue } from "@/motion";
 import { useLowPerformanceMode } from "@/hooks";
 import {
@@ -33,18 +34,29 @@ import {
 } from "@heroicons/react/24/outline";
 
 const SCROLL_CONTAINER_HEIGHT_PX = 560;
+const COMPACT_SCROLL_CONTAINER_HEIGHT_PX = 560;
+const SCROLL_START_OFFSET_PX = 430;
+const COMPACT_SCROLL_START_OFFSET_PX = 430;
+const SCROLL_LINE_HEIGHT_PX = 60;
 
-const SCROLL_CONFIG = {
+const getScrollConfig = ({
+  containerHeightPx,
+  startOffsetPx,
+}: {
+  containerHeightPx: number;
+  startOffsetPx: number;
+}) => ({
   charsPerLine: 26,
-  lineHeightPx: 70,
-  startOffsetPx: 430,
-  dangerLinePx: getPracticeScrollDangerLinePx(SCROLL_CONTAINER_HEIGHT_PX),
-};
+  lineHeightPx: SCROLL_LINE_HEIGHT_PX,
+  startOffsetPx,
+  dangerLinePx: getPracticeScrollDangerLinePx(containerHeightPx),
+});
 
 const PRACTICE_SCROLL_PARAGRAPHS = practiceScrollParagraphs as string[];
 let lastPracticeScrollFirstParagraph: string | undefined;
 
 interface PracticeScrollGameProps {
+  isCompactLayout?: boolean;
   onBackToModes: () => void;
 }
 
@@ -58,7 +70,10 @@ function getNextPracticeScrollParagraphs() {
   return paragraphs;
 }
 
-export function PracticeScrollGame({ onBackToModes }: PracticeScrollGameProps) {
+export function PracticeScrollGame({
+  isCompactLayout = false,
+  onBackToModes,
+}: PracticeScrollGameProps) {
   const [scrollParagraphs, setScrollParagraphs] = useState(
     getNextPracticeScrollParagraphs
   );
@@ -69,7 +84,19 @@ export function PracticeScrollGame({ onBackToModes }: PracticeScrollGameProps) {
   const [failed, setFailed] = useState(false);
   const [hasStartedTyping, setHasStartedTyping] = useState(false);
   const { isLowPerformanceMode } = useLowPerformanceMode();
-  const scrollContentY = useMotionValue(SCROLL_CONFIG.startOffsetPx);
+  const scrollConfig = useMemo(
+    () =>
+      getScrollConfig({
+        containerHeightPx: isCompactLayout
+          ? COMPACT_SCROLL_CONTAINER_HEIGHT_PX
+          : SCROLL_CONTAINER_HEIGHT_PX,
+        startOffsetPx: isCompactLayout
+          ? COMPACT_SCROLL_START_OFFSET_PX
+          : SCROLL_START_OFFSET_PX,
+      }),
+    [isCompactLayout]
+  );
+  const scrollContentY = useMotionValue(scrollConfig.startOffsetPx);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const lastFrameTimeRef = useRef<number | null>(null);
   const lastInputRef = useRef("");
@@ -122,7 +149,7 @@ export function PracticeScrollGame({ onBackToModes }: PracticeScrollGameProps) {
   const resetPracticeScroll = useCallback(() => {
     setScrollParagraphs(getNextPracticeScrollParagraphs());
     setInput("");
-    scrollContentY.set(SCROLL_CONFIG.startOffsetPx);
+    scrollContentY.set(scrollConfig.startOffsetPx);
     setErrors(0);
     setFailed(false);
     setHasStartedTyping(false);
@@ -132,7 +159,7 @@ export function PracticeScrollGame({ onBackToModes }: PracticeScrollGameProps) {
     lastInputRef.current = "";
     scrollYRef.current = 0;
     window.setTimeout(focusInput, 0);
-  }, [focusInput]);
+  }, [focusInput, scrollConfig.startOffsetPx, scrollContentY]);
 
   useEffect(() => {
     focusInput();
@@ -148,14 +175,14 @@ export function PracticeScrollGame({ onBackToModes }: PracticeScrollGameProps) {
         scrollYRef.current + elapsedSeconds * scrollSpeedPxPerSecond;
       scrollYRef.current = nextScrollY;
       lastFrameTimeRef.current = time;
-      scrollContentY.set(SCROLL_CONFIG.startOffsetPx - nextScrollY);
+      scrollContentY.set(scrollConfig.startOffsetPx - nextScrollY);
 
       if (
         hasPracticeScrollLineReachedDangerLine({
           currentIndex: progress.currentIndex,
           lines: scrollLines,
           travelPx: nextScrollY,
-          config: SCROLL_CONFIG,
+          config: scrollConfig,
         })
       ) {
         setFailed(true);
@@ -177,6 +204,7 @@ export function PracticeScrollGame({ onBackToModes }: PracticeScrollGameProps) {
     return () => cancelAnimationFrame(frameId);
   }, [
     progress.currentIndex,
+    scrollConfig,
     scrollLines,
     scrollContentY,
     scrollSpeedPxPerSecond,
@@ -230,7 +258,11 @@ export function PracticeScrollGame({ onBackToModes }: PracticeScrollGameProps) {
       animate="animate"
       exit="exit"
       transition={motionTransitions.emphasized}
-      className="flex w-full flex-col items-center gap-7"
+      className={cn(
+        "flex w-full flex-col items-center",
+        isCompactLayout ? "gap-4" : "gap-7"
+      )}
+      style={isCompactLayout ? { width: "min(92vw, 58rem)" } : undefined}
     >
       <ResultsOverlay
         isVisible={showResults}
@@ -277,7 +309,12 @@ export function PracticeScrollGame({ onBackToModes }: PracticeScrollGameProps) {
       />
 
       <div
-        className="relative h-[560px] w-full max-w-[48rem] cursor-text overflow-hidden rounded-[1.75rem] border border-[#575279]/10 bg-[#575279]/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_24px_70px_rgba(87,82,121,0.1)] backdrop-blur-[2px] dark:border-white/10 dark:bg-[rgba(7,13,29,0.46)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_30px_100px_rgba(0,0,0,0.26)] dark:backdrop-blur-md"
+        className={cn(
+          "relative w-full cursor-text overflow-hidden rounded-[1.75rem] border border-[#575279]/10 bg-[#575279]/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_24px_70px_rgba(87,82,121,0.1)] backdrop-blur-[2px] dark:border-white/10 dark:bg-[rgba(7,13,29,0.46)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_30px_100px_rgba(0,0,0,0.26)] dark:backdrop-blur-md",
+          isCompactLayout
+            ? "h-[560px] max-w-none shrink-0"
+            : "h-[560px] max-w-[48rem]"
+        )}
         onClick={focusInput}
       >
         <div
@@ -286,19 +323,17 @@ export function PracticeScrollGame({ onBackToModes }: PracticeScrollGameProps) {
         {!isLowPerformanceMode && (
           <div className="absolute left-0 right-0 top-1/2 z-10 h-12 -translate-y-1/2 bg-gradient-to-r from-transparent via-red-500/10 to-transparent blur-md" />
         )}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-44 bg-gradient-to-b from-[#faf4ed]/90 via-[#faf4ed]/44 to-transparent dark:from-[#030712]/90 dark:via-[#030712]/44" />
-        <div className="pointer-events-none absolute inset-x-[-2rem] top-[-1.5rem] z-10 h-24 rounded-b-full bg-[#575279]/10 blur-3xl dark:bg-white/10" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-32 bg-gradient-to-t from-[#faf4ed]/95 via-[#faf4ed]/58 to-transparent dark:from-[#030712]/95 dark:via-[#030712]/58" />
-        <div className="pointer-events-none absolute inset-x-8 bottom-0 z-10 h-10 rounded-t-full bg-orange-500/18 blur-2xl dark:bg-orange-400/16" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-[linear-gradient(to_bottom,rgba(250,244,237,0.94)_0%,rgba(250,244,237,0.58)_38%,rgba(250,244,237,0.14)_76%,transparent_100%)] dark:bg-[linear-gradient(to_bottom,rgba(3,7,18,0.94)_0%,rgba(3,7,18,0.6)_38%,rgba(3,7,18,0.14)_76%,transparent_100%)]" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-[linear-gradient(to_top,rgba(250,244,237,0.95)_0%,rgba(250,244,237,0.58)_40%,rgba(250,244,237,0.14)_78%,transparent_100%)] dark:bg-[linear-gradient(to_top,rgba(3,7,18,0.95)_0%,rgba(3,7,18,0.62)_40%,rgba(3,7,18,0.14)_78%,transparent_100%)]" />
 
         <m.div
-          className="absolute left-1/2 top-0 w-[34ch] -translate-x-1/2 font-mono text-[34px] font-semibold leading-[70px] tracking-normal"
+          className="absolute left-1/2 top-0 w-[34ch] -translate-x-1/2 font-mono text-[32px] font-semibold leading-[60px] tracking-normal"
           style={{ y: scrollContentY }}
         >
           {scrollLines.map((line) => (
             <div
               key={`${line.startIndex}-${line.endIndex}`}
-              className="h-[70px] whitespace-pre text-center"
+              className="h-[60px] whitespace-pre text-center"
             >
               <PracticeScrollLineText
                 targetText={line.text}
@@ -327,22 +362,32 @@ export function PracticeScrollGame({ onBackToModes }: PracticeScrollGameProps) {
         />
       </div>
 
-      <div className="flex min-h-[76px] flex-wrap justify-center gap-4 text-center">
-        <Metric label="Progreso" value={`${typedPercent}%`} tone="orange" />
-        <Metric label="Palabras" value={String(completedWords)} tone="orange" />
-        <Metric
-          label="Párrafos"
-          value={String(completedParagraphs)}
-          tone="blue"
-        />
-        <Metric
-          label="Velocidad"
-          value={`${scrollSpeedPxPerSecond}px/s`}
-          tone="blue"
-        />
-        <Metric label="Errores" value={String(errors)} tone="red" />
-        <Metric label="Tiempo" value={formatTypingTime(elapsedMs)} tone="blue" />
-      </div>
+      {!isCompactLayout && (
+        <div className="flex min-h-[76px] flex-wrap justify-center gap-4 text-center">
+          <Metric label="Progreso" value={`${typedPercent}%`} tone="orange" />
+          <Metric
+            label="Palabras"
+            value={String(completedWords)}
+            tone="orange"
+          />
+          <Metric
+            label="Párrafos"
+            value={String(completedParagraphs)}
+            tone="blue"
+          />
+          <Metric
+            label="Velocidad"
+            value={`${scrollSpeedPxPerSecond}px/s`}
+            tone="blue"
+          />
+          <Metric label="Errores" value={String(errors)} tone="red" />
+          <Metric
+            label="Tiempo"
+            value={formatTypingTime(elapsedMs)}
+            tone="blue"
+          />
+        </div>
+      )}
     </m.section>
   );
 }
@@ -409,8 +454,10 @@ function Metric({
   }[tone];
 
   return (
-    <div className="flex min-w-[10rem] flex-col justify-center rounded-xl border border-[#575279]/10 bg-white/20 px-6 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <Text variant="h6" className={`${toneClass} font-bold`}>
+    <div
+      className="flex min-w-[10rem] flex-col justify-center rounded-xl border border-[#575279]/10 bg-white/20 px-6 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+    >
+      <Text variant="h6" className={cn(toneClass, "font-bold")}>
         {value}
       </Text>
       <Text variant="body2" className="text-gray-400">
