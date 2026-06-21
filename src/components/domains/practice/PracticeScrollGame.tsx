@@ -280,7 +280,8 @@ export function PracticeScrollGame({
         heroLabel="Texto escrito"
         heroIcon={<DocumentTextIcon className="size-8" />}
         restartLabel="Reintentar"
-        restartShortcut="Borrar"
+        restartShortcut="Tab"
+        shortcutDelayMs={failed ? 500 : 0}
         tipTitle="Lectura del intento"
         tip={`${completedWords} palabras equivalen a ${averageBookPages} páginas promedio de libro.`}
         showTipPanel={!failed}

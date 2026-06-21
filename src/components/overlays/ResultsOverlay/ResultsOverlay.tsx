@@ -53,6 +53,7 @@ interface ResultsOverlayProps {
   levelProgress?: number;
   restartLabel?: string;
   restartShortcut?: string;
+  shortcutDelayMs?: number;
   closeLabel?: string;
 }
 
@@ -103,6 +104,7 @@ export function ResultsOverlay({
   levelProgress,
   restartLabel = "Reintentar",
   restartShortcut,
+  shortcutDelayMs = 0,
   closeLabel = "Volver",
 }: ResultsOverlayProps) {
   const { isLowPerformanceMode } = useLowPerformanceMode();
@@ -139,24 +141,37 @@ export function ResultsOverlay({
   useEffect(() => {
     if (!isVisible) return;
 
+    const shortcutsEnabledAt = Date.now() + shortcutDelayMs;
+
     const handleKeyPress = (event: KeyboardEvent) => {
+      const isCloseShortcut = event.key === "Enter";
+      const isRestartShortcutEvent = Boolean(
+        onRestart && isRestartShortcut(event, restartShortcut)
+      );
+
+      if (!isCloseShortcut && !isRestartShortcutEvent) {
+        return;
+      }
+
+      if (Date.now() < shortcutsEnabledAt) {
+        event.preventDefault();
+        return;
+      }
+
       if (event.key === "Enter") {
         onClose();
         return;
       }
 
-      if (
-        onRestart &&
-        isRestartShortcut(event, restartShortcut)
-      ) {
+      if (isRestartShortcutEvent) {
         event.preventDefault();
-        onRestart();
+        onRestart?.();
       }
     };
 
     document.addEventListener("keydown", handleKeyPress);
     return () => document.removeEventListener("keydown", handleKeyPress);
-  }, [isVisible, onClose, onRestart, restartShortcut]);
+  }, [isVisible, onClose, onRestart, restartShortcut, shortcutDelayMs]);
 
   return (
     <AnimatePresence>

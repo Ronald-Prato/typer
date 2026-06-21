@@ -14,7 +14,7 @@ const roundData = [
 ];
 
 describe("ResultsOverlay", () => {
-  it("restarts with the configured borrar shortcut instead of space", () => {
+  it("restarts with the configured tab shortcut instead of space or borrar", () => {
     const handleClose = vi.fn();
     const handleRestart = vi.fn();
 
@@ -24,19 +24,59 @@ describe("ResultsOverlay", () => {
         roundsData={roundData}
         onClose={handleClose}
         onRestart={handleRestart}
-        restartShortcut="Borrar"
+        restartShortcut="Tab"
       />
     );
 
     expect(
-      screen.getByRole("button", { name: /reintentar borrar/i })
+      screen.getByRole("button", { name: /reintentar tab/i })
     ).toBeInTheDocument();
 
     fireEvent.keyDown(document, { code: "Space", key: " " });
     expect(handleRestart).not.toHaveBeenCalled();
 
     fireEvent.keyDown(document, { key: "Backspace" });
+    expect(handleRestart).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(document, { key: "Tab" });
     expect(handleRestart).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for the configured timeout before enabling result shortcuts", () => {
+    vi.useFakeTimers();
+
+    try {
+      const handleClose = vi.fn();
+      const handleRestart = vi.fn();
+
+      render(
+        <ResultsOverlay
+          isVisible
+          roundsData={roundData}
+          onClose={handleClose}
+          onRestart={handleRestart}
+          restartShortcut="Tab"
+          shortcutDelayMs={500}
+        />
+      );
+
+      fireEvent.keyDown(document, { key: "Tab" });
+      fireEvent.keyDown(document, { key: "Enter" });
+      expect(handleRestart).not.toHaveBeenCalled();
+      expect(handleClose).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(499);
+      fireEvent.keyDown(document, { key: "Tab" });
+      expect(handleRestart).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1);
+      fireEvent.keyDown(document, { key: "Tab" });
+      fireEvent.keyDown(document, { key: "Enter" });
+      expect(handleRestart).toHaveBeenCalledTimes(1);
+      expect(handleClose).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("can hide the tip panel", () => {

@@ -394,6 +394,7 @@ export function CompetitiveScrollGame() {
         heroLabel="Texto escrito"
         heroIcon={<DocumentTextIcon className="size-8" />}
         closeLabel="Continuar"
+        shortcutDelayMs={!isWinner ? 500 : 0}
         tipTitle="Lectura de la partida"
         tip={`${completedWords} palabras equivalen a ${getAverageBookPagesForWords(completedWords)} páginas promedio de libro. Tu rival llegó a ${opponentProgress?.typedWords ?? 0} palabras.`}
         showTipPanel

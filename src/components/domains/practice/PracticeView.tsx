@@ -241,7 +241,7 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
         roundsData={roundsData}
         onClose={handleCloseResults}
         onRestart={handleRestartPractice}
-        restartShortcut="Borrar"
+        restartShortcut="Tab"
       />
 
       <main
