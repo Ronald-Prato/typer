@@ -27,6 +27,7 @@ import {
   applyTypingInput,
   createTypingState,
   formatTypingTime,
+  getDeadKeyDisplay,
   isCopyPasteShortcut,
   type TypingMistake,
 } from "@/domain/typingEngine";
@@ -90,6 +91,7 @@ export function PracticeScrollGame({
   const [input, setInput] = useState("");
   const [errors, setErrors] = useState(0);
   const [mistake, setMistake] = useState<TypingMistake | null>(null);
+  const [pendingDeadKey, setPendingDeadKey] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState(() => Date.now());
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
@@ -160,6 +162,7 @@ export function PracticeScrollGame({
     setScrollParagraphs(getNextPracticeScrollParagraphs(sourceScrollParagraphs));
     setInput("");
     setMistake(null);
+    setPendingDeadKey(null);
     setPracticeScrollTextY(scrollContentRef.current, scrollConfig.startOffsetPx);
     setErrors(0);
     setFailed(false);
@@ -272,6 +275,7 @@ export function PracticeScrollGame({
       return;
     }
 
+    setPendingDeadKey(null);
     applyScrollInput(nextInput);
   };
 
@@ -283,6 +287,11 @@ export function PracticeScrollGame({
 
     if (isFinished) {
       return;
+    }
+
+    const deadKeyDisplay = getDeadKeyDisplay(event);
+    if (deadKeyDisplay) {
+      setPendingDeadKey(deadKeyDisplay);
     }
   };
 
@@ -357,6 +366,13 @@ export function PracticeScrollGame({
                     : null
                 }
                 targetText={line.text}
+                pendingDeadKey={
+                  pendingDeadKey &&
+                  progress.currentIndex >= line.startIndex &&
+                  progress.currentIndex < line.endIndex
+                    ? pendingDeadKey
+                    : null
+                }
                 userInput={input.slice(line.startIndex, line.endIndex)}
                 hasStarted={hasStartedTyping}
                 showCursor={

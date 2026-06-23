@@ -24,6 +24,7 @@ export function setPracticeScrollTextY(element: HTMLElement | null, y: number) {
 type PracticeScrollLineTextProps = {
   hasStarted: boolean;
   mistake?: TypingMistake | null;
+  pendingDeadKey?: string | null;
   showCursor: boolean;
   targetText: string;
   userInput: string;
@@ -31,6 +32,7 @@ type PracticeScrollLineTextProps = {
 
 export function PracticeScrollLineText({
   mistake,
+  pendingDeadKey,
   targetText,
   userInput,
   hasStarted,
@@ -41,6 +43,7 @@ export function PracticeScrollLineText({
     let displayChar = char;
     const isCursor = showCursor && index === userInput.length;
     const isActiveMistake = mistake?.index === index;
+    const isPendingDeadKey = pendingDeadKey && isCursor;
 
     if (index < userInput.length) {
       if (userInput[index] === char) {
@@ -50,6 +53,10 @@ export function PracticeScrollLineText({
           "font-bold text-[#9f4f4f] underline decoration-[#c97878] decoration-wavy underline-offset-4 dark:text-[#f0a8a8] dark:decoration-[#d98f8f]";
         displayChar = userInput[index] === " " ? "␣" : userInput[index];
       }
+    } else if (isPendingDeadKey) {
+      colorClass =
+        "font-bold text-orange-400 bg-orange-500/10 ring-1 ring-orange-400/30 rounded-sm px-0.5";
+      displayChar = pendingDeadKey;
     } else if (isActiveMistake) {
       colorClass =
         "font-bold text-[#9f4f4f] underline decoration-[#c97878] decoration-wavy underline-offset-4 motion-safe:animate-pulse dark:text-[#f0a8a8] dark:decoration-[#d98f8f]";

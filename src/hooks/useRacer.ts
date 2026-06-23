@@ -3,6 +3,7 @@ import {
   applyTypingInput,
   createTypingState,
   formatTypingTime,
+  getDeadKeyDisplay,
   getTypingTextVariant,
   type TypingMistake,
   type TypingState,
@@ -25,6 +26,7 @@ interface UseRacerReturn {
   startTime: number | null;
   currentTime: number;
   hasCompleted: boolean;
+  pendingDeadKey: string | null;
 
   // Refs
   inputRef: React.RefObject<HTMLInputElement | null>;
@@ -53,6 +55,7 @@ export function useRacer({
   const [typingState, setTypingState] = useState<TypingState>(() =>
     createTypingState(phrase || "")
   );
+  const [pendingDeadKey, setPendingDeadKey] = useState<string | null>(null);
 
   const targetText = phrase || "";
   const userInput = typingState.input;
@@ -83,6 +86,7 @@ export function useRacer({
   });
 
   useEffect(() => {
+    setPendingDeadKey(null);
     setTypingState(createTypingState(targetText));
   }, [targetText]);
 
@@ -99,12 +103,23 @@ export function useRacer({
       return;
     }
 
+    setPendingDeadKey(null);
+
     // Only allow typing if we haven't exceeded the target text length
     setTypingState((state) => applyTypingInput(state, value, Date.now()));
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     handleSessionKeyDown(event);
+
+    if (hasCompleted || event.defaultPrevented) {
+      return;
+    }
+
+    const deadKeyDisplay = getDeadKeyDisplay(event);
+    if (deadKeyDisplay) {
+      setPendingDeadKey(deadKeyDisplay);
+    }
   };
 
   const getTextVariant = (): "h4" | "h5" | "h6" => {
@@ -131,6 +146,7 @@ export function useRacer({
     startTime,
     currentTime,
     hasCompleted,
+    pendingDeadKey,
 
     // Refs
     inputRef,

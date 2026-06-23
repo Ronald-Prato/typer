@@ -5,6 +5,7 @@ import {
   applyTypingInput,
   createHoldTypingState,
   createTypingState,
+  getDeadKeyDisplay,
   getHoldTypingContentKey,
   getTypingSequenceContentKey,
   isCopyPasteShortcut,
@@ -191,6 +192,15 @@ describe("typingEngine", () => {
     expect(isStandaloneAccentKey("¨")).toBe(true);
     expect(isStandaloneAccentKey("á")).toBe(false);
     expect(isStandaloneAccentKey("a")).toBe(false);
+  });
+
+  it("resolves the visible accent for dead-key events", () => {
+    expect(getDeadKeyDisplay({ key: "Dead" })).toBe("´");
+    expect(getDeadKeyDisplay({ key: "Dead", code: "Quote" })).toBe("´");
+    expect(getDeadKeyDisplay({ key: "Dead", code: "Quote", shiftKey: true }))
+      .toBe("¨");
+    expect(getDeadKeyDisplay({ key: "\u0301" })).toBe("´");
+    expect(getDeadKeyDisplay({ key: "a" })).toBeNull();
   });
 
   it("detects deletion keys", () => {

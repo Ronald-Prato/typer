@@ -33,6 +33,7 @@ export function Racer({
     startTime,
     currentTime,
     isComplete,
+    pendingDeadKey,
     inputRef,
     containerRef,
     handleInputChange,
@@ -115,6 +116,7 @@ export function Racer({
               targetText={targetText}
               userInput={userInput}
               mistake={mistake}
+              pendingDeadKey={pendingDeadKey}
               variant={getTextVariant()}
             />
           ) : (

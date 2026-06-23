@@ -46,6 +46,8 @@ export interface KeyboardLike {
   ctrlKey?: boolean;
   metaKey?: boolean;
   altKey?: boolean;
+  shiftKey?: boolean;
+  code?: string;
 }
 
 const STANDALONE_ACCENT_KEYS = new Set([
@@ -59,6 +61,14 @@ const STANDALONE_ACCENT_KEYS = new Set([
   "\u0302",
   "\u0308",
   "\u0303",
+]);
+
+const STANDALONE_ACCENT_DISPLAY = new Map([
+  ["\u0301", "´"],
+  ["\u0300", "`"],
+  ["\u0302", "^"],
+  ["\u0308", "¨"],
+  ["\u0303", "~"],
 ]);
 
 export function getTypingSequenceContentKey(targets: string[]): string {
@@ -384,6 +394,26 @@ export function isPrintableTypingKey(event: KeyboardLike): boolean {
 
 export function isDeletionTypingKey(event: KeyboardLike): boolean {
   return event.key === "Backspace" || event.key === "Delete";
+}
+
+export function getDeadKeyDisplay(event: KeyboardLike): string | null {
+  if (!isStandaloneAccentKey(event.key)) {
+    return null;
+  }
+
+  if (event.key !== "Dead") {
+    return STANDALONE_ACCENT_DISPLAY.get(event.key) ?? event.key;
+  }
+
+  if (event.code === "Quote") {
+    return event.shiftKey ? "¨" : "´";
+  }
+
+  if (event.code === "Backquote") {
+    return "`";
+  }
+
+  return "´";
 }
 
 export function formatTypingTime(timeMs: number): string {

@@ -49,4 +49,20 @@ describe("TypingText", () => {
     expect(wrongLetter).not.toHaveClass("motion-safe:animate-pulse");
     expect(screen.queryByText("b")).not.toBeInTheDocument();
   });
+
+  it("shows a pending dead key at the active cursor", () => {
+    render(
+      <TypingText
+        targetText="árbol"
+        userInput=""
+        pendingDeadKey="´"
+        variant="h6"
+      />
+    );
+
+    const pendingAccent = screen.getByText("´");
+
+    expect(pendingAccent).toHaveClass("text-orange-400");
+    expect(screen.queryByText("á")).not.toBeInTheDocument();
+  });
 });

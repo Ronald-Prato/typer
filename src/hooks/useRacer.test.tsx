@@ -3,14 +3,19 @@ import { describe, expect, it, vi } from "vitest";
 
 import { useRacer } from "./useRacer";
 
-function createKeyDownEvent(key: string) {
+function createKeyDownEvent(
+  key: string,
+  options: { code?: string; shiftKey?: boolean } = {}
+) {
   return {
     altKey: false,
+    code: options.code,
     ctrlKey: false,
     defaultPrevented: false,
     key,
     metaKey: false,
     preventDefault: vi.fn(),
+    shiftKey: options.shiftKey,
   } as unknown as React.KeyboardEvent<HTMLInputElement>;
 }
 
@@ -77,6 +82,7 @@ describe("useRacer", () => {
     expect(vowelKey.preventDefault).not.toHaveBeenCalled();
     expect(result.current.userInput).toBe("");
     expect(result.current.errors).toEqual([]);
+    expect(result.current.pendingDeadKey).toBe("´");
 
     act(() => {
       result.current.handleInputChange({
@@ -88,6 +94,22 @@ describe("useRacer", () => {
     expect(result.current.userInput).toBe("á");
     expect(result.current.errors).toEqual([]);
     expect(result.current.mistake).toBeNull();
+    expect(result.current.pendingDeadKey).toBeNull();
+  });
+
+  it("shows the Latin American dead-key accent before text input changes", () => {
+    const { result } = renderHook(() =>
+      useRacer({ lockOnError: true, phrase: "árbol" })
+    );
+    const deadKey = createKeyDownEvent("Dead", { code: "Quote" });
+
+    act(() => {
+      result.current.handleKeyDown(deadKey);
+    });
+
+    expect(result.current.userInput).toBe("");
+    expect(result.current.errors).toEqual([]);
+    expect(result.current.pendingDeadKey).toBe("´");
   });
 
   it("allows backspace after typing a mistake", () => {
