@@ -24,12 +24,10 @@ import {
   shouldAdvancePracticeScroll,
 } from "@/domain/practiceScroll";
 import {
-  applyLockedTypingInput,
+  applyTypingInput,
   createTypingState,
   formatTypingTime,
-  isDeletionTypingKey,
   isCopyPasteShortcut,
-  isPrintableTypingKey,
   type TypingMistake,
 } from "@/domain/typingEngine";
 import { cn } from "@/lib/utils";
@@ -239,7 +237,7 @@ export function PracticeScrollGame({
   const applyScrollInput = useCallback(
     (nextInput: string, now = Date.now()) => {
       const previousErrors = Array.from({ length: errors }, () => 0);
-      const nextState = applyLockedTypingInput(
+      const nextState = applyTypingInput(
         {
           ...createTypingState(targetText),
           input,
@@ -286,24 +284,6 @@ export function PracticeScrollGame({
     if (isFinished) {
       return;
     }
-
-    if (mistake && isDeletionTypingKey(event)) {
-      event.preventDefault();
-      applyScrollInput(input);
-      return;
-    }
-
-    if (!isPrintableTypingKey(event)) {
-      return;
-    }
-
-    const expectedChar = targetText[input.length];
-    if (event.key === expectedChar) {
-      return;
-    }
-
-    event.preventDefault();
-    applyScrollInput(`${input}${event.key}`);
   };
 
   const handleRestart = () => {

@@ -29,11 +29,9 @@ import {
   shouldAdvancePracticeScroll,
 } from "@/domain/practiceScroll";
 import {
-  applyLockedTypingInput,
+  applyTypingInput,
   createTypingState,
-  isDeletionTypingKey,
   isCopyPasteShortcut,
-  isPrintableTypingKey,
   type TypingMistake,
 } from "@/domain/typingEngine";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -331,7 +329,7 @@ export function CompetitiveScrollGame() {
   const applyScrollInput = useCallback(
     (nextInput: string, now = Date.now()) => {
       const previousErrors = Array.from({ length: errors }, () => 0);
-      const nextState = applyLockedTypingInput(
+      const nextState = applyTypingInput(
         {
           ...createTypingState(targetText),
           input,
@@ -384,7 +382,11 @@ export function CompetitiveScrollGame() {
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextInput = event.target.value;
 
-    if (!isScrollPlayable || isFinished || nextInput.length > targetText.length) {
+    if (
+      !isScrollPlayable ||
+      isFinished ||
+      nextInput.length > targetText.length
+    ) {
       return;
     }
 
@@ -401,24 +403,6 @@ export function CompetitiveScrollGame() {
       event.preventDefault();
       return;
     }
-
-    if (mistake && isDeletionTypingKey(event)) {
-      event.preventDefault();
-      applyScrollInput(input);
-      return;
-    }
-
-    if (!isPrintableTypingKey(event)) {
-      return;
-    }
-
-    const expectedChar = targetText[input.length];
-    if (event.key === expectedChar) {
-      return;
-    }
-
-    event.preventDefault();
-    applyScrollInput(`${input}${event.key}`);
   };
 
   const handleFinish = async () => {

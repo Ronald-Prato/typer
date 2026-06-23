@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
 import {
-  applyLockedTypingInput,
   applyTypingInput,
   createTypingState,
   formatTypingTime,
   getTypingTextVariant,
-  isDeletionTypingKey,
-  isPrintableTypingKey,
   type TypingMistake,
   type TypingState,
 } from "@/domain/typingEngine";
@@ -49,7 +46,6 @@ interface UseRacerReturn {
 }
 
 export function useRacer({
-  lockOnError = false,
   phrase,
   onCompleted,
 }: UseRacerProps): UseRacerReturn {
@@ -104,41 +100,11 @@ export function useRacer({
     }
 
     // Only allow typing if we haven't exceeded the target text length
-    setTypingState((state) =>
-      lockOnError
-        ? applyLockedTypingInput(state, value, Date.now())
-        : applyTypingInput(state, value, Date.now())
-    );
+    setTypingState((state) => applyTypingInput(state, value, Date.now()));
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     handleSessionKeyDown(event);
-
-    if (!lockOnError || hasCompleted || event.defaultPrevented) {
-      return;
-    }
-
-    if (mistake && isDeletionTypingKey(event)) {
-      event.preventDefault();
-      setTypingState((state) =>
-        applyLockedTypingInput(state, state.input, Date.now())
-      );
-      return;
-    }
-
-    if (!isPrintableTypingKey(event)) {
-      return;
-    }
-
-    const expectedChar = targetText[userInput.length];
-    if (event.key === expectedChar) {
-      return;
-    }
-
-    event.preventDefault();
-    setTypingState((state) =>
-      applyLockedTypingInput(state, `${state.input}${event.key}`, Date.now())
-    );
   };
 
   const getTextVariant = (): "h4" | "h5" | "h6" => {
