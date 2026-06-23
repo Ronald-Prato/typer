@@ -48,6 +48,19 @@ export interface KeyboardLike {
   altKey?: boolean;
 }
 
+const STANDALONE_ACCENT_KEYS = new Set([
+  "´",
+  "`",
+  "^",
+  "¨",
+  "~",
+  "\u0301",
+  "\u0300",
+  "\u0302",
+  "\u0308",
+  "\u0303",
+]);
+
 export function getTypingSequenceContentKey(targets: string[]): string {
   return JSON.stringify(targets);
 }
@@ -78,6 +91,10 @@ export function applyTypingInput(
     return state;
   }
 
+  if (isAppendedStandaloneAccent(state.input, nextInput)) {
+    return state;
+  }
+
   const startedAt =
     state.startedAt ?? (nextInput.length > 0 ? now : state.startedAt);
   const errors = nextErrorsForInput(state, nextInput);
@@ -103,6 +120,10 @@ export function applyLockedTypingInput(
   now: number
 ): TypingState {
   if (state.hasCompleted || nextInput.length > state.target.length) {
+    return state;
+  }
+
+  if (isAppendedStandaloneAccent(state.input, nextInput)) {
     return state;
   }
 
@@ -292,6 +313,10 @@ export function applyHoldInput(
     return state;
   }
 
+  if (isAppendedStandaloneAccent(state.input, nextInput)) {
+    return state;
+  }
+
   const errors = nextErrorsForTarget(
     current.word,
     state.input,
@@ -343,9 +368,14 @@ export function isCopyPasteShortcut(event: KeyboardLike): boolean {
   );
 }
 
+export function isStandaloneAccentKey(key: string): boolean {
+  return key === "Dead" || STANDALONE_ACCENT_KEYS.has(key);
+}
+
 export function isPrintableTypingKey(event: KeyboardLike): boolean {
   return (
     event.key.length === 1 &&
+    !isStandaloneAccentKey(event.key) &&
     !event.ctrlKey &&
     !event.metaKey &&
     !event.altKey
@@ -378,6 +408,20 @@ function nextErrorsForInput(
     state.input,
     state.errors,
     nextInput
+  );
+}
+
+function isAppendedStandaloneAccent(
+  previousInput: string,
+  nextInput: string
+): boolean {
+  if (nextInput.length !== previousInput.length + 1) {
+    return false;
+  }
+
+  return (
+    nextInput.startsWith(previousInput) &&
+    isStandaloneAccentKey(nextInput[previousInput.length] ?? "")
   );
 }
 

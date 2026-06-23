@@ -10,6 +10,7 @@ import {
   isCopyPasteShortcut,
   isDeletionTypingKey,
   isPrintableTypingKey,
+  isStandaloneAccentKey,
   releaseHoldKey,
   pressHoldKey,
 } from "./typingEngine";
@@ -58,6 +59,24 @@ describe("typingEngine", () => {
     expect(state.elapsedMs).toBe(500);
   });
 
+  it("ignores standalone accent keys in locked typing without starting or counting an error", () => {
+    let state = createTypingState("árbol");
+
+    state = applyLockedTypingInput(state, "´", 1_000);
+
+    expect(state.input).toBe("");
+    expect(state.errors).toEqual([]);
+    expect(state.mistake).toBeNull();
+    expect(state.startedAt).toBeNull();
+
+    state = applyLockedTypingInput(state, "á", 1_100);
+
+    expect(state.input).toBe("á");
+    expect(state.errors).toEqual([]);
+    expect(state.mistake).toBeNull();
+    expect(state.startedAt).toBe(1_100);
+  });
+
   it("clears a locked mistake without deleting when input tries to delete first", () => {
     let state = createTypingState("cat");
 
@@ -81,6 +100,19 @@ describe("typingEngine", () => {
     expect(state.hasCompleted).toBe(true);
     expect(state.completedAt).toBe(35);
     expect(state.elapsedMs).toBe(25);
+  });
+
+  it("ignores standalone accent keys in regular typing input", () => {
+    let state = createTypingState("té");
+
+    state = applyTypingInput(state, "t", 1_000);
+    state = applyTypingInput(state, "t´", 1_100);
+    state = applyTypingInput(state, "té", 1_200);
+
+    expect(state.input).toBe("té");
+    expect(state.errors).toEqual([]);
+    expect(state.hasCompleted).toBe(true);
+    expect(state.elapsedMs).toBe(200);
   });
 
   it("advances hold words only while the required key is pressed", () => {
@@ -120,6 +152,22 @@ describe("typingEngine", () => {
     expect(state.isRequiredKeyPressed).toBe(false);
   });
 
+  it("ignores standalone accent keys in hold typing input", () => {
+    let state = createHoldTypingState([{ word: "té", number: 2 }]);
+
+    state = pressHoldKey(state, "2", 10);
+    state = applyHoldInput(state, "t", 20);
+    state = applyHoldInput(state, "t´", 30);
+
+    expect(state.input).toBe("t");
+    expect(state.errors).toEqual([]);
+
+    state = applyHoldInput(state, "té", 40);
+
+    expect(state.hasCompleted).toBe(true);
+    expect(state.totalErrors).toBe(0);
+  });
+
   it("detects blocked copy/paste shortcuts", () => {
     expect(isCopyPasteShortcut({ key: "v", ctrlKey: true })).toBe(true);
     expect(isCopyPasteShortcut({ key: "x", metaKey: true })).toBe(true);
@@ -132,6 +180,17 @@ describe("typingEngine", () => {
     expect(isPrintableTypingKey({ key: "Backspace" })).toBe(false);
     expect(isPrintableTypingKey({ key: "a", metaKey: true })).toBe(false);
     expect(isPrintableTypingKey({ key: "a", altKey: true })).toBe(false);
+    expect(isPrintableTypingKey({ key: "´" })).toBe(false);
+    expect(isPrintableTypingKey({ key: "Dead" })).toBe(false);
+  });
+
+  it("detects standalone accent keys used by Spanish dead-key layouts", () => {
+    expect(isStandaloneAccentKey("´")).toBe(true);
+    expect(isStandaloneAccentKey("Dead")).toBe(true);
+    expect(isStandaloneAccentKey("~")).toBe(true);
+    expect(isStandaloneAccentKey("¨")).toBe(true);
+    expect(isStandaloneAccentKey("á")).toBe(false);
+    expect(isStandaloneAccentKey("a")).toBe(false);
   });
 
   it("detects deletion keys", () => {
