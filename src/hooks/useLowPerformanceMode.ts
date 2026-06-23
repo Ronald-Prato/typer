@@ -6,16 +6,8 @@ const STORAGE_KEY = "typewars.low-performance-mode";
 const CHANGE_EVENT = "typewars:low-performance-mode-change";
 const DEFAULT_LOW_PERFORMANCE_MODE = true;
 
-const normalizeLowPerformanceMode = (value: string | null): boolean => {
-  if (value === null) return DEFAULT_LOW_PERFORMANCE_MODE;
-
-  return value !== "false";
-};
-
 const getSnapshot = (): boolean => {
-  if (typeof window === "undefined") return DEFAULT_LOW_PERFORMANCE_MODE;
-
-  return normalizeLowPerformanceMode(window.localStorage.getItem(STORAGE_KEY));
+  return DEFAULT_LOW_PERFORMANCE_MODE;
 };
 
 const subscribe = (callback: () => void) => {
@@ -30,10 +22,10 @@ const subscribe = (callback: () => void) => {
   };
 };
 
-export const setStoredLowPerformanceMode = (enabled: boolean) => {
+export const setStoredLowPerformanceMode = (_enabled: boolean) => {
   if (typeof window === "undefined") return;
 
-  window.localStorage.setItem(STORAGE_KEY, enabled ? "true" : "false");
+  window.localStorage.setItem(STORAGE_KEY, "true");
   window.dispatchEvent(new Event(CHANGE_EVENT));
 };
 
@@ -47,9 +39,11 @@ export const useLowPerformanceMode = () => {
   useEffect(() => {
     if (typeof document === "undefined") return;
 
-    document.documentElement.dataset.performanceMode = isLowPerformanceMode
-      ? "low"
-      : "full";
+    document.documentElement.dataset.performanceMode = "low";
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, "true");
+    }
   }, [isLowPerformanceMode]);
 
   const setLowPerformanceMode = useCallback((enabled: boolean) => {
@@ -58,4 +52,3 @@ export const useLowPerformanceMode = () => {
 
   return { isLowPerformanceMode, setLowPerformanceMode };
 };
-

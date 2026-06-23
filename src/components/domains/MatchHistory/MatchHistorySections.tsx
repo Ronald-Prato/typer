@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "@/motion";
-import { ChevronRight, Search, Swords } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Swords } from "lucide-react";
 import { Text } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -127,10 +127,13 @@ export function MatchHistoryHeader({
         {[
           { label: "Partidas", value: summary.total },
           { label: "Victorias", value: `${summary.winRate}%` },
-          { label: "WPM prom.", value: summary.averageWpm || "N/A" },
+          {
+            label: "WPM prom.",
+            value: summary.total > 0 ? summary.averageWpm : "N/A",
+          },
           {
             label: "Precisión",
-            value: summary.averageAccuracy
+            value: summary.total > 0
               ? `${summary.averageAccuracy}%`
               : "N/A",
           },
@@ -181,34 +184,97 @@ export function MatchHistoryFilterEmpty() {
 }
 
 export function MatchHistoryPagination({
+  canGoNext,
+  canGoPrevious,
+  currentPage,
   hasMore,
   isFirstLoad,
   isLoadingMore,
-  onLoadMore,
+  loadedPageCount,
+  pages,
+  pendingPage,
+  onPageChange,
 }: {
+  canGoNext: boolean;
+  canGoPrevious: boolean;
+  currentPage: number;
   hasMore: boolean;
   isFirstLoad: boolean;
   isLoadingMore: boolean;
-  onLoadMore: () => void;
+  loadedPageCount: number;
+  pages: number[];
+  pendingPage: number | null;
+  onPageChange: (page: number) => void;
 }) {
-  if (!hasMore) return null;
+  if (pages.length <= 1 && !canGoPrevious && !canGoNext) return null;
 
   return (
     <motion.div
       initial={isFirstLoad ? { opacity: 0, y: 10 } : false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.1 }}
-      className="mt-8 flex items-center justify-center space-x-4"
+      className="mt-8 flex flex-wrap items-center justify-center gap-2"
     >
       <Button
-        onClick={onLoadMore}
-        disabled={isLoadingMore}
+        type="button"
+        aria-label="Página anterior"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={!canGoPrevious || isLoadingMore}
         variant="outline"
-        className="flex items-center space-x-2 border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] text-[var(--tw-home-fg)] hover:border-orange-500/35 hover:bg-[var(--tw-home-panel-strong)]"
+        className="size-10 border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] p-0 text-[var(--tw-home-fg)] hover:border-orange-500/35 hover:bg-[var(--tw-home-panel-strong)] disabled:opacity-40"
       >
-        <Text variant="body2">
-          {isLoadingMore ? "Cargando..." : "Cargar más"}
-        </Text>
+        <ChevronLeft className="size-4" />
+      </Button>
+
+      <div className="flex items-center gap-1 rounded-md border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] p-1 shadow-[var(--tw-home-shadow)]">
+        {pages.map((page, index) => {
+          const previousPage = pages[index - 1];
+          const hasGap = previousPage !== undefined && page - previousPage > 1;
+          const isCurrent = page === currentPage;
+          const isPending = pendingPage === page && isLoadingMore;
+          const loadsMore = page > loadedPageCount && hasMore;
+
+          return (
+            <span key={page} className="flex items-center gap-1">
+              {hasGap ? (
+                <Text
+                  variant="caption"
+                  className="px-2 text-[var(--tw-home-muted)]"
+                >
+                  ...
+                </Text>
+              ) : null}
+              <button
+                type="button"
+                aria-current={isCurrent ? "page" : undefined}
+                aria-label={`Página ${page}`}
+                onClick={() => onPageChange(page)}
+                disabled={isLoadingMore && !isPending}
+                className={cn(
+                  "flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm font-semibold transition-colors",
+                  isCurrent
+                    ? "bg-orange-500/15 text-orange-600 dark:text-orange-200"
+                    : "text-[var(--tw-home-muted)] hover:bg-[var(--tw-home-panel-strong)] hover:text-[var(--tw-home-fg)]",
+                  loadsMore
+                    ? "border border-dashed border-orange-500/35"
+                    : "border border-transparent"
+                )}
+              >
+                {isPending ? "..." : page}
+              </button>
+            </span>
+          );
+        })}
+      </div>
+
+      <Button
+        type="button"
+        aria-label="Página siguiente"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={!canGoNext || isLoadingMore}
+        variant="outline"
+        className="size-10 border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] p-0 text-[var(--tw-home-fg)] hover:border-orange-500/35 hover:bg-[var(--tw-home-panel-strong)] disabled:opacity-40"
+      >
         <ChevronRight className="size-4" />
       </Button>
     </motion.div>

@@ -31,7 +31,7 @@ export default function OneVsOnePage() {
 
   return (
     <MainLayout>
-      <div className="flex flex-col justify-start h-full w-full">
+      <div className="flex h-full w-full flex-col justify-center">
         <Stage1 onStageCompleted={handleStageCompleted} />
       </div>
     </MainLayout>

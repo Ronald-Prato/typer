@@ -45,6 +45,13 @@ const gameProgress = v.record(
 
 const gameMode = v.union(v.literal("classic"), v.literal("scroll"));
 
+const typingContentKind = v.union(
+  v.literal("practicePhrase"),
+  v.literal("classicWord"),
+  v.literal("classicCharacter"),
+  v.literal("scrollParagraph")
+);
+
 const scrollProgress = v.record(
   v.id("user"),
   v.object({
@@ -137,6 +144,19 @@ export default defineSchema({
     date: v.number(),
   }),
 
+  typingContent: defineTable({
+    kind: typingContentKind,
+    text: v.string(),
+    language: v.literal("es"),
+    sortOrder: v.number(),
+    active: v.boolean(),
+    sourceKey: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_kind_active_sort_order", ["kind", "active", "sortOrder"])
+    .index("by_source_key", ["sourceKey"]),
+
   game: defineTable({
     mode: v.optional(gameMode),
     players: v.array(v.id("user")),
@@ -156,10 +176,12 @@ export default defineSchema({
         nickname: v.string(),
         avatarSeed: v.optional(v.string()),
         avatarUrl: v.optional(v.string()),
+        highestPracticeWpm: v.optional(v.number()),
       })
     ),
     lettersAndSymbols: v.array(v.string()),
     playersAccepted: v.array(v.id("user")),
+    acceptDeadlineAt: v.optional(v.number()),
     winner: v.optional(v.id("user")),
     language: v.union(v.literal("en"), v.literal("es")),
     progress: v.optional(gameProgress),
@@ -185,6 +207,7 @@ export default defineSchema({
         nickname: v.string(),
         avatarSeed: v.optional(v.string()),
         avatarUrl: v.optional(v.string()),
+        highestPracticeWpm: v.optional(v.number()),
       })
     ),
     opponentSnapshot: v.optional(
@@ -193,6 +216,7 @@ export default defineSchema({
         nickname: v.string(),
         avatarSeed: v.optional(v.string()),
         avatarUrl: v.optional(v.string()),
+        highestPracticeWpm: v.optional(v.number()),
       })
     ),
     phrase: v.string(),

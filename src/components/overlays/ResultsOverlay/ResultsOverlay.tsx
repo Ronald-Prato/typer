@@ -1,8 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect } from "react";
-import { motion, AnimatePresence } from "@/motion";
+import { useEffect, useState } from "react";
+import {
+  motion,
+  AnimatePresence,
+  motionTransitions,
+  useReducedMotion,
+} from "@/motion";
 import {
   ArrowPathIcon,
   ArrowUturnLeftIcon,
@@ -20,6 +25,8 @@ import {
   formatPracticeTime,
   summarizePracticeResults,
 } from "@/domain/practiceResults";
+import { TypocoinToken } from "@/components/Currency";
+import { formatTypocoinAmount, formatTypocoinLabel } from "@/domain/currency";
 
 interface RoundData {
   phrase: string;
@@ -55,6 +62,7 @@ interface ResultsOverlayProps {
   restartShortcut?: string;
   shortcutDelayMs?: number;
   closeLabel?: string;
+  typocoinRewardAmount?: number;
 }
 
 const CONFETTI_PIECES = [
@@ -66,6 +74,14 @@ const CONFETTI_PIECES = [
   { left: "73%", x: 48, rotate: -18, color: "bg-yellow-400", delay: 0.06 },
   { left: "86%", x: 76, rotate: 32, color: "bg-orange-400", delay: 0.12 },
 ];
+const TYPOCOIN_REWARD_APPEAR_DELAY_MS = 300;
+const TYPOCOIN_REWARD_APPEAR_DURATION_MS = 180;
+const TYPOCOIN_REWARD_APPEAR_DELAY_SECONDS =
+  TYPOCOIN_REWARD_APPEAR_DELAY_MS / 1000;
+const TYPOCOIN_REWARD_ROLL_START_DELAY_MS =
+  TYPOCOIN_REWARD_APPEAR_DELAY_MS + TYPOCOIN_REWARD_APPEAR_DURATION_MS;
+const TYPOCOIN_REWARD_ROLL_STEP_MS = 45;
+const TYPOCOIN_REWARD_ROLL_MAX_STEPS = 10;
 
 function isRestartShortcut(event: KeyboardEvent, shortcut?: string) {
   if (!shortcut || event.metaKey || event.ctrlKey || event.altKey) {
@@ -106,8 +122,10 @@ export function ResultsOverlay({
   restartShortcut,
   shortcutDelayMs = 0,
   closeLabel = "Volver",
+  typocoinRewardAmount,
 }: ResultsOverlayProps) {
   const { isLowPerformanceMode } = useLowPerformanceMode();
+  const shouldReduceRewardMotion = useReducedMotion();
   const summary = summarizePracticeResults(roundsData);
   const resultStats =
     stats ??
@@ -137,6 +155,16 @@ export function ResultsOverlay({
   const resolvedTip = tip ?? summary.tip;
   const resolvedLevelLabel = levelLabel ?? summary.levelLabel;
   const resolvedLevelProgress = levelProgress ?? summary.levelProgress;
+  const hasTypocoinReward =
+    typeof typocoinRewardAmount === "number" && typocoinRewardAmount > 0;
+  const typocoinRewardLabel =
+    hasTypocoinReward
+      ? formatTypocoinLabel(typocoinRewardAmount, { signed: true })
+      : undefined;
+  const typocoinRewardValue =
+    hasTypocoinReward
+      ? formatTypocoinAmount(typocoinRewardAmount, { signed: true })
+      : undefined;
 
   useEffect(() => {
     if (!isVisible) return;
@@ -264,6 +292,34 @@ export function ResultsOverlay({
               >
                 {description ?? "Buen ritmo. Estos son tus resultados."}
               </Text>
+              {typocoinRewardLabel && (
+                <motion.div
+                  aria-label={typocoinRewardLabel}
+                  initial={
+                    shouldReduceRewardMotion
+                      ? false
+                      : { opacity: 0, y: 8, scale: 0.96 }
+                  }
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={
+                    shouldReduceRewardMotion
+                      ? motionTransitions.fast
+                      : {
+                          ...motionTransitions.base,
+                          delay: TYPOCOIN_REWARD_APPEAR_DELAY_SECONDS,
+                        }
+                  }
+                  className="mt-5 inline-flex items-center gap-3 text-cyan-950 drop-shadow-[0_10px_24px_rgba(8,145,178,0.2)] dark:text-cyan-50"
+                  role="status"
+                >
+                  <TypocoinToken size="lg" />
+                  <AnimatedTypocoinRewardAmount
+                    amount={typocoinRewardAmount}
+                    fallbackValue={typocoinRewardValue}
+                    startDelayMs={TYPOCOIN_REWARD_ROLL_START_DELAY_MS}
+                  />
+                </motion.div>
+              )}
 
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
@@ -388,6 +444,77 @@ export function ResultsOverlay({
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+function AnimatedTypocoinRewardAmount({
+  amount,
+  fallbackValue,
+  startDelayMs,
+}: {
+  amount?: number;
+  fallbackValue?: string;
+  startDelayMs: number;
+}) {
+  const shouldReduceMotion = useReducedMotion();
+  const finalAmount = amount ?? 0;
+  const [displayAmount, setDisplayAmount] = useState(
+    shouldReduceMotion ? finalAmount : 0
+  );
+  const displayValue =
+    displayAmount === 0
+      ? "+0"
+      : formatTypocoinAmount(displayAmount, { signed: true });
+
+  useEffect(() => {
+    if (shouldReduceMotion || finalAmount <= 0) {
+      setDisplayAmount(finalAmount);
+      return;
+    }
+
+    setDisplayAmount(0);
+
+    const increment = Math.max(
+      1,
+      Math.ceil(finalAmount / TYPOCOIN_REWARD_ROLL_MAX_STEPS)
+    );
+    let intervalId: number | undefined;
+    const timeoutId = window.setTimeout(() => {
+      intervalId = window.setInterval(() => {
+        setDisplayAmount((currentAmount) => {
+          const nextAmount = Math.min(finalAmount, currentAmount + increment);
+
+          if (nextAmount >= finalAmount && intervalId !== undefined) {
+            window.clearInterval(intervalId);
+          }
+
+          return nextAmount;
+        });
+      }, TYPOCOIN_REWARD_ROLL_STEP_MS);
+    }, startDelayMs);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, [finalAmount, shouldReduceMotion, startDelayMs]);
+
+  return (
+    <span className="relative inline-flex min-w-[3ch] justify-end overflow-hidden text-3xl font-black leading-none tabular-nums">
+      <motion.span
+        key={displayValue}
+        initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={shouldReduceMotion ? undefined : { opacity: 0, y: -18 }}
+        transition={motionTransitions.fast}
+      >
+        {fallbackValue && displayAmount === finalAmount
+          ? fallbackValue
+          : displayValue}
+      </motion.span>
+    </span>
   );
 }
 

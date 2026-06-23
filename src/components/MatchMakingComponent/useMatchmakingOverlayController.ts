@@ -6,8 +6,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { api } from "../../../convex/_generated/api";
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useMatchFoundAudioNotification } from "@/hooks";
 import {
   getAcceptedMatchRoute,
+  getMatchAcceptCountdownSeconds,
   isAcceptedMatchReadyToEnter,
 } from "@/domain/matchFlow";
 
@@ -25,6 +27,8 @@ export function useMatchmakingOverlayController() {
   const acceptGame = useMutation(api.game.acceptGame);
 
   const [, startTransition] = useTransition();
+  const [acceptCountdownNow, setAcceptCountdownNow] = useState(() => Date.now());
+  const [expiredMatchId, setExpiredMatchId] = useState<string | null>(null);
   const [isAccepting, setIsAccepting] = useState(false);
 
   const isInQueue = ownUser?.status === "in_queue";
@@ -34,9 +38,28 @@ export function useMatchmakingOverlayController() {
   const hasAccepted = Boolean(
     currentGame?.game?.playersAccepted?.includes(ownUser?._id as never)
   );
+  const acceptDeadlineAt = currentGame?.game?.acceptDeadlineAt ?? null;
+  const acceptSecondsRemaining = hasAccepted
+    ? null
+    : getMatchAcceptCountdownSeconds({
+        acceptDeadlineAt,
+        now: acceptCountdownNow,
+      });
+  const isAcceptWindowExpired = acceptSecondsRemaining === 0;
+
+  useMatchFoundAudioNotification({
+    activeGameId: ownUser?.activeGame ?? null,
+    isGameFound,
+  });
 
   const handleAcceptGame = useCallback(() => {
-    if (!ownUser?.activeGame || ownUser.status === "in_game") return;
+    if (
+      !ownUser?.activeGame ||
+      ownUser.status === "in_game" ||
+      isAcceptWindowExpired
+    ) {
+      return;
+    }
 
     setIsAccepting(true);
     startTransition(async () => {
@@ -49,7 +72,13 @@ export function useMatchmakingOverlayController() {
         setIsAccepting(false);
       }
     });
-  }, [acceptGame, ownUser?.activeGame, ownUser?.status]);
+  }, [
+    acceptGame,
+    isAcceptWindowExpired,
+    ownUser?.activeGame,
+    ownUser?.status,
+    startTransition,
+  ]);
 
   const handleRejectGame = useCallback(() => {
     if (!ownUser?.activeGame || ownUser.status === "in_game") return;
@@ -62,7 +91,7 @@ export function useMatchmakingOverlayController() {
         alert("Error al rechazar la partida");
       }
     });
-  }, [ownUser?.activeGame, ownUser?.status, rejectGame]);
+  }, [ownUser?.activeGame, ownUser?.status, rejectGame, startTransition]);
 
   const handleExitQueue = useCallback(() => {
     if (!isInQueue || ownUser?.status === "in_game") return;
@@ -74,7 +103,7 @@ export function useMatchmakingOverlayController() {
         console.error("Error exiting queue:", error);
       }
     });
-  }, [exitQueue, isInQueue, ownUser?.status]);
+  }, [exitQueue, isInQueue, ownUser?.status, startTransition]);
 
   useGlobalShortcut({
     scope: "match",
@@ -99,6 +128,51 @@ export function useMatchmakingOverlayController() {
     enabled: isInQueue && !isGameFound,
     onShortcut: handleExitQueue,
   });
+
+  useEffect(() => {
+    setExpiredMatchId(null);
+  }, [ownUser?.activeGame]);
+
+  useEffect(() => {
+    if (!isGameFound || hasAccepted || acceptDeadlineAt === null) return;
+
+    setAcceptCountdownNow(Date.now());
+    const intervalId = window.setInterval(() => {
+      setAcceptCountdownNow(Date.now());
+    }, 250);
+
+    return () => window.clearInterval(intervalId);
+  }, [acceptDeadlineAt, hasAccepted, isGameFound]);
+
+  useEffect(() => {
+    if (
+      !isGameFound ||
+      hasAccepted ||
+      acceptSecondsRemaining !== 0 ||
+      !ownUser?.activeGame ||
+      expiredMatchId === ownUser.activeGame
+    ) {
+      return;
+    }
+
+    const matchId = ownUser.activeGame;
+    setExpiredMatchId(matchId);
+    startTransition(async () => {
+      try {
+        await rejectGame();
+      } catch (error) {
+        console.error("Error expiring match acceptance window:", error);
+      }
+    });
+  }, [
+    acceptSecondsRemaining,
+    expiredMatchId,
+    hasAccepted,
+    isGameFound,
+    ownUser?.activeGame,
+    rejectGame,
+    startTransition,
+  ]);
 
   useEffect(() => {
     const route = getAcceptedMatchRoute(currentGame?.game?.mode);
@@ -126,6 +200,7 @@ export function useMatchmakingOverlayController() {
   ]);
 
   return {
+    acceptSecondsRemaining,
     hasAccepted,
     isAccepting,
     isGameFound,

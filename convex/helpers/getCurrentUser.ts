@@ -1,8 +1,3 @@
-import {
-  practiceLettersAndSymbols,
-  practicePhrases,
-  practiceWords,
-} from "../../src/constants";
 import { avatarUrlFromSeed, DEFAULT_AVATAR_SEED } from "../../src/domain/avatar";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
@@ -75,25 +70,3 @@ export const getCurrentUserOrNull = async (ctx: AuthCtx) => {
 
 export const requireCurrentUser = getCurrentUser;
 export const currentUserOrNull = getCurrentUserOrNull;
-
-export const getRandomGameSettings = () => {
-  const phrase =
-    practicePhrases[Math.floor(Math.random() * practicePhrases.length)];
-  const words = Array.from(
-    { length: 6 },
-    () => practiceWords[Math.floor(Math.random() * practiceWords.length)]
-  );
-  const lettersAndSymbols = Array.from(
-    { length: 6 },
-    () =>
-      practiceLettersAndSymbols[
-        Math.floor(Math.random() * practiceLettersAndSymbols.length)
-      ]
-  );
-  const holdsWords = Array.from({ length: 6 }, () => ({
-    word: practiceWords[Math.floor(Math.random() * practiceWords.length)],
-    number: Math.floor(Math.random() * 10),
-  }));
-
-  return { phrase, words, lettersAndSymbols, holdsWords };
-};

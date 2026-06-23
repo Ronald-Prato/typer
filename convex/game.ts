@@ -3,14 +3,12 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
   getBotScrollIndex,
+  hasCompetitiveScrollBotMissedLine,
+  COMPETITIVE_SCROLL_COUNTDOWN_MS,
+  COMPETITIVE_SCROLL_VERSUS_INTRO_MS,
   getCompetitiveScrollWinner,
-  getPracticeScrollDangerLinePx,
-  getPracticeScrollSpeedPxPerSecond,
   getPracticeScrollWordLines,
-  hasCompetitiveScrollLineFailed,
   normalizeCompetitiveScrollProgress,
-  PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
-  PRACTICE_SCROLL_SPEED_PX_PER_SECOND,
   type CompetitiveScrollProgress,
 } from "../src/domain/practiceScroll";
 import {
@@ -21,16 +19,19 @@ import type { Doc, Id } from "./_generated/dataModel";
 import {
   applyGameStep,
   canAcceptGame,
+  getBotStepScheduleDelayMs,
   getNextBotStep,
+  hasMatchAcceptWindowExpired,
   type GameMetrics,
   type GameProgress,
-  type GameStep,
 } from "./gameStateMachine";
 import {
+  getClassicMatchHighestWpmPatch,
   getFinishedGameHistoryUserIds,
+  getForfeitWinnerId,
   getHistoryOpponentSnapshot,
-  getWinnerGoldPatch,
-  shouldRewardWinner,
+  getRewardedWinnerId,
+  getWinnerTypocoinPatch,
   toPlayerSnapshot,
   type PlayerSnapshot,
 } from "./gameLifecycle";
@@ -49,23 +50,10 @@ const gameMetricsValidator = v.object({
   wpm: v.optional(v.number()),
 });
 
-const botStepDelays: Record<GameStep, number> = {
-  phrase: 10000,
-  words: 12000,
-  lettersAndSymbols: 8000,
-  holds: 18000,
-};
-
 const SCROLL_BOT_TICK_MS = 1_000;
-const SCROLL_CONTAINER_HEIGHT_PX = 560;
-const SCROLL_SERVER_CONFIG = {
-  lineHeightPx: 70,
-  startOffsetPx: 430,
-  dangerLinePx: getPracticeScrollDangerLinePx(SCROLL_CONTAINER_HEIGHT_PX),
-};
-const SCROLL_SPEED_PX_PER_SECOND = PRACTICE_SCROLL_SPEED_PX_PER_SECOND;
-const SCROLL_SPEED_INCREMENT_PX_PER_SECOND =
-  PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND;
+const COMPETITIVE_SCROLL_START_DELAY_MS =
+  COMPETITIVE_SCROLL_VERSUS_INTRO_MS + COMPETITIVE_SCROLL_COUNTDOWN_MS;
+const CLASSIC_MATCH_START_DELAY_MS = COMPETITIVE_SCROLL_START_DELAY_MS;
 
 function createBotMetrics(): GameMetrics {
   const errors = Math.floor(Math.random() * 3);
@@ -183,13 +171,14 @@ async function scheduleNextBotStep(
   ctx: { scheduler: any },
   gameId: Id<"game">,
   botId: Id<"user">,
-  progress: GameProgress | undefined
+  progress: GameProgress | undefined,
+  initialDelayMs = 0
 ) {
   const nextStep = getNextBotStep(progress?.[botId]);
   if (!nextStep) return;
 
   await ctx.scheduler.runAfter(
-    botStepDelays[nextStep],
+    getBotStepScheduleDelayMs({ step: nextStep, initialDelayMs }),
     internal.game.setStepDoneBot,
     {
       gameId,
@@ -203,6 +192,139 @@ function getHumanGamePlayerIds(game: Doc<"game">) {
   if (!game.againstBot || !botUserId) return game.players;
 
   return game.players.filter((playerId) => playerId !== botUserId);
+}
+
+async function clearPendingGamePlayers(ctx: { db: any }, game: Doc<"game">) {
+  const playerIdsToClear = getHumanGamePlayerIds(game);
+  const players = await Promise.all(
+    playerIdsToClear.map((playerId) => ctx.db.get(playerId))
+  );
+
+  await Promise.all(
+    players
+      .filter(
+        (player): player is Doc<"user"> =>
+          Boolean(player) &&
+          player.activeGame === game._id &&
+          player.status === "game_found"
+      )
+      .map((player) =>
+        ctx.db.patch(player._id, {
+          activeGame: undefined,
+          status: "online",
+        })
+      )
+  );
+}
+
+async function updateFinishedClassicMatchHighestWpms(
+  ctx: { db: any },
+  progress: GameProgress,
+  userIds: Id<"user">[]
+) {
+  const users = await Promise.all(userIds.map((userId) => ctx.db.get(userId)));
+
+  await Promise.all(
+    users.map((user) => {
+      if (!user) return null;
+
+      const patch = getClassicMatchHighestWpmPatch({
+        currentHighestWpm: user.highestPracticeWpm,
+        progress: progress[user._id],
+      });
+
+      if (!patch) return null;
+
+      return ctx.db.patch(user._id, patch);
+    })
+  );
+}
+
+async function rewardFinishedGameWinner(
+  ctx: { db: any },
+  game: Doc<"game">,
+  winnerId: Id<"user">
+) {
+  const rewardUserId = getRewardedWinnerId({
+    players: game.players,
+    winnerId,
+    againstBot: game.againstBot,
+    botPlayerId: game.againstBot
+      ? (game.botProfile?.userId as Id<"user"> | undefined)
+      : undefined,
+  });
+
+  if (!rewardUserId) return;
+
+  const rewardUser = await ctx.db.get(rewardUserId);
+  if (!rewardUser) return;
+
+  await ctx.db.patch(rewardUserId, getWinnerTypocoinPatch(rewardUser.gold));
+}
+
+async function finishGameByForfeit(
+  ctx: { db: any },
+  game: Doc<"game">,
+  forfeitingPlayerId: Id<"user">,
+  winnerId: Id<"user">
+) {
+  const historyUserIds = getFinishedGameHistoryUserIds({
+    players: game.players,
+    againstBot: game.againstBot,
+    botPlayerId: game.againstBot
+      ? (game.botProfile?.userId as Id<"user"> | undefined)
+      : undefined,
+  });
+
+  if (game.mode === "scroll" && game.scrollText) {
+    const previousProgress = game.scrollProgress?.[
+      forfeitingPlayerId
+    ] as CompetitiveScrollProgress | undefined;
+    const now = Date.now();
+    const scrollStartedAt = game.scrollStartedAt ?? previousProgress?.startedAt ?? now;
+    const forfeitingProgress = normalizeCompetitiveScrollProgress({
+      currentIndex: previousProgress?.currentIndex ?? 0,
+      errors: previousProgress?.errors ?? 0,
+      failed: true,
+      now,
+      previousProgress,
+      startedAt: scrollStartedAt,
+      text: game.scrollText,
+    });
+    const scrollProgress = {
+      ...(game.scrollProgress as Record<string, CompetitiveScrollProgress> | undefined),
+      [forfeitingPlayerId]: forfeitingProgress,
+    };
+
+    await saveFinishedScrollGameHistory(
+      ctx,
+      game,
+      winnerId,
+      scrollProgress,
+      historyUserIds
+    );
+    await rewardFinishedGameWinner(ctx, game, winnerId);
+    await ctx.db.patch(game._id, {
+      scrollProgress,
+      ...(game.scrollStartedAt !== undefined ? {} : { scrollStartedAt }),
+      winner: winnerId,
+    });
+  } else {
+    const progress = (game.progress as GameProgress | undefined) ?? {};
+
+    await saveFinishedGameHistory(ctx, game, winnerId, progress, historyUserIds);
+    await updateFinishedClassicMatchHighestWpms(ctx, progress, historyUserIds);
+    await rewardFinishedGameWinner(ctx, game, winnerId);
+    await ctx.db.patch(game._id, {
+      progress,
+      winner: winnerId,
+    });
+  }
+
+  await ctx.db.patch(forfeitingPlayerId, {
+    status: "online",
+    activeGame: undefined,
+  });
 }
 
 export const acceptGame = mutation({
@@ -235,6 +357,18 @@ export const acceptGame = mutation({
     }
 
     if (
+      hasMatchAcceptWindowExpired({
+        acceptDeadlineAt: game.acceptDeadlineAt,
+        now: Date.now(),
+        players: game.players,
+        playersAccepted: game.playersAccepted,
+      })
+    ) {
+      await clearPendingGamePlayers(ctx, game);
+      throw new Error("La ventana para aceptar la partida expiró");
+    }
+
+    if (
       !againstBot &&
       (theOtherPlayer?.status !== "game_found" ||
         theOtherPlayer.activeGame !== ownUser.activeGame)
@@ -261,16 +395,25 @@ export const acceptGame = mutation({
       );
     }
 
+    const now = Date.now();
+    const scrollStartedAt =
+      game.mode === "scroll" && acceptedState.allAccepted
+        ? (game.scrollStartedAt ?? now + COMPETITIVE_SCROLL_START_DELAY_MS)
+        : undefined;
     const result = await ctx.db.patch(game._id, {
       playersAccepted: acceptedState.playersAccepted,
-      ...(againstBot && acceptedState.allAccepted && game.mode === "scroll"
+      ...(acceptedState.allAccepted && game.mode === "scroll" && scrollStartedAt
         ? {
-            scrollStartedAt: Date.now(),
-            botScrollPlan: {
-              botId: theOtherPlayerId,
-              startedAt: Date.now(),
-              charsPerSecond: game.botScrollPlan?.charsPerSecond ?? 5,
-            },
+            scrollStartedAt,
+            ...(againstBot
+              ? {
+                  botScrollPlan: {
+                    botId: theOtherPlayerId,
+                    startedAt: scrollStartedAt,
+                    charsPerSecond: game.botScrollPlan?.charsPerSecond ?? 5,
+                  },
+                }
+              : {}),
           }
         : {}),
     });
@@ -286,12 +429,41 @@ export const acceptGame = mutation({
           ctx,
           game._id,
           theOtherPlayerId,
-          game.progress as GameProgress | undefined
+          game.progress as GameProgress | undefined,
+          CLASSIC_MATCH_START_DELAY_MS
         );
       }
     }
 
     return result;
+  },
+});
+
+export const expirePendingGame = internalMutation({
+  args: {
+    gameId: v.id("game"),
+    acceptDeadlineAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const game = await ctx.db.get(args.gameId);
+
+    if (!game || game.acceptDeadlineAt !== args.acceptDeadlineAt) {
+      return null;
+    }
+
+    if (
+      !hasMatchAcceptWindowExpired({
+        acceptDeadlineAt: game.acceptDeadlineAt,
+        now: Date.now(),
+        players: game.players,
+        playersAccepted: game.playersAccepted,
+      })
+    ) {
+      return null;
+    }
+
+    await clearPendingGamePlayers(ctx, game);
+    return null;
   },
 });
 
@@ -355,6 +527,9 @@ export const getGameData = query({
             nickname: game.botProfile.nickname,
             avatarSeed: game.botProfile.avatarSeed,
             avatarUrl: game.botProfile.avatarUrl,
+            highestPracticeWpm:
+              game.botProfile.highestPracticeWpm ??
+              opponentDoc.highestPracticeWpm,
           }
         : opponentDoc;
 
@@ -414,16 +589,13 @@ export const setStepDone = mutation({
         nextState.progress,
         historyUserIds
       );
+      await updateFinishedClassicMatchHighestWpms(
+        ctx,
+        nextState.progress,
+        historyUserIds
+      );
 
-      if (
-        shouldRewardWinner({
-          winnerId: ownUser._id,
-          humanPlayerId: ownUser._id,
-          againstBot: game.againstBot,
-        })
-      ) {
-        await ctx.db.patch(ownUser._id, getWinnerGoldPatch(ownUser.gold));
-      }
+      await rewardFinishedGameWinner(ctx, game, ownUser._id);
 
       return await ctx.db.patch(game._id, {
         progress: nextState.progress,
@@ -474,12 +646,6 @@ export const updateScrollProgress = mutation({
 
     const previousProgress =
       game.scrollProgress?.[ownUser._id] as CompetitiveScrollProgress | undefined;
-    if (
-      previousProgress &&
-      args.currentIndex < previousProgress.currentIndex
-    ) {
-      throw new Error("Scroll progress cannot move backwards");
-    }
 
     const now = Date.now();
     const scrollStartedAt = game.scrollStartedAt ?? now;
@@ -518,15 +684,7 @@ export const updateScrollProgress = mutation({
         historyUserIds
       );
 
-      if (
-        shouldRewardWinner({
-          winnerId: winner,
-          humanPlayerId: ownUser._id,
-          againstBot: game.againstBot,
-        })
-      ) {
-        await ctx.db.patch(ownUser._id, getWinnerGoldPatch(ownUser.gold));
-      }
+      await rewardFinishedGameWinner(ctx, game, winner as Id<"user">);
 
       return await ctx.db.patch(game._id, {
         scrollProgress,
@@ -560,8 +718,28 @@ export const tickScrollBot = internalMutation({
     const now = Date.now();
     const startedAt = plan?.startedAt ?? now;
     const charsPerSecond = plan?.charsPerSecond ?? 5;
+
+    if (now < startedAt) {
+      await ctx.scheduler.runAfter(
+        Math.max(1, startedAt - now),
+        internal.game.tickScrollBot,
+        {
+          gameId: game._id,
+          botId: args.botId,
+        }
+      );
+      return null;
+    }
+
     const previousProgress =
       game.scrollProgress?.[args.botId] as CompetitiveScrollProgress | undefined;
+    const humanPlayerId = game.players.find((playerId) => playerId !== args.botId);
+    const humanProgress = humanPlayerId
+      ? (game.scrollProgress?.[humanPlayerId] as
+          | CompetitiveScrollProgress
+          | undefined)
+      : undefined;
+    const humanPlayer = humanPlayerId ? await ctx.db.get(humanPlayerId) : null;
     const currentIndex = getBotScrollIndex({
       charsPerSecond,
       now,
@@ -569,20 +747,13 @@ export const tickScrollBot = internalMutation({
       textLength: game.scrollText.length,
     });
     const lines = getPracticeScrollWordLines(game.scrollText);
-    const completedLineCount = lines.filter(
-      (line) => currentIndex >= line.endIndex
-    ).length;
-    const scrollSpeedPxPerSecond = getPracticeScrollSpeedPxPerSecond({
-      baseSpeedPxPerSecond: SCROLL_SPEED_PX_PER_SECOND,
-      completedLineCount,
-      speedIncrementPxPerSecond: SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
-    });
-    const elapsedSeconds = Math.max(0, (now - startedAt) / 1000);
-    const failed = hasCompetitiveScrollLineFailed({
+    const failed = hasCompetitiveScrollBotMissedLine({
       currentIndex,
+      playerCompletedWords: humanProgress?.typedWords ?? 0,
+      playerWpm: humanPlayer?.highestPracticeWpm,
+      previousIndex: previousProgress?.currentIndex ?? 0,
+      text: game.scrollText,
       lines,
-      travelPx: elapsedSeconds * scrollSpeedPxPerSecond,
-      config: SCROLL_SERVER_CONFIG,
     });
     const nextBotProgress = normalizeCompetitiveScrollProgress({
       currentIndex,
@@ -615,6 +786,7 @@ export const tickScrollBot = internalMutation({
         scrollProgress,
         historyUserIds
       );
+      await rewardFinishedGameWinner(ctx, game, winner as Id<"user">);
 
       return await ctx.db.patch(game._id, {
         scrollProgress,
@@ -692,6 +864,12 @@ export const setStepDoneBot = internalMutation({
         nextState.progress,
         historyUserIds
       );
+      await updateFinishedClassicMatchHighestWpms(
+        ctx,
+        nextState.progress,
+        historyUserIds
+      );
+      await rewardFinishedGameWinner(ctx, game, args.botId);
 
       return await ctx.db.patch(game._id, {
         progress: nextState.progress,
@@ -718,7 +896,30 @@ export const finishGame = mutation({
     }
 
     const game = await ctx.db.get(ownUser.activeGame);
-    const playerIdsToClear = game ? getHumanGamePlayerIds(game) : [ownUser._id];
+    if (!game) {
+      await ctx.db.patch(ownUser._id, {
+        status: "online",
+        activeGame: undefined,
+      });
+      return null;
+    }
+
+    const forfeitWinnerId = getForfeitWinnerId({
+      players: game.players,
+      forfeitingPlayerId: ownUser._id,
+      existingWinner: game.winner,
+    });
+
+    if (
+      forfeitWinnerId &&
+      ownUser.status === "in_game" &&
+      game.playersAccepted.includes(ownUser._id)
+    ) {
+      await finishGameByForfeit(ctx, game, ownUser._id, forfeitWinnerId);
+      return null;
+    }
+
+    const playerIdsToClear = getHumanGamePlayerIds(game);
 
     await Promise.all(
       playerIdsToClear.map((playerId) =>

@@ -1,21 +1,29 @@
 "use client";
 
+import type { TypingMistake } from "@/domain/typingEngine";
 import { Text } from "../Typography";
 import { useLowPerformanceMode } from "@/hooks";
 
 interface TypingTextProps {
   targetText: string;
   userInput: string;
+  mistake?: TypingMistake | null;
   variant: "h4" | "h5" | "h6";
 }
 
-export function TypingText({ targetText, userInput, variant }: TypingTextProps) {
+export function TypingText({
+  targetText,
+  userInput,
+  mistake,
+  variant,
+}: TypingTextProps) {
   const hasStartedTyping = userInput.length > 0;
   const { isLowPerformanceMode } = useLowPerformanceMode();
 
   return targetText.split("").map((char, index) => {
     let colorClass = "";
     let displayChar = char;
+    const isActiveMistake = mistake?.index === index;
     let interactionClass = isLowPerformanceMode
       ? ""
       : "transition-all duration-200 hover:scale-105";
@@ -33,6 +41,11 @@ export function TypingText({ targetText, userInput, variant }: TypingTextProps) 
           displayChar = "␣";
         }
       }
+    } else if (isActiveMistake) {
+      interactionClass = isLowPerformanceMode ? "" : "motion-safe:animate-pulse";
+      colorClass =
+        "font-bold text-[#9f4f4f] underline decoration-[#c97878] decoration-wavy underline-offset-4 dark:text-[#f0a8a8] dark:decoration-[#d98f8f]";
+      displayChar = mistake.char === " " ? "␣" : mistake.char;
     } else if (index === userInput.length) {
       colorClass = hasStartedTyping
         ? "text-gray-300 bg-gray-600/90 drop-shadow-lg shadow-gray-400/60 backdrop-blur-sm"
@@ -48,7 +61,7 @@ export function TypingText({ targetText, userInput, variant }: TypingTextProps) 
 
     return (
       <Text
-        key={index}
+        key={isActiveMistake ? `${index}-${mistake.attempt}` : index}
         variant={variant}
         className={`inline font-mono ${interactionClass} ${colorClass}`}
       >

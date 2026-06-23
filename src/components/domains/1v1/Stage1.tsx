@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { ModalRefProps } from "@/components/Modal/Modal";
+import { useEffect } from "react";
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut";
+import { MatchIntroOverlay } from "@/components/domains/match/MatchIntroOverlay";
+import { useReducedMotion } from "@/motion";
 import { useMatchStageFlow } from "./useMatchStageFlow";
 import { ActiveMatchView, FinishedMatchView } from "./Stage1Views";
 
@@ -11,7 +12,6 @@ interface Stage1Props {
 }
 
 export const Stage1 = (_props: Stage1Props) => {
-  const modalRef = useRef<ModalRefProps>(null);
   const {
     canContinue,
     gameData,
@@ -21,22 +21,18 @@ export const Stage1 = (_props: Stage1Props) => {
     handleRacerCompleted,
     handleRacerHoldSuccess,
     isGameFinished,
+    isIntroPlaying,
     isPending,
+    introState,
     memoHolds,
     memoLettersAndSymbols,
     memoWords,
     ownProgress,
+    ownUser,
     step,
     syncStepFromProgress,
   } = useMatchStageFlow();
-
-  useGlobalShortcut({
-    scope: "match",
-    key: "j",
-    modifier: "primary",
-    enabled: isGameFinished,
-    onShortcut: () => modalRef.current?.openModal(),
-  });
+  const shouldReduceMotion = useReducedMotion();
 
   useGlobalShortcut({
     scope: "match",
@@ -57,7 +53,7 @@ export const Stage1 = (_props: Stage1Props) => {
   useGlobalShortcut({
     scope: "match",
     key: "Enter",
-    enabled: canContinue && !isGameFinished,
+    enabled: isIntroPlaying && canContinue && !isGameFinished,
     onShortcut: handleNextStep,
   });
 
@@ -68,27 +64,40 @@ export const Stage1 = (_props: Stage1Props) => {
   if (isGameFinished) {
     return (
       <FinishedMatchView
+        isWinner={Boolean(ownUser && gameData?.game?.winner === ownUser._id)}
         isPending={isPending}
         metrics={ownProgress}
-        modalRef={modalRef}
         onFinishGame={handleFinishGame}
       />
     );
   }
 
   return (
-    <ActiveMatchView
-      canContinue={canContinue}
-      holds={memoHolds}
-      isWinnerSet={Boolean(gameData?.game?.winner)}
-      lettersAndSymbols={memoLettersAndSymbols}
-      phrase={gameData?.game?.phrase || ""}
-      step={step}
-      words={memoWords}
-      onLeaveActiveGame={handleLeaveActiveGame}
-      onNextStep={handleNextStep}
-      onRacerCompleted={handleRacerCompleted}
-      onRacerHoldSuccess={handleRacerHoldSuccess}
-    />
+    <>
+      <MatchIntroOverlay
+        countdownValue={introState.countdownValue}
+        isVisible={Boolean(
+          gameData?.game && !isGameFinished && introState.phase !== "playing"
+        )}
+        opponent={gameData?.opponent}
+        ownUser={ownUser}
+        phase={introState.phase}
+        shouldReduceMotion={Boolean(shouldReduceMotion)}
+      />
+      <ActiveMatchView
+        canContinue={canContinue}
+        holds={memoHolds}
+        isPlayable={isIntroPlaying}
+        isWinnerSet={Boolean(gameData?.game?.winner)}
+        lettersAndSymbols={memoLettersAndSymbols}
+        phrase={gameData?.game?.phrase || ""}
+        step={step}
+        words={memoWords}
+        onLeaveActiveGame={handleLeaveActiveGame}
+        onNextStep={handleNextStep}
+        onRacerCompleted={handleRacerCompleted}
+        onRacerHoldSuccess={handleRacerHoldSuccess}
+      />
+    </>
   );
 };

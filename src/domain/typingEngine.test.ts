@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyLockedTypingInput,
   applyHoldInput,
   applyTypingInput,
   createHoldTypingState,
@@ -7,6 +8,8 @@ import {
   getHoldTypingContentKey,
   getTypingSequenceContentKey,
   isCopyPasteShortcut,
+  isDeletionTypingKey,
+  isPrintableTypingKey,
   releaseHoldKey,
   pressHoldKey,
 } from "./typingEngine";
@@ -23,6 +26,48 @@ describe("typingEngine", () => {
     expect(state.errors).toEqual([1]);
     expect(state.input).toBe("cx");
     expect(state.completedAt).toBeNull();
+  });
+
+  it("blocks on a wrong locked character while counting each failed attempt", () => {
+    let state = createTypingState("cat");
+
+    state = applyLockedTypingInput(state, "c", 1_000);
+    state = applyLockedTypingInput(state, "cx", 1_100);
+    state = applyLockedTypingInput(state, "cz", 1_200);
+
+    expect(state.startedAt).toBe(1_000);
+    expect(state.input).toBe("c");
+    expect(state.errors).toEqual([1, 1]);
+    expect(state.mistake).toEqual({ index: 1, char: "z", attempt: 2 });
+    expect(state.completedAt).toBeNull();
+  });
+
+  it("clears a locked mistake only after the correct character is typed", () => {
+    let state = createTypingState("cat");
+
+    state = applyLockedTypingInput(state, "c", 1_000);
+    state = applyLockedTypingInput(state, "cx", 1_100);
+    state = applyLockedTypingInput(state, "ca", 1_200);
+    state = applyLockedTypingInput(state, "cat", 1_500);
+
+    expect(state.input).toBe("cat");
+    expect(state.errors).toEqual([1]);
+    expect(state.mistake).toBeNull();
+    expect(state.hasCompleted).toBe(true);
+    expect(state.completedAt).toBe(1_500);
+    expect(state.elapsedMs).toBe(500);
+  });
+
+  it("clears a locked mistake without deleting when input tries to delete first", () => {
+    let state = createTypingState("cat");
+
+    state = applyLockedTypingInput(state, "c", 1_000);
+    state = applyLockedTypingInput(state, "cx", 1_100);
+    state = applyLockedTypingInput(state, "", 1_200);
+
+    expect(state.input).toBe("c");
+    expect(state.errors).toEqual([1]);
+    expect(state.mistake).toBeNull();
   });
 
   it("ignores input beyond the target and completes with elapsed time", () => {
@@ -79,6 +124,20 @@ describe("typingEngine", () => {
     expect(isCopyPasteShortcut({ key: "v", ctrlKey: true })).toBe(true);
     expect(isCopyPasteShortcut({ key: "x", metaKey: true })).toBe(true);
     expect(isCopyPasteShortcut({ key: "a", ctrlKey: true })).toBe(false);
+  });
+
+  it("detects printable typing keys without treating shortcuts as input", () => {
+    expect(isPrintableTypingKey({ key: "a" })).toBe(true);
+    expect(isPrintableTypingKey({ key: " " })).toBe(true);
+    expect(isPrintableTypingKey({ key: "Backspace" })).toBe(false);
+    expect(isPrintableTypingKey({ key: "a", metaKey: true })).toBe(false);
+    expect(isPrintableTypingKey({ key: "a", altKey: true })).toBe(false);
+  });
+
+  it("detects deletion keys", () => {
+    expect(isDeletionTypingKey({ key: "Backspace" })).toBe(true);
+    expect(isDeletionTypingKey({ key: "Delete" })).toBe(true);
+    expect(isDeletionTypingKey({ key: "a" })).toBe(false);
   });
 
   it("keeps content keys stable for equivalent sequence and hold arrays", () => {

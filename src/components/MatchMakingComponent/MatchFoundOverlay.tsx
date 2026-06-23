@@ -1,11 +1,12 @@
 "use client";
 
 import { motion, motionTransitions, popIn } from "@/motion";
-import { Loader2, Loader2Icon } from "lucide-react";
+import { Clock3, Loader2, Loader2Icon } from "lucide-react";
 import { Text } from "../Typography";
 import { isMacPlatform } from "@/domain/shortcuts";
 
 interface MatchFoundOverlayProps {
+  acceptSecondsRemaining: number | null;
   hasAccepted: boolean;
   isAccepting: boolean;
   onAcceptGame: () => void;
@@ -16,6 +17,7 @@ const shortcutPlatform = () =>
   typeof navigator === "undefined" ? "" : navigator.platform;
 
 export function MatchFoundOverlay({
+  acceptSecondsRemaining,
   hasAccepted,
   isAccepting,
   onAcceptGame,
@@ -74,6 +76,17 @@ export function MatchFoundOverlay({
                 <Text variant="body2" className="text-white/80">
                   Preparando partida...
                 </Text>
+                {acceptSecondsRemaining !== null && (
+                  <div className="mt-1 flex min-h-12 items-center gap-3 rounded-full border border-white/25 bg-black/15 px-4 py-2 text-white shadow-inner">
+                    <Clock3 className="size-5" aria-hidden="true" />
+                    <Text
+                      variant="h6"
+                      className="tabular-nums text-white font-bold"
+                    >
+                      00:{acceptSecondsRemaining.toString().padStart(2, "0")}
+                    </Text>
+                  </div>
+                )}
               </div>
             )}
 
@@ -107,7 +120,7 @@ export function MatchFoundOverlay({
                 <MatchActionButton
                   onClick={onAcceptGame}
                   label="Aceptar"
-                  disabled={isAccepting}
+                  disabled={isAccepting || acceptSecondsRemaining === 0}
                 >
                   {isAccepting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

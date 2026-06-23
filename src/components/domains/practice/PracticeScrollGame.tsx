@@ -1,9 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ResultsOverlay } from "@/components/overlays/ResultsOverlay";
-import { Text } from "@/components/Typography";
-import practiceScrollParagraphs from "@/data/practiceScrollParagraphs.json";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   countCompletedPracticeScrollParagraphs,
   countCompletedPracticeScrollLines,
@@ -21,17 +24,25 @@ import {
   shouldAdvancePracticeScroll,
 } from "@/domain/practiceScroll";
 import {
+  applyLockedTypingInput,
+  createTypingState,
   formatTypingTime,
+  isDeletionTypingKey,
   isCopyPasteShortcut,
+  isPrintableTypingKey,
+  type TypingMistake,
 } from "@/domain/typingEngine";
 import { cn } from "@/lib/utils";
-import { m, motionTransitions, popIn, useMotionValue } from "@/motion";
+import { m, motionTransitions, popIn } from "@/motion";
 import { useLowPerformanceMode } from "@/hooks";
 import {
-  BookOpenIcon,
-  ClockIcon,
-  DocumentTextIcon,
-} from "@heroicons/react/24/outline";
+  getPracticeScrollTextTransform,
+  PracticeScrollLineText,
+  PracticeScrollMetric,
+  PRACTICE_SCROLL_TEXT_LAYER_STYLE,
+  setPracticeScrollTextY,
+} from "./PracticeScrollVisuals";
+import { PracticeScrollResults } from "./PracticeScrollResults";
 
 const SCROLL_CONTAINER_HEIGHT_PX = 560;
 const COMPACT_SCROLL_CONTAINER_HEIGHT_PX = 560;
@@ -52,33 +63,35 @@ const getScrollConfig = ({
   dangerLinePx: getPracticeScrollDangerLinePx(containerHeightPx),
 });
 
-const PRACTICE_SCROLL_PARAGRAPHS = practiceScrollParagraphs as string[];
 let lastPracticeScrollFirstParagraph: string | undefined;
 
 interface PracticeScrollGameProps {
   isCompactLayout?: boolean;
   onBackToModes: () => void;
+  scrollParagraphs: string[];
 }
 
-function getNextPracticeScrollParagraphs() {
-  const paragraphs = getRandomizedPracticeScrollParagraphsAfterPrevious({
-    paragraphs: PRACTICE_SCROLL_PARAGRAPHS,
+function getNextPracticeScrollParagraphs(sourceParagraphs: string[]) {
+  const nextParagraphs = getRandomizedPracticeScrollParagraphsAfterPrevious({
+    paragraphs: sourceParagraphs,
     previousFirstParagraph: lastPracticeScrollFirstParagraph,
   });
-  lastPracticeScrollFirstParagraph = paragraphs[0];
+  lastPracticeScrollFirstParagraph = nextParagraphs[0];
 
-  return paragraphs;
+  return nextParagraphs;
 }
 
 export function PracticeScrollGame({
   isCompactLayout = false,
   onBackToModes,
+  scrollParagraphs: sourceScrollParagraphs,
 }: PracticeScrollGameProps) {
-  const [scrollParagraphs, setScrollParagraphs] = useState(
-    getNextPracticeScrollParagraphs
+  const [scrollParagraphs, setScrollParagraphs] = useState(() =>
+    getNextPracticeScrollParagraphs(sourceScrollParagraphs)
   );
   const [input, setInput] = useState("");
   const [errors, setErrors] = useState(0);
+  const [mistake, setMistake] = useState<TypingMistake | null>(null);
   const [startedAt, setStartedAt] = useState(() => Date.now());
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
@@ -96,15 +109,13 @@ export function PracticeScrollGame({
       }),
     [isCompactLayout]
   );
-  const scrollContentY = useMotionValue(scrollConfig.startOffsetPx);
+  const scrollContentRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const lastFrameTimeRef = useRef<number | null>(null);
   const lastInputRef = useRef("");
   const scrollYRef = useRef(0);
 
-  const targetText =
-    getPracticeScrollText(scrollParagraphs) ||
-    "El modo practica necesita un parrafo disponible para seguir escribiendo.";
+  const targetText = getPracticeScrollText(scrollParagraphs);
   const progress = useMemo(
     () => getPracticeScrollProgress(targetText, input),
     [input, targetText]
@@ -129,9 +140,10 @@ export function PracticeScrollGame({
     isFinished,
   });
   const elapsedMs = (finishedAt ?? Date.now()) - startedAt;
-  const typedPercent = Math.round(
-    (progress.currentIndex / targetText.length) * 100
-  );
+  const typedPercent =
+    targetText.length > 0
+      ? Math.round((progress.currentIndex / targetText.length) * 100)
+      : 0;
   const completedWords = countCompletedPracticeScrollWords(
     targetText,
     progress.currentIndex
@@ -147,9 +159,10 @@ export function PracticeScrollGame({
   }, []);
 
   const resetPracticeScroll = useCallback(() => {
-    setScrollParagraphs(getNextPracticeScrollParagraphs());
+    setScrollParagraphs(getNextPracticeScrollParagraphs(sourceScrollParagraphs));
     setInput("");
-    scrollContentY.set(scrollConfig.startOffsetPx);
+    setMistake(null);
+    setPracticeScrollTextY(scrollContentRef.current, scrollConfig.startOffsetPx);
     setErrors(0);
     setFailed(false);
     setHasStartedTyping(false);
@@ -159,11 +172,15 @@ export function PracticeScrollGame({
     lastInputRef.current = "";
     scrollYRef.current = 0;
     window.setTimeout(focusInput, 0);
-  }, [focusInput, scrollConfig.startOffsetPx, scrollContentY]);
+  }, [focusInput, scrollConfig.startOffsetPx, sourceScrollParagraphs]);
 
   useEffect(() => {
     focusInput();
   }, [focusInput]);
+
+  useEffect(() => {
+    setPracticeScrollTextY(scrollContentRef.current, scrollConfig.startOffsetPx);
+  }, [scrollConfig.startOffsetPx]);
 
   useEffect(() => {
     if (!shouldAdvanceScroll) return;
@@ -175,7 +192,10 @@ export function PracticeScrollGame({
         scrollYRef.current + elapsedSeconds * scrollSpeedPxPerSecond;
       scrollYRef.current = nextScrollY;
       lastFrameTimeRef.current = time;
-      scrollContentY.set(scrollConfig.startOffsetPx - nextScrollY);
+      setPracticeScrollTextY(
+        scrollContentRef.current,
+        scrollConfig.startOffsetPx - nextScrollY
+      );
 
       if (
         hasPracticeScrollLineReachedDangerLine({
@@ -206,7 +226,6 @@ export function PracticeScrollGame({
     progress.currentIndex,
     scrollConfig,
     scrollLines,
-    scrollContentY,
     scrollSpeedPxPerSecond,
     shouldAdvanceScroll,
   ]);
@@ -217,34 +236,74 @@ export function PracticeScrollGame({
     setFinishedAt((value) => value ?? Date.now());
   }, [progress.completed]);
 
+  const applyScrollInput = useCallback(
+    (nextInput: string, now = Date.now()) => {
+      const previousErrors = Array.from({ length: errors }, () => 0);
+      const nextState = applyLockedTypingInput(
+        {
+          ...createTypingState(targetText),
+          input,
+          errors: previousErrors,
+          mistake,
+          startedAt: hasStartedTyping ? startedAt : null,
+        },
+        nextInput,
+        now
+      );
+      const nextErrors = nextState.errors.length;
+      const attemptedTyping =
+        nextState.input.length > input.length || nextErrors > errors;
+
+      if (!hasStartedTyping && attemptedTyping) {
+        setHasStartedTyping(true);
+        setStartedAt(now);
+      }
+
+      lastInputRef.current = nextState.input;
+      setInput(nextState.input);
+      setErrors(nextErrors);
+      setMistake(nextState.mistake);
+    },
+    [errors, hasStartedTyping, input, mistake, startedAt, targetText]
+  );
+
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextInput = event.target.value;
-    const previousInput = lastInputRef.current;
 
     if (isFinished || nextInput.length > targetText.length) {
       return;
     }
 
-    if (!hasStartedTyping && nextInput.length > 0) {
-      setHasStartedTyping(true);
-      setStartedAt(Date.now());
-    }
-
-    if (
-      nextInput.length > previousInput.length &&
-      nextInput[nextInput.length - 1] !== targetText[nextInput.length - 1]
-    ) {
-      setErrors((value) => value + 1);
-    }
-
-    lastInputRef.current = nextInput;
-    setInput(nextInput);
+    applyScrollInput(nextInput);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (isCopyPasteShortcut(event)) {
       event.preventDefault();
+      return;
     }
+
+    if (isFinished) {
+      return;
+    }
+
+    if (mistake && isDeletionTypingKey(event)) {
+      event.preventDefault();
+      applyScrollInput(input);
+      return;
+    }
+
+    if (!isPrintableTypingKey(event)) {
+      return;
+    }
+
+    const expectedChar = targetText[input.length];
+    if (event.key === expectedChar) {
+      return;
+    }
+
+    event.preventDefault();
+    applyScrollInput(`${input}${event.key}`);
   };
 
   const handleRestart = () => {
@@ -264,49 +323,15 @@ export function PracticeScrollGame({
       )}
       style={isCompactLayout ? { width: "min(92vw, 58rem)" } : undefined}
     >
-      <ResultsOverlay
+      <PracticeScrollResults
         isVisible={showResults}
-        roundsData={[]}
-        onClose={onBackToModes}
+        onBackToModes={onBackToModes}
         onRestart={handleRestart}
-        title={failed ? "La línea te alcanzó" : "Scroll completado"}
-        description={
-          failed
-            ? "Llegaste hasta aquí antes de que el texto tocara el límite."
-            : "Buen ritmo. Le ganaste al scroll."
-        }
-        heroValue={String(completedWords)}
-        heroSuffix="palabras"
-        heroLabel="Texto escrito"
-        heroIcon={<DocumentTextIcon className="size-8" />}
-        restartLabel="Reintentar"
-        restartShortcut="Tab"
-        shortcutDelayMs={failed ? 500 : 0}
-        tipTitle="Lectura del intento"
-        tip={`${completedWords} palabras equivalen a ${averageBookPages} páginas promedio de libro.`}
-        showTipPanel={!failed}
-        levelLabel={failed ? "Interrumpido" : "Completado"}
-        levelProgress={typedPercent}
-        stats={[
-          {
-            icon: <DocumentTextIcon className="size-5" />,
-            label: "Palabras",
-            value: String(completedWords),
-            tone: "emerald",
-          },
-          {
-            icon: <ClockIcon className="size-5" />,
-            label: "Tiempo",
-            value: formatTypingTime(elapsedMs),
-            tone: "blue",
-          },
-          {
-            icon: <BookOpenIcon className="size-5" />,
-            label: "Páginas",
-            value: averageBookPages,
-            tone: "violet",
-          },
-        ]}
+        averageBookPages={averageBookPages}
+        completedWords={completedWords}
+        elapsedMs={elapsedMs}
+        failed={failed}
+        typedPercent={typedPercent}
       />
 
       <div
@@ -327,9 +352,13 @@ export function PracticeScrollGame({
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-[linear-gradient(to_bottom,rgba(250,244,237,0.94)_0%,rgba(250,244,237,0.58)_38%,rgba(250,244,237,0.14)_76%,transparent_100%)] dark:bg-[linear-gradient(to_bottom,rgba(3,7,18,0.94)_0%,rgba(3,7,18,0.6)_38%,rgba(3,7,18,0.14)_76%,transparent_100%)]" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-[linear-gradient(to_top,rgba(250,244,237,0.95)_0%,rgba(250,244,237,0.58)_40%,rgba(250,244,237,0.14)_78%,transparent_100%)] dark:bg-[linear-gradient(to_top,rgba(3,7,18,0.95)_0%,rgba(3,7,18,0.62)_40%,rgba(3,7,18,0.14)_78%,transparent_100%)]" />
 
-        <m.div
-          className="absolute left-1/2 top-0 w-[34ch] -translate-x-1/2 font-mono text-[32px] font-semibold leading-[60px] tracking-normal"
-          style={{ y: scrollContentY }}
+        <div
+          ref={scrollContentRef}
+          className="absolute left-1/2 top-0 w-[34ch] font-mono text-[32px] font-semibold leading-[60px] tracking-normal"
+          style={{
+            ...PRACTICE_SCROLL_TEXT_LAYER_STYLE,
+            transform: getPracticeScrollTextTransform(scrollConfig.startOffsetPx),
+          }}
         >
           {scrollLines.map((line) => (
             <div
@@ -337,9 +366,19 @@ export function PracticeScrollGame({
               className="h-[60px] whitespace-pre text-center"
             >
               <PracticeScrollLineText
+                mistake={
+                  mistake &&
+                  mistake.index >= line.startIndex &&
+                  mistake.index < line.endIndex
+                    ? {
+                        ...mistake,
+                        index: mistake.index - line.startIndex,
+                      }
+                    : null
+                }
                 targetText={line.text}
                 userInput={input.slice(line.startIndex, line.endIndex)}
-                hasStarted={input.length > 0}
+                hasStarted={hasStartedTyping}
                 showCursor={
                   progress.currentIndex >= line.startIndex &&
                   progress.currentIndex < line.endIndex
@@ -347,7 +386,7 @@ export function PracticeScrollGame({
               />
             </div>
           ))}
-        </m.div>
+        </div>
 
         <input
           ref={inputRef}
@@ -365,24 +404,32 @@ export function PracticeScrollGame({
 
       {!isCompactLayout && (
         <div className="flex min-h-[76px] flex-wrap justify-center gap-4 text-center">
-          <Metric label="Progreso" value={`${typedPercent}%`} tone="orange" />
-          <Metric
+          <PracticeScrollMetric
+            label="Progreso"
+            value={`${typedPercent}%`}
+            tone="orange"
+          />
+          <PracticeScrollMetric
             label="Palabras"
             value={String(completedWords)}
             tone="orange"
           />
-          <Metric
+          <PracticeScrollMetric
             label="Párrafos"
             value={String(completedParagraphs)}
             tone="blue"
           />
-          <Metric
+          <PracticeScrollMetric
             label="Velocidad"
             value={`${scrollSpeedPxPerSecond}px/s`}
             tone="blue"
           />
-          <Metric label="Errores" value={String(errors)} tone="red" />
-          <Metric
+          <PracticeScrollMetric
+            label="Errores"
+            value={String(errors)}
+            tone="red"
+          />
+          <PracticeScrollMetric
             label="Tiempo"
             value={formatTypingTime(elapsedMs)}
             tone="blue"
@@ -390,80 +437,5 @@ export function PracticeScrollGame({
         </div>
       )}
     </m.section>
-  );
-}
-
-function PracticeScrollLineText({
-  targetText,
-  userInput,
-  hasStarted,
-  showCursor,
-}: {
-  targetText: string;
-  userInput: string;
-  hasStarted: boolean;
-  showCursor: boolean;
-}) {
-  return targetText.split("").map((char, index) => {
-    let colorClass = "";
-    let displayChar = char;
-    const isCursor = showCursor && index === userInput.length;
-
-    if (index < userInput.length) {
-      if (userInput[index] === char) {
-        colorClass = "font-bold text-orange-500";
-      } else {
-        colorClass =
-          "font-bold text-[#9f4f4f] underline decoration-[#c97878] decoration-wavy underline-offset-4 dark:text-[#f0a8a8] dark:decoration-[#d98f8f]";
-        displayChar = userInput[index] === " " ? "␣" : userInput[index];
-      }
-    } else if (isCursor) {
-      colorClass = [
-        "bg-gray-600/80 text-gray-300 drop-shadow-lg shadow-gray-400/60 backdrop-blur-sm",
-        !hasStarted && "animate-pulse",
-      ]
-        .filter(Boolean)
-        .join(" ");
-    } else {
-      colorClass = "text-gray-500 drop-shadow-sm shadow-gray-600/20";
-    }
-
-    return (
-      <span
-        key={index}
-        className={`inline ${colorClass}`}
-      >
-        {displayChar}
-      </span>
-    );
-  });
-}
-
-function Metric({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "orange" | "red" | "blue";
-}) {
-  const toneClass = {
-    orange: "text-orange-500",
-    red: "text-red-400",
-    blue: "text-blue-400",
-  }[tone];
-
-  return (
-    <div
-      className="flex min-w-[10rem] flex-col justify-center rounded-xl border border-[#575279]/10 bg-white/20 px-6 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-    >
-      <Text variant="h6" className={cn(toneClass, "font-bold")}>
-        {value}
-      </Text>
-      <Text variant="body2" className="text-gray-400">
-        {label}
-      </Text>
-    </div>
   );
 }

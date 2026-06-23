@@ -1,3 +1,4 @@
+import { act } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -106,5 +107,42 @@ describe("ResultsOverlay", () => {
     expect(
       screen.getByRole("button", { name: /continuar/i })
     ).toBeInTheDocument();
+  });
+
+  it("renders an optional typocoin reward with only the token and signed amount visible", () => {
+    vi.useFakeTimers();
+
+    try {
+      render(
+        <ResultsOverlay
+          isVisible
+          roundsData={roundData}
+          onClose={vi.fn()}
+          typocoinRewardAmount={10}
+        />
+      );
+
+      expect(screen.queryByText("Ganaste")).not.toBeInTheDocument();
+      expect(screen.queryByText("typocoins")).not.toBeInTheDocument();
+      expect(screen.getByText("+0")).toBeInTheDocument();
+      const rewardStatus = screen.getByRole("status", {
+        name: "+10 typocoins",
+      });
+      expect(rewardStatus).toBeInTheDocument();
+      expect(rewardStatus).not.toHaveClass("rounded-full");
+      expect(rewardStatus).not.toHaveClass("border");
+
+      act(() => {
+        vi.advanceTimersByTime(479);
+      });
+      expect(screen.getByText("+0")).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(451);
+      });
+      expect(screen.getByText("+10")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

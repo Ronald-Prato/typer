@@ -18,7 +18,7 @@ describe("useLowPerformanceMode", () => {
     expect(document.documentElement.dataset.performanceMode).toBe("low");
   });
 
-  it("persists disabled low performance mode and updates subscribers", () => {
+  it("keeps low performance mode enabled when callers try to disable it", () => {
     const { result } = renderHook(() => useLowPerformanceMode());
 
     act(() => {
@@ -26,18 +26,21 @@ describe("useLowPerformanceMode", () => {
     });
 
     expect(window.localStorage.getItem("typewars.low-performance-mode")).toBe(
-      "false"
+      "true"
     );
-    expect(result.current.isLowPerformanceMode).toBe(false);
-    expect(document.documentElement.dataset.performanceMode).toBe("full");
+    expect(result.current.isLowPerformanceMode).toBe(true);
+    expect(document.documentElement.dataset.performanceMode).toBe("low");
   });
 
-  it("treats stale stored values as enabled", () => {
-    window.localStorage.setItem("typewars.low-performance-mode", "yes-please");
+  it("ignores stale stored values and normalizes storage to enabled", () => {
+    window.localStorage.setItem("typewars.low-performance-mode", "false");
 
     const { result } = renderHook(() => useLowPerformanceMode());
 
     expect(result.current.isLowPerformanceMode).toBe(true);
+    expect(window.localStorage.getItem("typewars.low-performance-mode")).toBe(
+      "true"
+    );
   });
 
   it("stores explicit enabled mode", () => {
@@ -48,4 +51,3 @@ describe("useLowPerformanceMode", () => {
     );
   });
 });
-

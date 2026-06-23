@@ -30,7 +30,6 @@ import {
 
 const homeModeChromeByTheme = {
   orangeGreen: {
-    accentText: "text-emerald-400",
     arrowHover: "hover:border-emerald-400/50 hover:text-emerald-300",
     buttonBorder:
       "border-emerald-400/95 shadow-[0_0_56px_rgba(16,185,129,0.24),inset_0_0_42px_rgba(14,165,233,0.1)]",
@@ -44,7 +43,6 @@ const homeModeChromeByTheme = {
       "border-emerald-400 bg-emerald-400/15 text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.14)] dark:text-emerald-300",
   },
   orangeYellow: {
-    accentText: "text-yellow-300",
     arrowHover: "hover:border-yellow-400/50 hover:text-yellow-300",
     buttonBorder:
       "border-orange-500/95 shadow-[0_0_56px_rgba(249,115,22,0.24),inset_0_0_42px_rgba(250,204,21,0.08)]",
@@ -391,7 +389,10 @@ export const Home = () => {
                 <m.span
                   key={modeContentKey}
                   animate="animate"
-                  className="relative flex w-full flex-col items-center"
+                  className={cn(
+                    "relative flex w-full flex-col items-center",
+                    isInQueue && "min-h-[7.5rem] justify-center"
+                  )}
                   exit="exit"
                   initial="initial"
                   style={{
@@ -400,7 +401,11 @@ export const Home = () => {
                   transition={motionTransitions.base}
                   variants={modeContentSwitch}
                 >
-                  {!isInQueue && !hasActiveGame ? (
+                  {isInQueue ? (
+                    <span className="absolute left-1/2 top-3 -translate-x-1/2 text-sm font-black leading-none text-emerald-300/90">
+                      {queuedMode.title}
+                    </span>
+                  ) : !hasActiveGame ? (
                     <span className="absolute left-1/2 -top-12 -translate-x-1/2 text-sm font-black leading-none text-[var(--tw-home-fg)]/50">
                       {selectedMode.badgeLabel}
                     </span>
@@ -413,12 +418,14 @@ export const Home = () => {
                   >
                     {primaryTitle}
                   </span>
-                  {isInQueue ? (
-                    <span className="mt-3 text-xs font-black uppercase leading-none text-emerald-300/90">
-                      Buscando {queuedMode.title}
-                    </span>
-                  ) : null}
-                  <span className="mt-4 text-xl font-bold text-[var(--tw-home-muted)]">
+                  <span
+                    className={cn(
+                      "text-xl font-bold text-[var(--tw-home-muted)]",
+                      isInQueue
+                        ? "absolute left-1/2 top-[calc(50%+1.75rem)] -translate-x-1/2"
+                        : "mt-4"
+                    )}
+                  >
                     {primaryAction}
                   </span>
                 </m.span>
@@ -468,41 +475,6 @@ export const Home = () => {
         </AnimatePresence>
 
         <AnimatePresence initial={false}>
-          {!isInQueue && !hasActiveGame ? (
-            <m.div
-              key="home-stats"
-              animate="animate"
-              className={cn(
-                "mt-12 flex overflow-hidden rounded-xl border bg-[var(--tw-home-panel-strong)] backdrop-blur transition-colors duration-300",
-                modeChrome.stats
-              )}
-              exit="exit"
-              initial="initial"
-              transition={motionTransitions.fast}
-              variants={modeContentSwitch}
-            >
-              <div
-                className={cn(
-                  "min-w-36 border-r px-7 py-3.5 text-center transition-colors duration-300",
-                  modeChrome.statsDivider
-                )}
-              >
-                <p className={cn("text-xs font-extrabold tracking-wide", modeChrome.accentText)}>
-                  WPM
-                </p>
-                <p className="mt-1 text-xl font-black text-[var(--tw-home-fg)]">--</p>
-              </div>
-              <div className="min-w-36 px-7 py-3.5 text-center">
-                <p className={cn("text-xs font-extrabold tracking-wide", modeChrome.accentText)}>
-                  Precisión
-                </p>
-                <p className="mt-1 text-xl font-black text-[var(--tw-home-fg)]">--</p>
-              </div>
-            </m.div>
-          ) : null}
-        </AnimatePresence>
-
-        <AnimatePresence initial={false}>
           {hasActiveGame ? (
             <m.div
               key="active-game-actions"
@@ -545,7 +517,7 @@ export const Home = () => {
             <m.div
               key="home-mode-pills"
               animate="animate"
-              className="mt-5 flex gap-3"
+              className="mt-16 flex gap-3"
               exit="exit"
               initial="initial"
               transition={motionTransitions.fast}

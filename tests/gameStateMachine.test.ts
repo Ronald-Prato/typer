@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   applyGameStep,
   canAcceptGame,
+  getBotStepScheduleDelayMs,
+  getMatchAcceptDeadline,
   getNextBotStep,
+  hasMatchAcceptWindowExpired,
+  MATCH_ACCEPT_TIMEOUT_MS,
   validateGameMetrics,
 } from "../convex/gameStateMachine";
 
@@ -137,6 +141,40 @@ describe("gameStateMachine", () => {
     });
   });
 
+  it("expires pending match acceptance after the deadline", () => {
+    const now = 10_000;
+    const acceptDeadlineAt = getMatchAcceptDeadline(now);
+
+    expect(acceptDeadlineAt).toBe(now + MATCH_ACCEPT_TIMEOUT_MS);
+    expect(
+      hasMatchAcceptWindowExpired({
+        acceptDeadlineAt,
+        now: acceptDeadlineAt - 1,
+        players: [playerId, "player-2"],
+        playersAccepted: [playerId],
+      })
+    ).toBe(false);
+    expect(
+      hasMatchAcceptWindowExpired({
+        acceptDeadlineAt,
+        now: acceptDeadlineAt,
+        players: [playerId, "player-2"],
+        playersAccepted: [playerId],
+      })
+    ).toBe(true);
+  });
+
+  it("does not expire an accepted match window", () => {
+    expect(
+      hasMatchAcceptWindowExpired({
+        acceptDeadlineAt: 1_000,
+        now: 2_000,
+        players: [playerId, "player-2"],
+        playersAccepted: [playerId, "player-2"],
+      })
+    ).toBe(false);
+  });
+
   it("computes the next bot step from persisted progress", () => {
     expect(getNextBotStep(undefined)).toBe("phrase");
     expect(getNextBotStep({ phraseDone: true })).toBe("words");
@@ -148,5 +186,17 @@ describe("gameStateMachine", () => {
         holdsDone: true,
       })
     ).toBe(null);
+  });
+
+  it("adds the intro countdown delay before the first scheduled bot step", () => {
+    expect(
+      getBotStepScheduleDelayMs({ step: "phrase", initialDelayMs: 5_000 })
+    ).toBe(15_000);
+    expect(
+      getBotStepScheduleDelayMs({
+        step: "words",
+        initialDelayMs: Number.NaN,
+      })
+    ).toBe(12_000);
   });
 });

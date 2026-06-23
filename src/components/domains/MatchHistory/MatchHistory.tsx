@@ -7,7 +7,12 @@ import { format, isThisYear } from "date-fns";
 import { es } from "date-fns/locale";
 import { useMemo, useState, useEffect } from "react";
 import {
+  MATCH_HISTORY_PAGE_SIZE,
   filterHistoryGames,
+  getHistoryPageCount,
+  getHistoryPageItems,
+  getHistoryPaginationPages,
+  isHistoryPageLoaded,
   summarizeHistoryPage,
   type HistoryFilter,
   type HistoryGame,
@@ -35,6 +40,8 @@ const formatDate = (timestamp: number) => {
 export const MatchHistory = () => {
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [activeFilter, setActiveFilter] = useState<HistoryFilter>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pendingPage, setPendingPage] = useState<number | null>(null);
 
   const {
     results: gameHistory,
@@ -43,7 +50,7 @@ export const MatchHistory = () => {
   } = usePaginatedQuery(
     api.history.getGameHistory,
     {},
-    { initialNumItems: 5 }
+    { initialNumItems: MATCH_HISTORY_PAGE_SIZE }
   );
 
   // Track if this is the first load
@@ -56,14 +63,79 @@ export const MatchHistory = () => {
   const typedGameHistory = gameHistory as HistoryGame[];
   const hasMore = status === "CanLoadMore";
   const isLoadingMore = status === "LoadingMore";
+  const loadedPageCount = getHistoryPageCount(
+    typedGameHistory.length,
+    MATCH_HISTORY_PAGE_SIZE
+  );
+  const paginationPages = getHistoryPaginationPages({
+    currentPage,
+    hasMore,
+    loadedItems: typedGameHistory.length,
+    pageSize: MATCH_HISTORY_PAGE_SIZE,
+  });
+  const canGoPrevious = currentPage > 1;
+  const canGoNext = currentPage < loadedPageCount || hasMore;
+
+  const currentPageHistory = useMemo(() => {
+    return getHistoryPageItems({
+      items: typedGameHistory,
+      page: currentPage,
+      pageSize: MATCH_HISTORY_PAGE_SIZE,
+    });
+  }, [currentPage, typedGameHistory]);
 
   const visibleHistory = useMemo(() => {
-    return filterHistoryGames(typedGameHistory, activeFilter);
-  }, [activeFilter, typedGameHistory]);
+    return filterHistoryGames(currentPageHistory, activeFilter);
+  }, [activeFilter, currentPageHistory]);
 
   const pageSummary = useMemo(() => {
     return summarizeHistoryPage(typedGameHistory);
   }, [typedGameHistory]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setPendingPage(null);
+  }, [activeFilter]);
+
+  useEffect(() => {
+    if (currentPage > loadedPageCount && loadedPageCount > 0) {
+      setCurrentPage(loadedPageCount);
+    }
+  }, [currentPage, loadedPageCount]);
+
+  useEffect(() => {
+    if (
+      pendingPage &&
+      isHistoryPageLoaded({
+        loadedItems: typedGameHistory.length,
+        page: pendingPage,
+        pageSize: MATCH_HISTORY_PAGE_SIZE,
+      })
+    ) {
+      setCurrentPage(pendingPage);
+      setPendingPage(null);
+    }
+  }, [pendingPage, typedGameHistory.length]);
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page === currentPage || isLoadingMore) return;
+
+    if (
+      isHistoryPageLoaded({
+        loadedItems: typedGameHistory.length,
+        page,
+        pageSize: MATCH_HISTORY_PAGE_SIZE,
+      })
+    ) {
+      setCurrentPage(page);
+      return;
+    }
+
+    if (!hasMore) return;
+
+    setPendingPage(page);
+    loadMore(MATCH_HISTORY_PAGE_SIZE);
+  };
 
   if (status === "LoadingFirstPage") {
     return <MatchHistoryLoading />;
@@ -102,10 +174,16 @@ export const MatchHistory = () => {
       )}
 
       <MatchHistoryPagination
+        canGoNext={canGoNext}
+        canGoPrevious={canGoPrevious}
+        currentPage={currentPage}
         hasMore={hasMore}
         isFirstLoad={isFirstLoad}
         isLoadingMore={isLoadingMore}
-        onLoadMore={() => loadMore(5)}
+        loadedPageCount={loadedPageCount}
+        pages={paginationPages}
+        pendingPage={pendingPage}
+        onPageChange={handlePageChange}
       />
     </div>
   );

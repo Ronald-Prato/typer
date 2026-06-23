@@ -1,11 +1,8 @@
 import { v } from "convex/values";
 import { mutation, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
-import practiceScrollParagraphs from "../src/data/practiceScrollParagraphs.json";
-import { getRandomizedPracticeScrollText } from "../src/domain/practiceScroll";
 import {
   getCurrentUser,
-  getRandomGameSettings,
   avatarUrlFromSeed,
   sanitizeAvatarSeed,
 } from "./helpers/getCurrentUser";
@@ -16,21 +13,22 @@ import {
   buildExitQueuePatch,
   canCreateBotMatchForUser,
   canCreateMatchForUser,
+  getNearbyBotIntroWpm,
   hasQueuedHumanOpponent,
   normalizeGameMode,
   MAX_MATCHMAKING_BATCH_SIZE,
 } from "./queueState";
+import {
+  getMatchAcceptDeadline,
+  MATCH_ACCEPT_TIMEOUT_MS,
+} from "./gameStateMachine";
+import {
+  assertTypingContentAvailableForMode,
+  buildMatchTypingContentFromDb,
+} from "./typingContent";
 
 const gameModeValidator = v.union(v.literal("classic"), v.literal("scroll"));
 const SCROLL_BOT_CHARS_PER_SECOND = 5;
-const SCROLL_PARAGRAPHS = practiceScrollParagraphs as string[];
-
-function getRandomScrollText() {
-  return (
-    getRandomizedPracticeScrollText(SCROLL_PARAGRAPHS) ||
-    "El modo Scroll necesita texto disponible para crear una partida."
-  );
-}
 
 export const getInQueue = mutation({
   args: {
@@ -47,6 +45,8 @@ export const getInQueue = mutation({
     ) {
       throw new Error("No puedes entrar a la cola con una partida activa");
     }
+
+    await assertTypingContentAvailableForMode(ctx, mode);
 
     const updatedUser = await ctx.db.patch(user._id, {
       ...buildEnterQueuePatch(Date.now(), mode),
@@ -73,11 +73,6 @@ export const createMatchWithBot = internalMutation({
     userId: v.id("user"),
     queuedAt: v.number(),
     mode: v.optional(gameModeValidator),
-    phrase: v.string(),
-    scrollText: v.optional(v.string()),
-    words: v.array(v.string()),
-    lettersAndSymbols: v.array(v.string()),
-    holdsWords: v.array(v.object({ word: v.string(), number: v.number() })),
   },
   handler: async (ctx, args) => {
     const [user, bot] = await Promise.all([
@@ -137,6 +132,7 @@ export const createMatchWithBot = internalMutation({
       throw new Error("Bot not found");
     }
 
+    const content = await buildMatchTypingContentFromDb(ctx, mode);
     const randomNickname =
       botNicknames[Math.floor(Math.random() * botNicknames.length)];
 
@@ -150,18 +146,23 @@ export const createMatchWithBot = internalMutation({
       nickname: randomNickname,
       avatarSeed,
       avatarUrl: avatarUrlFromSeed(avatarSeed),
+      highestPracticeWpm: getNearbyBotIntroWpm({
+        userWpm: user?.highestPracticeWpm,
+      }),
     });
 
+    const acceptDeadlineAt = getMatchAcceptDeadline(Date.now());
     const gameId = await ctx.db.insert("game", {
       players: [args.userId, bot._id],
       mode,
       language: "es",
-      phrase: args.phrase,
-      scrollText: args.scrollText,
-      words: args.words,
-      holds: args.holdsWords,
-      lettersAndSymbols: args.lettersAndSymbols,
+      phrase: content.phrase,
+      scrollText: content.scrollText,
+      words: content.words,
+      holds: content.holdsWords,
+      lettersAndSymbols: content.lettersAndSymbols,
       playersAccepted: [bot._id],
+      acceptDeadlineAt,
       againstBot: true,
       botProfile,
       ...(mode === "scroll"
@@ -183,6 +184,12 @@ export const createMatchWithBot = internalMutation({
       activeGame: gameId,
     });
 
+    await ctx.scheduler.runAfter(
+      MATCH_ACCEPT_TIMEOUT_MS,
+      internal.game.expirePendingGame,
+      { gameId, acceptDeadlineAt }
+    );
+
     console.log(
       `🤖 Created bot match for user ${args.userId} with bot ${bot.authId}`
     );
@@ -199,8 +206,6 @@ export const matchQueuedUsers = internalMutation({
       .take(MAX_MATCHMAKING_BATCH_SIZE);
     const now = Date.now();
 
-    console.log(`🔍 Found ${queuedUsers.length} users in queue`);
-
     for (const mode of ["classic", "scroll"] as const) {
       const modeUsers = queuedUsers.filter(
         (user) => normalizeGameMode(user.queuedMode) === mode
@@ -215,9 +220,6 @@ export const matchQueuedUsers = internalMutation({
         if (user.status === "in_game" || user.status === "game_found") {
           continue;
         }
-
-        const { phrase, words, lettersAndSymbols, holdsWords } =
-          getRandomGameSettings();
 
         if (
           !canCreateBotMatchForUser(
@@ -241,11 +243,6 @@ export const matchQueuedUsers = internalMutation({
           userId: user._id,
           queuedAt,
           mode,
-          phrase,
-          scrollText: mode === "scroll" ? getRandomScrollText() : undefined,
-          words,
-          lettersAndSymbols,
-          holdsWords,
         });
 
         console.log(`🤖 Scheduled ${mode} bot match for single user ${user._id}`);
@@ -261,9 +258,6 @@ export const matchQueuedUsers = internalMutation({
       for (let i = 0; i < modeUsers.length - 1; i += 2) {
         const user1 = modeUsers[i];
         const user2 = modeUsers[i + 1];
-
-        const { phrase, words, lettersAndSymbols, holdsWords } =
-          getRandomGameSettings();
 
         if (
           user1.status === "in_game" ||
@@ -308,16 +302,19 @@ export const matchQueuedUsers = internalMutation({
           continue;
         }
 
+        const content = await buildMatchTypingContentFromDb(ctx, mode);
+        const acceptDeadlineAt = getMatchAcceptDeadline(Date.now());
         const gameId = await ctx.db.insert("game", {
           players: [user1._id, user2._id],
           mode,
           language: "es",
-          phrase,
-          scrollText: mode === "scroll" ? getRandomScrollText() : undefined,
-          words,
-          holds: holdsWords,
-          lettersAndSymbols,
+          phrase: content.phrase,
+          scrollText: content.scrollText,
+          words: content.words,
+          holds: content.holdsWords,
+          lettersAndSymbols: content.lettersAndSymbols,
           playersAccepted: [],
+          acceptDeadlineAt,
         });
 
         await Promise.all([
@@ -334,6 +331,12 @@ export const matchQueuedUsers = internalMutation({
             activeGame: gameId,
           }),
         ]);
+
+        await ctx.scheduler.runAfter(
+          MATCH_ACCEPT_TIMEOUT_MS,
+          internal.game.expirePendingGame,
+          { gameId, acceptDeadlineAt }
+        );
       }
 
       // Si hay un usuario impar, crear partida con bot solo despues de una espera minima.
@@ -347,9 +350,6 @@ export const matchQueuedUsers = internalMutation({
           console.log(`👤 Remaining user ${remainingUser._id} already in game`);
           continue;
         }
-
-        const { phrase, words, lettersAndSymbols, holdsWords } =
-          getRandomGameSettings();
 
         const freshRemainingUser = await ctx.db.get(remainingUser._id);
 
@@ -377,11 +377,6 @@ export const matchQueuedUsers = internalMutation({
           userId: remainingUser._id,
           queuedAt: remainingQueuedAt,
           mode,
-          phrase,
-          scrollText: mode === "scroll" ? getRandomScrollText() : undefined,
-          words,
-          lettersAndSymbols,
-          holdsWords,
         });
 
         console.log(

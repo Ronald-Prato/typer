@@ -5,13 +5,13 @@ const crons = cronJobs();
 
 // crons.interval(
 //   "update-snippets-each-minute",
-//   { minutes: 1 }, // mínimo permitido
+//   { seconds: 30 },
 //   internal.snippets.updateSnippetsScheduled // tu mutation o función server
 // );
 
 crons.interval(
-  "match-queued-users-each-minute",
-  { minutes: 1 },
+  "match-queued-users-every-10-seconds",
+  { seconds: 10 },
   internal.queue.matchQueuedUsers
 );
 

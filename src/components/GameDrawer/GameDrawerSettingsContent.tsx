@@ -3,15 +3,19 @@
 import type { ChangeEvent } from "react";
 import {
   ArrowRightOnRectangleIcon,
-  CircleStackIcon,
   Cog6ToothIcon,
+  SpeakerWaveIcon,
+  SpeakerXMarkIcon,
   UserPlusIcon,
 } from "@heroicons/react/24/outline";
+import { TypocoinBalance } from "@/components/Currency";
 import { Text } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { FriendList } from "@/components/FriendList/FriendList";
 import { UserAvatarImage } from "@/components/Avatar";
-import { cn, truncateEmail } from "@/lib/utils";
+import { ThemeModeControl } from "@/components/ThemeModeControl/ThemeModeControl";
+import { getTypocoinBalanceFromUser } from "@/domain/currency";
+import { truncateEmail } from "@/lib/utils";
 import { HUD_SCALE_STEPS, type HudScale } from "@/hooks";
 
 interface DrawerUser {
@@ -24,31 +28,25 @@ interface DrawerUser {
 
 interface GameDrawerSettingsContentProps {
   dbUser: DrawerUser | null | undefined;
+  areAudioNotificationsEnabled: boolean;
   hudScale: HudScale;
-  isLowPerformanceMode: boolean;
   theme?: string;
   onAddFriend: () => void;
+  onAudioNotificationsChange: (enabled: boolean) => void;
   onHudScaleChange: (scale: HudScale) => void;
-  onLowPerformanceModeChange: (enabled: boolean) => void;
   onProfileEdit: () => void;
   onSignOut: () => void;
   onThemeChange: (theme: "system" | "light" | "dark") => void;
 }
 
-const themeOptions = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-] as const;
-
 export function GameDrawerSettingsContent({
   dbUser,
+  areAudioNotificationsEnabled,
   hudScale,
-  isLowPerformanceMode,
   theme,
   onAddFriend,
+  onAudioNotificationsChange,
   onHudScaleChange,
-  onLowPerformanceModeChange,
   onProfileEdit,
   onSignOut,
   onThemeChange,
@@ -57,6 +55,7 @@ export function GameDrawerSettingsContent({
 
   const hudScaleIndex = HUD_SCALE_STEPS.indexOf(hudScale);
   const hudScalePercent = Math.round(hudScale * 100);
+  const typocoinBalance = getTypocoinBalanceFromUser(dbUser);
   const handleHudScaleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextScale = HUD_SCALE_STEPS[Number(event.target.value)];
 
@@ -85,12 +84,12 @@ export function GameDrawerSettingsContent({
               <Text className="text-sm text-[var(--tw-home-muted)]">
                 {truncateEmail(dbUser.email)}
               </Text>
-              <div className="mt-2 flex w-fit items-center gap-2 rounded-md border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-amber-200">
-                <CircleStackIcon className="size-4" />
-                <Text variant="caption" className="font-semibold text-amber-200">
-                  {dbUser.gold ?? 0} oro
-                </Text>
-              </div>
+              <TypocoinBalance
+                amount={typocoinBalance}
+                className="mt-2 w-fit gap-1.5"
+                showLabel={false}
+                size="drawer"
+              />
             </div>
 
             <button
@@ -118,31 +117,40 @@ export function GameDrawerSettingsContent({
 
         <div className="space-y-4 rounded-lg border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] p-4">
           <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0 space-y-1.5">
-              <Text
-                as="p"
-                variant="h6"
-                className="font-extrabold text-[var(--tw-home-fg)]"
-              >
-                Modo bajo rendimiento
-              </Text>
-              <Text
-                as="p"
-                variant="body2"
-                className="max-w-[16rem] text-[var(--tw-home-muted)]"
-              >
-                Reduce fondos animados, brillos y efectos pesados.
-              </Text>
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-[var(--tw-home-border)] bg-[var(--tw-home-panel-strong)] text-orange-500">
+                {areAudioNotificationsEnabled ? (
+                  <SpeakerWaveIcon className="size-5" aria-hidden="true" />
+                ) : (
+                  <SpeakerXMarkIcon className="size-5" aria-hidden="true" />
+                )}
+              </div>
+              <div className="min-w-0 space-y-1.5">
+                <Text
+                  as="p"
+                  variant="h6"
+                  className="font-extrabold text-[var(--tw-home-fg)]"
+                >
+                  Audio
+                </Text>
+                <Text
+                  as="p"
+                  variant="body2"
+                  className="max-w-[16rem] text-[var(--tw-home-muted)]"
+                >
+                  Reproduce un aviso cuando aparece una partida nueva.
+                </Text>
+              </div>
             </div>
             <label className="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border border-[var(--tw-home-border)] bg-[var(--tw-home-panel-strong)] p-1">
               <input
-                checked={isLowPerformanceMode}
+                checked={areAudioNotificationsEnabled}
                 onChange={(event) =>
-                  onLowPerformanceModeChange(event.target.checked)
+                  onAudioNotificationsChange(event.target.checked)
                 }
                 className="peer sr-only"
                 type="checkbox"
-                aria-label="Modo bajo rendimiento"
+                aria-label="Notificaciones de audio"
               />
               <span className="size-5 rounded-full bg-[var(--tw-home-muted)] transition-transform peer-checked:translate-x-5 peer-checked:bg-orange-500" />
             </label>
@@ -195,72 +203,11 @@ export function GameDrawerSettingsContent({
         </div>
 
         <div className="space-y-4 rounded-lg border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] p-4">
-          <Text variant="h6" className="font-extrabold text-[var(--tw-home-fg)]">
-            Theme
-          </Text>
-          <div className="grid grid-cols-3 gap-3">
-            {themeOptions.map((option) => {
-              const isSelected = (theme ?? "dark") === option.value;
-
-              return (
-                <button
-                  key={option.value}
-                  onClick={() => onThemeChange(option.value)}
-                  className="group space-y-2 text-left outline-none"
-                  type="button"
-                  aria-pressed={isSelected}
-                >
-                  <span
-                    className={cn(
-                      "block h-20 overflow-hidden rounded-lg border bg-[#faf4ed] p-2 transition-all",
-                      isSelected
-                        ? "border-[#D7827E] shadow-[0_0_0_2px_rgba(215,130,126,0.20)]"
-                        : "border-[var(--tw-home-border)] group-hover:border-[#D7827E]/70"
-                    )}
-                  >
-                    {option.value === "system" && (
-                      <span className="grid h-full grid-cols-2 overflow-hidden rounded-md">
-                        <span className="bg-[#faf4ed] p-2">
-                          <span className="mt-7 block h-3 rounded-full bg-[#D7827E]/25" />
-                          <span className="mt-2 block h-2 rounded-full bg-[#575279]/15" />
-                        </span>
-                        <span className="bg-[#1f2430] p-2">
-                          <span className="mt-7 block h-3 rounded-full bg-white/25" />
-                          <span className="mt-2 block h-2 rounded-full bg-white/15" />
-                        </span>
-                      </span>
-                    )}
-                    {option.value === "light" && (
-                      <span className="block h-full rounded-md bg-[#fffaf3] p-3">
-                        <span className="mx-auto block h-2 w-12 rounded-full bg-[#D7827E]/30" />
-                        <span className="mt-4 block h-3 w-16 rounded-full bg-[#575279]/18" />
-                        <span className="mt-3 block h-px bg-[#575279]/10" />
-                        <span className="mt-3 block h-3 w-20 rounded-full bg-[#575279]/14" />
-                      </span>
-                    )}
-                    {option.value === "dark" && (
-                      <span className="block h-full rounded-md bg-[#575279] p-3">
-                        <span className="mx-auto block h-2 w-12 rounded-full bg-white/40" />
-                        <span className="mt-4 block h-3 w-16 rounded-full bg-[#faf4ed]" />
-                        <span className="mt-3 block h-px bg-white/15" />
-                        <span className="mt-3 block h-3 w-20 rounded-full bg-[#faf4ed]/80" />
-                      </span>
-                    )}
-                  </span>
-                  <span className="flex items-center justify-center gap-2 text-sm font-semibold text-[var(--tw-home-muted)]">
-                    <span
-                      className={cn(
-                        "size-3 rounded-full border",
-                        isSelected
-                          ? "border-[#D7827E] bg-[#D7827E]"
-                          : "border-[var(--tw-home-border)]"
-                      )}
-                    />
-                    {option.label}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="flex items-center justify-between gap-4">
+            <Text variant="h6" className="font-extrabold text-[var(--tw-home-fg)]">
+              Tema
+            </Text>
+            <ThemeModeControl theme={theme} onThemeChange={onThemeChange} />
           </div>
         </div>
 

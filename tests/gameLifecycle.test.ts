@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  getClassicMatchAverageWpm,
+  getClassicMatchHighestWpmPatch,
   getFinishedGameHistoryUserIds,
+  getForfeitWinnerId,
   getHistoryOpponentSnapshot,
-  getWinnerGoldPatch,
+  getRewardedWinnerId,
+  getWinnerTypocoinPatch,
   shouldRewardWinner,
   toPlayerSnapshot,
 } from "../convex/gameLifecycle";
@@ -77,9 +81,90 @@ describe("gameLifecycle", () => {
     ).toEqual(botProfile);
   });
 
-  it("builds the winner reward patch from missing or existing gold", () => {
-    expect(getWinnerGoldPatch(undefined)).toEqual({ gold: 10 });
-    expect(getWinnerGoldPatch(15)).toEqual({ gold: 25 });
+  it("builds the winner typocoin patch against legacy gold storage", () => {
+    expect(getWinnerTypocoinPatch(undefined)).toEqual({ gold: 10 });
+    expect(getWinnerTypocoinPatch(15)).toEqual({ gold: 25 });
+  });
+
+  it("rewards the human winner in bot matches and skips bot winners", () => {
+    expect(
+      getRewardedWinnerId({
+        players: ["human", "bot"],
+        winnerId: "human",
+        againstBot: true,
+        botPlayerId: "bot",
+      })
+    ).toBe("human");
+
+    expect(
+      getRewardedWinnerId({
+        players: ["human", "bot"],
+        winnerId: "bot",
+        againstBot: true,
+        botPlayerId: "bot",
+      })
+    ).toBeUndefined();
+  });
+
+  it("selects the non-abandoning player as the forfeit winner", () => {
+    expect(
+      getForfeitWinnerId({
+        players: ["alice", "bob"],
+        forfeitingPlayerId: "alice",
+      })
+    ).toBe("bob");
+
+    expect(
+      getForfeitWinnerId({
+        players: ["alice", "bob"],
+        forfeitingPlayerId: "alice",
+        existingWinner: "bob",
+      })
+    ).toBeUndefined();
+
+    expect(
+      getForfeitWinnerId({
+        players: ["alice", "bob"],
+        forfeitingPlayerId: "charlie",
+      })
+    ).toBeUndefined();
+  });
+
+  it("summarizes classic match WPM from completed player stages", () => {
+    expect(
+      getClassicMatchAverageWpm({
+        phraseMetrics: { errors: 0, timeMs: 1000, accuracy: 100, wpm: 68 },
+        wordsMetrics: { errors: 0, timeMs: 1000, accuracy: 100, wpm: 71 },
+        lettersAndSymbolsMetrics: {
+          errors: 0,
+          timeMs: 1000,
+          accuracy: 100,
+          wpm: 83,
+        },
+      })
+    ).toBe(74);
+    expect(getClassicMatchAverageWpm(undefined)).toBe(0);
+  });
+
+  it("builds a highest WPM patch only when a classic match beats the record", () => {
+    expect(
+      getClassicMatchHighestWpmPatch({
+        currentHighestWpm: 72,
+        progress: {
+          phraseMetrics: { errors: 0, timeMs: 1000, accuracy: 100, wpm: 80 },
+          wordsMetrics: { errors: 0, timeMs: 1000, accuracy: 100, wpm: 92 },
+        },
+      })
+    ).toEqual({ highestPracticeWpm: 86 });
+
+    expect(
+      getClassicMatchHighestWpmPatch({
+        currentHighestWpm: 90,
+        progress: {
+          phraseMetrics: { errors: 0, timeMs: 1000, accuracy: 100, wpm: 80 },
+        },
+      })
+    ).toBeUndefined();
   });
 
   it("rewards human winners and skips bot winners", () => {

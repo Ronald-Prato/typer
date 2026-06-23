@@ -9,10 +9,17 @@ export interface TypingState {
   target: string;
   input: string;
   errors: number[];
+  mistake: TypingMistake | null;
   startedAt: number | null;
   completedAt: number | null;
   hasCompleted: boolean;
   elapsedMs: number;
+}
+
+export interface TypingMistake {
+  index: number;
+  char: string;
+  attempt: number;
 }
 
 export interface HoldTarget {
@@ -38,6 +45,7 @@ export interface KeyboardLike {
   key: string;
   ctrlKey?: boolean;
   metaKey?: boolean;
+  altKey?: boolean;
 }
 
 export function getTypingSequenceContentKey(targets: string[]): string {
@@ -53,6 +61,7 @@ export function createTypingState(target: string): TypingState {
     target,
     input: "",
     errors: [],
+    mistake: null,
     startedAt: null,
     completedAt: null,
     hasCompleted: false,
@@ -80,10 +89,76 @@ export function applyTypingInput(
     ...state,
     input: nextInput,
     errors,
+    mistake: null,
     startedAt,
     completedAt,
     hasCompleted,
     elapsedMs: startedAt ? (completedAt ?? now) - startedAt : 0,
+  };
+}
+
+export function applyLockedTypingInput(
+  state: TypingState,
+  nextInput: string,
+  now: number
+): TypingState {
+  if (state.hasCompleted || nextInput.length > state.target.length) {
+    return state;
+  }
+
+  if (nextInput.length <= state.input.length) {
+    if (state.mistake) {
+      return {
+        ...state,
+        mistake: null,
+        elapsedMs: state.startedAt ? now - state.startedAt : 0,
+      };
+    }
+
+    const startedAt =
+      state.startedAt ?? (nextInput.length > 0 ? now : state.startedAt);
+
+    return {
+      ...state,
+      input: nextInput,
+      mistake: null,
+      startedAt,
+      elapsedMs: startedAt ? now - startedAt : 0,
+    };
+  }
+
+  const index = state.input.length;
+  const attemptedChar = nextInput[index] ?? "";
+  const startedAt = state.startedAt ?? now;
+
+  if (attemptedChar !== state.target[index]) {
+    return {
+      ...state,
+      errors: [...state.errors, index],
+      mistake: {
+        index,
+        char: attemptedChar,
+        attempt: (state.mistake?.attempt ?? 0) + 1,
+      },
+      startedAt,
+      elapsedMs: now - startedAt,
+    };
+  }
+
+  const acceptedInput = nextInput.slice(0, index + 1);
+  const hasCompleted =
+    acceptedInput.length === state.target.length &&
+    acceptedInput === state.target;
+  const completedAt = hasCompleted ? state.completedAt ?? now : null;
+
+  return {
+    ...state,
+    input: acceptedInput,
+    mistake: null,
+    startedAt,
+    completedAt,
+    hasCompleted,
+    elapsedMs: completedAt ? completedAt - startedAt : now - startedAt,
   };
 }
 
@@ -266,6 +341,19 @@ export function isCopyPasteShortcut(event: KeyboardLike): boolean {
     Boolean(event.ctrlKey || event.metaKey) &&
     ["c", "v", "x"].includes(event.key.toLowerCase())
   );
+}
+
+export function isPrintableTypingKey(event: KeyboardLike): boolean {
+  return (
+    event.key.length === 1 &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey
+  );
+}
+
+export function isDeletionTypingKey(event: KeyboardLike): boolean {
+  return event.key === "Backspace" || event.key === "Delete";
 }
 
 export function formatTypingTime(timeMs: number): string {

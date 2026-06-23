@@ -10,6 +10,9 @@ export type GameMode = "classic" | "scroll";
 
 export const MAX_MATCHMAKING_BATCH_SIZE = 50;
 export const MIN_BOT_MATCH_WAIT_MS = 15_000;
+export const BOT_INTRO_WPM_FALLBACK = 45;
+export const BOT_INTRO_WPM_MIN = 15;
+export const BOT_INTRO_WPM_VARIANCE = 8;
 
 export function normalizeGameMode(mode: string | undefined): GameMode {
   return mode === "scroll" ? "scroll" : "classic";
@@ -90,11 +93,32 @@ export function buildBotProfile<TUserId extends string>(args: {
   nickname: string;
   avatarSeed?: string;
   avatarUrl?: string;
+  highestPracticeWpm?: number;
 }) {
   return {
     userId: args.botUserId,
     nickname: args.nickname,
     avatarSeed: args.avatarSeed,
     avatarUrl: args.avatarUrl,
+    ...(args.highestPracticeWpm !== undefined
+      ? { highestPracticeWpm: args.highestPracticeWpm }
+      : {}),
   };
+}
+
+export function getNearbyBotIntroWpm({
+  random = Math.random,
+  userWpm,
+}: {
+  random?: () => number;
+  userWpm?: number | null;
+}) {
+  const baseWpm =
+    typeof userWpm === "number" && Number.isFinite(userWpm) && userWpm > 0
+      ? userWpm
+      : BOT_INTRO_WPM_FALLBACK;
+  const randomValue = Math.max(0, Math.min(0.999_999, random()));
+  const offset = Math.round((randomValue * 2 - 1) * BOT_INTRO_WPM_VARIANCE);
+
+  return Math.max(BOT_INTRO_WPM_MIN, Math.round(baseWpm + offset));
 }

@@ -1,6 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { practicePhrases } from "@/constants";
 import { selectPracticePhrases } from "@/domain/practicePhraseSelection";
 
 const practicePhraseSeenStorageKey = "typer.practice.phrases.seen";
@@ -52,7 +51,7 @@ function setSeenPracticePhrases(phrases: string[]) {
   );
 }
 
-export const getShuffledPhrases = () => {
+export const getShuffledPhrases = (practicePhrases: string[]) => {
   const selection = selectPracticePhrases(
     practicePhrases,
     getSeenPracticePhrases()

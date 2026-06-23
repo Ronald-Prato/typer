@@ -18,6 +18,18 @@ export interface RawTypingMetrics {
   timeMs: number;
 }
 
+export interface ClassicMatchMetrics extends RawTypingMetrics {
+  accuracy?: number;
+  wpm?: number;
+}
+
+export interface ClassicMatchProgressMetrics {
+  phraseMetrics?: ClassicMatchMetrics;
+  wordsMetrics?: ClassicMatchMetrics;
+  lettersAndSymbolsMetrics?: ClassicMatchMetrics;
+  holdsMetrics?: ClassicMatchMetrics;
+}
+
 export interface MatchStepMetrics extends RawTypingMetrics {
   accuracy: number;
   wpm: number;
@@ -67,6 +79,19 @@ export function isAcceptedMatchReadyToEnter({
   return players.every((playerId) => playersAccepted.includes(playerId));
 }
 
+export function getMatchAcceptCountdownSeconds({
+  acceptDeadlineAt,
+  now,
+}: {
+  acceptDeadlineAt?: number | null;
+  now: number;
+}) {
+  if (acceptDeadlineAt === undefined || acceptDeadlineAt === null) return null;
+  if (!Number.isFinite(acceptDeadlineAt)) return null;
+
+  return Math.max(0, Math.ceil((acceptDeadlineAt - now) / 1000));
+}
+
 export function deriveStepFromProgress(
   progress?: MatchProgressFlags | null
 ): MatchStageStep {
@@ -99,6 +124,51 @@ export function getNextStepSubmission({
         wpm: calculateWPM(characterCount, metrics.timeMs),
       },
     },
+  };
+}
+
+export function summarizeClassicMatchMetrics(
+  progress?: ClassicMatchProgressMetrics | null
+) {
+  const stageMetrics = [
+    progress?.phraseMetrics,
+    progress?.wordsMetrics,
+    progress?.lettersAndSymbolsMetrics,
+    progress?.holdsMetrics,
+  ].filter((metrics): metrics is ClassicMatchMetrics => Boolean(metrics));
+
+  const totalTimeMs = stageMetrics.reduce(
+    (total, metrics) => total + metrics.timeMs,
+    0
+  );
+  const totalErrors = stageMetrics.reduce(
+    (total, metrics) => total + metrics.errors,
+    0
+  );
+  const averageAccuracy =
+    stageMetrics.length > 0
+      ? Math.round(
+          stageMetrics.reduce(
+            (total, metrics) => total + (metrics.accuracy ?? 0),
+            0
+          ) / stageMetrics.length
+        )
+      : 0;
+  const averageWpm =
+    stageMetrics.length > 0
+      ? Math.round(
+          stageMetrics.reduce((total, metrics) => total + (metrics.wpm ?? 0), 0) /
+            stageMetrics.length
+        )
+      : 0;
+
+  return {
+    averageAccuracy,
+    averageWpm,
+    completedStages: stageMetrics.length,
+    stageCount: 4,
+    totalErrors,
+    totalTimeMs,
   };
 }
 

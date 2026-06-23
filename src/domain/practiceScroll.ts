@@ -4,8 +4,14 @@ export interface PracticeScrollProgress {
   failed: boolean;
 }
 
-export const PRACTICE_SCROLL_SPEED_PX_PER_SECOND = 12.8;
-export const PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND = 0.4;
+export const PRACTICE_SCROLL_SPEED_PX_PER_SECOND = 15.36;
+export const PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND = 0.48;
+export const COMPETITIVE_SCROLL_VERSUS_INTRO_MS = 2_000;
+export const COMPETITIVE_SCROLL_COUNTDOWN_MS = 3_000;
+export const COMPETITIVE_SCROLL_BOT_BASELINE_WPM_BUCKET = 70;
+export const COMPETITIVE_SCROLL_BOT_MIN_WPM_BUCKET = 50;
+export const COMPETITIVE_SCROLL_BOT_BASELINE_GRACE_WORDS = 30;
+export const COMPETITIVE_SCROLL_BOT_BASELINE_MAX_LOSS_WORDS = 70;
 
 export interface PracticeScrollFailureConfig {
   charsPerLine: number;
@@ -43,6 +49,56 @@ export interface CompetitiveScrollProgress {
   errors: number;
 }
 
+export type CompetitiveScrollIntroPhase = "versus" | "countdown" | "playing";
+
+export function getCompetitiveScrollIntroState({
+  countdownMs = COMPETITIVE_SCROLL_COUNTDOWN_MS,
+  introMs = COMPETITIVE_SCROLL_VERSUS_INTRO_MS,
+  now,
+  startedAt,
+}: {
+  countdownMs?: number;
+  introMs?: number;
+  now: number;
+  startedAt?: number;
+}): {
+  phase: CompetitiveScrollIntroPhase;
+  countdownValue: number | null;
+  msUntilStart: number;
+} {
+  const safeNow = Number.isFinite(now) ? now : 0;
+  const safeStartedAt =
+    typeof startedAt === "number" && Number.isFinite(startedAt)
+      ? startedAt
+      : safeNow + Math.max(0, introMs) + Math.max(0, countdownMs);
+  const safeCountdownMs =
+    Number.isFinite(countdownMs) && countdownMs > 0 ? countdownMs : 0;
+  const safeIntroMs = Number.isFinite(introMs) && introMs > 0 ? introMs : 0;
+  const msUntilStart = Math.max(0, safeStartedAt - safeNow);
+
+  if (msUntilStart <= 0) {
+    return {
+      phase: "playing",
+      countdownValue: null,
+      msUntilStart: 0,
+    };
+  }
+
+  if (msUntilStart <= safeCountdownMs) {
+    return {
+      phase: "countdown",
+      countdownValue: Math.max(1, Math.ceil(msUntilStart / 1000)),
+      msUntilStart,
+    };
+  }
+
+  return {
+    phase: "versus",
+    countdownValue: null,
+    msUntilStart: Math.min(msUntilStart, safeIntroMs + safeCountdownMs),
+  };
+}
+
 export function normalizeCompetitiveScrollProgress({
   currentIndex,
   errors,
@@ -60,15 +116,31 @@ export function normalizeCompetitiveScrollProgress({
   startedAt?: number;
   text: string;
 }): CompetitiveScrollProgress {
-  const safeIndex = Math.max(0, Math.min(Math.floor(currentIndex), text.length));
-  const safeErrors = Math.max(0, Math.floor(errors));
-  const completed = safeIndex >= text.length && text.length > 0;
-  const isFinished = completed || failed;
+  const requestedIndex = Math.max(
+    0,
+    Math.min(Math.floor(currentIndex), text.length)
+  );
+  const safeIndex = Math.max(
+    requestedIndex,
+    previousProgress?.currentIndex ?? 0
+  );
+  const safeErrors = Math.max(
+    Math.max(0, Math.floor(errors)),
+    previousProgress?.errors ?? 0
+  );
+  const completed =
+    !previousProgress?.failed &&
+    (previousProgress?.completed ||
+      (safeIndex >= text.length && text.length > 0));
+  const nextFailed = previousProgress?.completed
+    ? false
+    : Boolean(previousProgress?.failed || failed);
+  const isFinished = completed || nextFailed;
 
   return {
     currentIndex: safeIndex,
     typedWords: countCompletedPracticeScrollWords(text, safeIndex),
-    failed,
+    failed: nextFailed,
     completed,
     startedAt: previousProgress?.startedAt ?? startedAt ?? now,
     finishedAt: isFinished ? (previousProgress?.finishedAt ?? now) : undefined,
@@ -115,6 +187,181 @@ export function hasCompetitiveScrollStartSignal({
       typeof playerProgress?.startedAt === "number" &&
       Number.isFinite(playerProgress.startedAt)
   );
+}
+
+function interpolateBotMissProbability({
+  fromProbability,
+  fromWords,
+  playerCompletedWords,
+  toProbability,
+  toWords,
+}: {
+  fromProbability: number;
+  fromWords: number;
+  playerCompletedWords: number;
+  toProbability: number;
+  toWords: number;
+}): number {
+  const range = Math.max(1, toWords - fromWords);
+  const progress = Math.max(
+    0,
+    Math.min(1, (playerCompletedWords - fromWords) / range)
+  );
+
+  return fromProbability + (toProbability - fromProbability) * progress;
+}
+
+export function getCompetitiveScrollBotWpmBucket(playerWpm: number | undefined) {
+  const safeWpm = Number.isFinite(playerWpm) && playerWpm !== undefined
+    ? Math.floor(playerWpm)
+    : 0;
+  const bucket = Math.floor(Math.max(0, safeWpm) / 10) * 10;
+
+  return Math.max(COMPETITIVE_SCROLL_BOT_MIN_WPM_BUCKET, bucket);
+}
+
+export function getCompetitiveScrollBotDifficultyTargets({
+  playerWpm,
+}: {
+  playerWpm?: number;
+}) {
+  const wpmBucket = getCompetitiveScrollBotWpmBucket(playerWpm);
+  const scale = wpmBucket / COMPETITIVE_SCROLL_BOT_BASELINE_WPM_BUCKET;
+  const graceWords = Math.max(
+    1,
+    Math.round(COMPETITIVE_SCROLL_BOT_BASELINE_GRACE_WORDS * scale)
+  );
+  const maxLossWords = Math.max(
+    graceWords + 1,
+    Math.round(COMPETITIVE_SCROLL_BOT_BASELINE_MAX_LOSS_WORDS * scale)
+  );
+  const range = maxLossWords - graceWords;
+  const earlyRampWords = Math.max(
+    graceWords + 1,
+    Math.round(graceWords + range * 0.375)
+  );
+  const lateRampWords = Math.max(
+    earlyRampWords + 1,
+    Math.round(graceWords + range * 0.75)
+  );
+
+  return {
+    wpmBucket,
+    graceWords,
+    earlyRampWords,
+    lateRampWords,
+    maxLossWords,
+  };
+}
+
+export function getCompetitiveScrollBotLineMissProbability({
+  playerCompletedWords,
+  playerWpm,
+}: {
+  playerCompletedWords: number;
+  playerWpm?: number;
+}): number {
+  const safePlayerCompletedWords =
+    Number.isFinite(playerCompletedWords) && playerCompletedWords > 0
+      ? Math.floor(playerCompletedWords)
+      : 0;
+  const targets = getCompetitiveScrollBotDifficultyTargets({ playerWpm });
+
+  if (safePlayerCompletedWords <= targets.graceWords) {
+    return 0;
+  }
+
+  if (safePlayerCompletedWords <= targets.earlyRampWords) {
+    return interpolateBotMissProbability({
+      fromProbability: 0,
+      fromWords: targets.graceWords,
+      playerCompletedWords: safePlayerCompletedWords,
+      toProbability: 0.05,
+      toWords: targets.earlyRampWords,
+    });
+  }
+
+  if (safePlayerCompletedWords <= targets.lateRampWords) {
+    return interpolateBotMissProbability({
+      fromProbability: 0.05,
+      fromWords: targets.earlyRampWords,
+      playerCompletedWords: safePlayerCompletedWords,
+      toProbability: 0.18,
+      toWords: targets.lateRampWords,
+    });
+  }
+
+  if (safePlayerCompletedWords <= targets.maxLossWords) {
+    return interpolateBotMissProbability({
+      fromProbability: 0.18,
+      fromWords: targets.lateRampWords,
+      playerCompletedWords: safePlayerCompletedWords,
+      toProbability: 1,
+      toWords: targets.maxLossWords,
+    });
+  }
+
+  return 1;
+}
+
+export function getCompetitiveScrollBotLineSuccessProbability({
+  playerCompletedWords,
+  playerWpm,
+}: {
+  playerCompletedWords: number;
+  playerWpm?: number;
+}): number {
+  return (
+    1 -
+    getCompetitiveScrollBotLineMissProbability({
+      playerCompletedWords,
+      playerWpm,
+    })
+  );
+}
+
+export function hasCompetitiveScrollBotMissedLine({
+  currentIndex,
+  playerCompletedWords,
+  playerWpm,
+  previousIndex,
+  random = Math.random,
+  text,
+  lines,
+}: {
+  currentIndex: number;
+  playerCompletedWords: number;
+  playerWpm?: number;
+  previousIndex: number;
+  random?: () => number;
+  text: string;
+  lines: PracticeScrollLine[];
+}): boolean {
+  const safePreviousIndex = Math.max(
+    0,
+    Math.min(Math.floor(previousIndex), text.length)
+  );
+  const safeCurrentIndex = Math.max(
+    safePreviousIndex,
+    Math.min(Math.floor(currentIndex), text.length)
+  );
+
+  const newlyCompletedLines = lines.filter(
+    (line) =>
+      safePreviousIndex < line.endIndex && safeCurrentIndex >= line.endIndex
+  );
+
+  return newlyCompletedLines.some(() => {
+    const successProbability = getCompetitiveScrollBotLineSuccessProbability({
+      playerCompletedWords,
+      playerWpm,
+    });
+    const randomValue = random();
+    const safeRandom = Number.isFinite(randomValue) ? randomValue : 0;
+    const boundedRandom = Math.min(Math.max(safeRandom, 0), 0.999999);
+
+    return boundedRandom >= successProbability;
+  });
 }
 
 export function getScrollMinimapWordBlocks(

@@ -11,6 +11,7 @@ interface RacerProps {
   phrase?: string;
   className?: string;
   hideStats?: boolean;
+  lockOnError?: boolean;
   withCompleteFeedback?: boolean;
   disabled?: boolean;
   onCompleted?: (data: { errors: number; timeMs: number }) => void;
@@ -21,12 +22,14 @@ export function Racer({
   onCompleted,
   className = "",
   hideStats = false,
+  lockOnError = false,
   withCompleteFeedback = false,
   disabled = false,
 }: RacerProps) {
   const {
     userInput,
     errors,
+    mistake,
     startTime,
     currentTime,
     isComplete,
@@ -39,7 +42,7 @@ export function Racer({
     accuracy,
     formatTime,
     getTextVariant,
-  } = useRacer({ phrase, onCompleted });
+  } = useRacer({ lockOnError, phrase, onCompleted });
 
   const targetText = phrase || "";
 
@@ -111,6 +114,7 @@ export function Racer({
             <TypingText
               targetText={targetText}
               userInput={userInput}
+              mistake={mistake}
               variant={getTextVariant()}
             />
           ) : (

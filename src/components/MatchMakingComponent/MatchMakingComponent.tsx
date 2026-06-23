@@ -5,6 +5,7 @@ import { useMatchmakingOverlayController } from "./useMatchmakingOverlayControll
 
 export function MatchMakingComponent() {
   const {
+    acceptSecondsRemaining,
     hasAccepted,
     isAccepting,
     isGameFound,
@@ -17,6 +18,7 @@ export function MatchMakingComponent() {
 
   return (
     <MatchFoundOverlay
+      acceptSecondsRemaining={acceptSecondsRemaining}
       hasAccepted={hasAccepted}
       isAccepting={isAccepting}
       onAcceptGame={onAcceptGame}

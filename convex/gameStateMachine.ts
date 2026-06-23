@@ -33,6 +33,15 @@ export type UserGameStatus =
   | "game_found"
   | "in_game";
 
+export const MATCH_ACCEPT_TIMEOUT_MS = 5_000;
+
+export const BOT_STEP_DELAYS_MS: Record<GameStep, number> = {
+  phrase: 10000,
+  words: 12000,
+  lettersAndSymbols: 8000,
+  holds: 18000,
+};
+
 export const stepFieldMap = {
   phrase: "phraseDone",
   words: "wordsDone",
@@ -82,6 +91,21 @@ export function getNextBotStep(
   return null;
 }
 
+export function getBotStepScheduleDelayMs({
+  initialDelayMs = 0,
+  step,
+}: {
+  initialDelayMs?: number;
+  step: GameStep;
+}) {
+  const safeInitialDelayMs =
+    Number.isFinite(initialDelayMs) && initialDelayMs > 0
+      ? Math.floor(initialDelayMs)
+      : 0;
+
+  return BOT_STEP_DELAYS_MS[step] + safeInitialDelayMs;
+}
+
 export function canAcceptGame<TPlayerId extends string>(args: {
   players: TPlayerId[];
   playersAccepted: TPlayerId[];
@@ -101,6 +125,28 @@ export function canAcceptGame<TPlayerId extends string>(args: {
       playersAccepted.includes(playerId)
     ),
   };
+}
+
+export function getMatchAcceptDeadline(now: number) {
+  return now + MATCH_ACCEPT_TIMEOUT_MS;
+}
+
+export function hasMatchAcceptWindowExpired(args: {
+  acceptDeadlineAt?: number;
+  now: number;
+  players: string[];
+  playersAccepted: string[];
+}) {
+  if (args.acceptDeadlineAt === undefined) return false;
+  if (!Number.isFinite(args.acceptDeadlineAt)) return false;
+  if (
+    args.players.length > 0 &&
+    args.players.every((playerId) => args.playersAccepted.includes(playerId))
+  ) {
+    return false;
+  }
+
+  return args.now >= args.acceptDeadlineAt;
 }
 
 export function applyGameStep(args: {

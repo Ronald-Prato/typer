@@ -27,6 +27,9 @@ import type * as queue from "../queue.js";
 import type * as queueState from "../queueState.js";
 import type * as socialData from "../socialData.js";
 import type * as socialState from "../socialState.js";
+import type * as typingContent from "../typingContent.js";
+import type * as typingContentSeed from "../typingContentSeed.js";
+import type * as typingContentState from "../typingContentState.js";
 import type * as user from "../user.js";
 
 /**
@@ -52,6 +55,9 @@ declare const fullApi: ApiFromModules<{
   queueState: typeof queueState;
   socialData: typeof socialData;
   socialState: typeof socialState;
+  typingContent: typeof typingContent;
+  typingContentSeed: typeof typingContentSeed;
+  typingContentState: typeof typingContentState;
   user: typeof user;
 }>;
 export declare const api: FilterApi<

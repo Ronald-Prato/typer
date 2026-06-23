@@ -13,15 +13,15 @@ const dbUser = {
 };
 
 describe("GameDrawerSettingsContent", () => {
-  it("shows the low performance toggle enabled by default state", () => {
+  it("does not show configurable performance options", () => {
     render(
       <GameDrawerSettingsContent
         dbUser={dbUser}
+        areAudioNotificationsEnabled
         hudScale={1}
-        isLowPerformanceMode
         onAddFriend={vi.fn()}
+        onAudioNotificationsChange={vi.fn()}
         onHudScaleChange={vi.fn()}
-        onLowPerformanceModeChange={vi.fn()}
         onProfileEdit={vi.fn()}
         onSignOut={vi.fn()}
         onThemeChange={vi.fn()}
@@ -29,21 +29,27 @@ describe("GameDrawerSettingsContent", () => {
     );
 
     expect(
-      screen.getByRole("checkbox", { name: /modo bajo rendimiento/i })
-    ).toBeChecked();
+      screen.queryByRole("checkbox", { name: /modo bajo rendimiento/i })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/rendimiento/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: /12 typocoins/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/typocoins/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/oro/i)).not.toBeInTheDocument();
   });
 
-  it("notifies when the low performance toggle changes", () => {
-    const handleLowPerformanceModeChange = vi.fn();
+  it("notifies when the audio notifications toggle changes", () => {
+    const handleAudioNotificationsChange = vi.fn();
 
     render(
       <GameDrawerSettingsContent
         dbUser={dbUser}
+        areAudioNotificationsEnabled
         hudScale={1}
-        isLowPerformanceMode
         onAddFriend={vi.fn()}
+        onAudioNotificationsChange={handleAudioNotificationsChange}
         onHudScaleChange={vi.fn()}
-        onLowPerformanceModeChange={handleLowPerformanceModeChange}
         onProfileEdit={vi.fn()}
         onSignOut={vi.fn()}
         onThemeChange={vi.fn()}
@@ -51,9 +57,9 @@ describe("GameDrawerSettingsContent", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("checkbox", { name: /modo bajo rendimiento/i })
+      screen.getByRole("checkbox", { name: /notificaciones de audio/i })
     );
 
-    expect(handleLowPerformanceModeChange).toHaveBeenCalledWith(false);
+    expect(handleAudioNotificationsChange).toHaveBeenCalledWith(false);
   });
 });

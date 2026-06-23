@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Text, Racer, ResultsOverlay } from "@/components";
 import { Button, KeyIndicator } from "@/components/ui/button";
@@ -11,15 +11,17 @@ import {
   slideUp,
 } from "@/motion";
 import { ChevronLeftIcon } from "@heroicons/react/24/outline";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { practiceAtom } from "@/states/practice.states";
 import { useAtomValue, useSetAtom } from "jotai/react";
 import { cn, getShuffledPhrases } from "@/lib/utils";
 import { HomeBackground } from "@/components/layouts/HomeBackground";
+import { useMainLayoutChrome } from "@/components/layouts/MainLayout/MainLayoutChromeContext";
 import { PracticeModeSelect, type PracticeMode } from "./PracticeModeSelect";
 import { PracticeScrollGame } from "./PracticeScrollGame";
+import { calculateAccuracy } from "@/utils/metrics";
 
 interface RoundData {
   phrase: string;
@@ -44,11 +46,24 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
   const [isBackShortcutActive, setIsBackShortcutActive] = useState(false);
   const backShortcutTimeoutRef = useRef<number | null>(null);
   const completionTimeoutRef = useRef<number | null>(null);
+  const { setIsGameChromeHidden } = useMainLayoutChrome();
 
   const practiceSet = useAtomValue(practiceAtom);
   const setPractice = useSetAtom(practiceAtom);
 
   const createPractice = useMutation(api.practice.addPractice);
+  const practiceContent = useQuery(api.typingContent.getPracticeContent);
+  const practicePhrases = useMemo(
+    () => practiceContent?.phrases ?? [],
+    [practiceContent]
+  );
+  const scrollParagraphs = useMemo(
+    () => practiceContent?.scrollParagraphs ?? [],
+    [practiceContent]
+  );
+  const isPracticeContentLoading = practiceContent === undefined;
+  const isPracticeContentAvailable =
+    practicePhrases.length > 0 && scrollParagraphs.length > 0;
 
   useEffect(() => {
     router.prefetch("/home");
@@ -66,17 +81,28 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
   }, []);
 
   const currentPhrase = practiceSet?.phrases?.[currentRound - 1];
+  const isPracticeGameActive = selectedMode !== null;
+
+  useEffect(() => {
+    setIsGameChromeHidden(isPracticeGameActive);
+
+    return () => setIsGameChromeHidden(false);
+  }, [isPracticeGameActive, setIsGameChromeHidden]);
 
   const startPhrasePractice = useCallback(() => {
+    if (!isPracticeContentAvailable) return;
+
     setCurrentRound(1);
     setRoundsData([]);
     setShowCompleted(false);
     setShowResultsOverlay(false);
     setPractice({
-      phrases: getShuffledPhrases().map((phrase) => phrase) as string[],
+      phrases: getShuffledPhrases(practicePhrases).map(
+        (phrase) => phrase
+      ) as string[],
     });
     setSelectedMode("phrases");
-  }, [setPractice]);
+  }, [isPracticeContentAvailable, practicePhrases, setPractice]);
 
   const handleSelectMode = useCallback(
     (mode: PracticeMode) => {
@@ -85,16 +111,16 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
         return;
       }
 
-      setSelectedMode("scroll");
+      if (isPracticeContentAvailable) {
+        setSelectedMode("scroll");
+      }
     },
-    [startPhrasePractice]
+    [isPracticeContentAvailable, startPhrasePractice]
   );
 
   const handleCompleted = (data: { errors: number; timeMs: number }) => {
     const phrase = currentPhrase;
-    const accuracy = Math.round(
-      ((phrase.length - data.errors) / phrase.length) * 100
-    );
+    const accuracy = calculateAccuracy(phrase.length, data.errors);
     const timeInMinutes = data.timeMs / (1000 * 60);
     const wordsTyped = phrase.split(" ").length;
     const wpm = Math.round(wordsTyped / timeInMinutes);
@@ -162,7 +188,9 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
     setCurrentRound(1);
     setRoundsData([]);
     setPractice({
-      phrases: getShuffledPhrases().map((phrase) => phrase) as string[],
+      phrases: getShuffledPhrases(practicePhrases).map(
+        (phrase) => phrase
+      ) as string[],
     });
   };
 
@@ -172,7 +200,9 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
     setShowCompleted(false);
     setShowResultsOverlay(false);
     setPractice({
-      phrases: getShuffledPhrases().map((phrase) => phrase) as string[],
+      phrases: getShuffledPhrases(practicePhrases).map(
+        (phrase) => phrase
+      ) as string[],
     });
   };
 
@@ -248,7 +278,7 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
         className={cn(
           "relative z-10 flex flex-col items-center px-5 sm:px-8",
           isEmbeddedInHome
-            ? "h-full min-h-0 justify-start py-0"
+            ? "h-full min-h-0 justify-center py-0"
             : "min-h-[calc(100vh-100px)] justify-center py-8"
         )}
       >
@@ -292,10 +322,10 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
             isEmbeddedInHome
               ? selectedMode === null
                 ? "min-h-0 justify-center pb-8 pt-24"
-                : "min-h-0 justify-start pb-4 pt-24"
+                : "min-h-0 justify-center pb-8 pt-20"
               : selectedMode === null
                 ? "justify-start pb-12 pt-44 sm:pt-40"
-                : "justify-start pb-12 pt-40 sm:pt-36"
+                : "justify-center pb-12 pt-28 sm:pt-24"
           )}
         >
           <div
@@ -333,15 +363,23 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
           {/* Container for Racer with overlays */}
           <div className="relative flex w-full max-w-5xl justify-center">
             {selectedMode === null ? (
-              <PracticeModeSelect onSelectMode={handleSelectMode} />
+              isPracticeContentLoading ? (
+                <PracticeContentLoading />
+              ) : isPracticeContentAvailable ? (
+                <PracticeModeSelect onSelectMode={handleSelectMode} />
+              ) : (
+                <PracticeContentUnavailable />
+              )
             ) : selectedMode === "scroll" ? (
               <PracticeScrollGame
                 isCompactLayout={isEmbeddedInHome}
                 onBackToModes={handleBackToModes}
+                scrollParagraphs={scrollParagraphs}
               />
             ) : currentPhrase ? (
               <Racer
                 className="w-full space-y-10 [&>div:first-child]:!min-h-[180px] [&>div:first-child]:rounded-[1.75rem] [&>div:first-child]:border [&>div:first-child]:border-[#575279]/10 [&>div:first-child]:bg-[#575279]/[0.035] [&>div:first-child]:shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_18px_54px_rgba(87,82,121,0.08)] [&>div:first-child]:backdrop-blur-[2px] dark:[&>div:first-child]:border-white/10 dark:[&>div:first-child]:bg-[rgba(7,13,29,0.46)] dark:[&>div:first-child]:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_24px_90px_rgba(0,0,0,0.24)] dark:[&>div:first-child]:backdrop-blur-md [&>div:first-child>div]:px-5 [&>div:first-child>div]:py-10 sm:[&>div:first-child>div]:px-14 [&>div:last-child]:h-auto [&>div:last-child]:min-h-0 [&>div:last-child]:flex-wrap [&>div:last-child]:justify-center [&>div:last-child]:gap-3 [&>div:last-child]:space-x-0 [&>div:last-child>div]:min-w-[8rem] [&>div:last-child>div]:rounded-xl [&>div:last-child>div]:border [&>div:last-child>div]:border-[#575279]/10 [&>div:last-child>div]:bg-white/20 [&>div:last-child>div]:px-4 [&>div:last-child>div]:py-3 [&>div:last-child>div]:shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] [&>div:last-child>div]:backdrop-blur dark:[&>div:last-child>div]:border-white/10 dark:[&>div:last-child>div]:bg-white/[0.045] dark:[&>div:last-child>div]:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                lockOnError
                 phrase={currentPhrase}
                 onCompleted={handleCompleted}
               />
@@ -434,6 +472,30 @@ export function PracticeView({ showBackground = true }: PracticeViewProps) {
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+function PracticeContentLoading() {
+  return (
+    <div className="flex h-44 w-full items-center justify-center rounded-[1.75rem] border border-[#575279]/10 bg-[#575279]/[0.035] backdrop-blur-[2px] dark:border-white/10 dark:bg-[rgba(7,13,29,0.46)] dark:backdrop-blur-md">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-500 border-t-transparent"></div>
+    </div>
+  );
+}
+
+function PracticeContentUnavailable() {
+  return (
+    <div className="flex min-h-44 w-full max-w-2xl flex-col items-center justify-center rounded-[1.75rem] border border-red-400/20 bg-red-500/10 px-6 py-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-[2px] dark:border-red-300/20 dark:bg-red-500/10">
+      <Text variant="h6" className="font-extrabold text-red-600 dark:text-red-300">
+        Contenido de práctica no disponible
+      </Text>
+      <Text
+        variant="body2"
+        className="mt-2 max-w-xl font-semibold text-[var(--tw-home-muted)]"
+      >
+        Ejecuta la ingesta de contenido en Convex antes de iniciar práctica.
+      </Text>
     </div>
   );
 }

@@ -1,15 +1,21 @@
 import { useEffect, useState } from "react";
 import {
+  applyLockedTypingInput,
   applyTypingInput,
   createTypingState,
   formatTypingTime,
   getTypingTextVariant,
+  isDeletionTypingKey,
+  isPrintableTypingKey,
+  type TypingMistake,
   type TypingState,
 } from "@/domain/typingEngine";
+import { calculateAccuracy } from "@/utils/metrics";
 import { useTypingInputSession } from "./useTypingInputSession";
 
 interface UseRacerProps {
   phrase?: string;
+  lockOnError?: boolean;
   onCompleted?: (data: { errors: number; timeMs: number }) => void;
 }
 
@@ -18,6 +24,7 @@ interface UseRacerReturn {
   userInput: string;
   isActive: boolean;
   errors: number[];
+  mistake: TypingMistake | null;
   startTime: number | null;
   currentTime: number;
   hasCompleted: boolean;
@@ -42,6 +49,7 @@ interface UseRacerReturn {
 }
 
 export function useRacer({
+  lockOnError = false,
   phrase,
   onCompleted,
 }: UseRacerProps): UseRacerReturn {
@@ -53,13 +61,14 @@ export function useRacer({
   const targetText = phrase || "";
   const userInput = typingState.input;
   const errors = typingState.errors;
+  const mistake = typingState.mistake;
   const startTime = typingState.startedAt;
   const hasCompleted = typingState.hasCompleted;
   const {
     containerRef,
     currentTime,
     handleContainerClick,
-    handleKeyDown,
+    handleKeyDown: handleSessionKeyDown,
     handlePaste,
     inputRef,
     isActive: sessionIsActive,
@@ -95,7 +104,41 @@ export function useRacer({
     }
 
     // Only allow typing if we haven't exceeded the target text length
-    setTypingState((state) => applyTypingInput(state, value, Date.now()));
+    setTypingState((state) =>
+      lockOnError
+        ? applyLockedTypingInput(state, value, Date.now())
+        : applyTypingInput(state, value, Date.now())
+    );
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    handleSessionKeyDown(event);
+
+    if (!lockOnError || hasCompleted || event.defaultPrevented) {
+      return;
+    }
+
+    if (mistake && isDeletionTypingKey(event)) {
+      event.preventDefault();
+      setTypingState((state) =>
+        applyLockedTypingInput(state, state.input, Date.now())
+      );
+      return;
+    }
+
+    if (!isPrintableTypingKey(event)) {
+      return;
+    }
+
+    const expectedChar = targetText[userInput.length];
+    if (event.key === expectedChar) {
+      return;
+    }
+
+    event.preventDefault();
+    setTypingState((state) =>
+      applyLockedTypingInput(state, `${state.input}${event.key}`, Date.now())
+    );
   };
 
   const getTextVariant = (): "h4" | "h5" | "h6" => {
@@ -103,10 +146,8 @@ export function useRacer({
   };
 
   const accuracy =
-    targetText.length > 0 && userInput.length > 0
-      ? Math.round(
-          ((targetText.length - errors.length) / targetText.length) * 100
-        )
+    targetText.length > 0 && (userInput.length > 0 || errors.length > 0)
+      ? calculateAccuracy(targetText.length, errors.length)
       : 100;
 
   const isComplete = typingState.hasCompleted;
@@ -120,6 +161,7 @@ export function useRacer({
     userInput,
     isActive,
     errors,
+    mistake,
     startTime,
     currentTime,
     hasCompleted,

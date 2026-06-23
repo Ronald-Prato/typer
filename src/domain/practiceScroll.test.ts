@@ -5,6 +5,11 @@ import {
   countCompletedPracticeScrollWords,
   getAverageBookPagesForWords,
   getBotScrollIndex,
+  getCompetitiveScrollBotDifficultyTargets,
+  getCompetitiveScrollBotLineMissProbability,
+  getCompetitiveScrollBotLineSuccessProbability,
+  getCompetitiveScrollBotWpmBucket,
+  getCompetitiveScrollIntroState,
   getCompetitiveScrollTravelPx,
   getCompetitiveScrollWinner,
   getNextPracticeScrollTravelPx,
@@ -23,6 +28,7 @@ import {
   getRandomizedPracticeScrollParagraphs,
   getRandomPracticeScrollParagraphIndex,
   getScrollMinimapWordBlocks,
+  hasCompetitiveScrollBotMissedLine,
   hasCompetitiveScrollStartSignal,
   hasCompetitiveScrollLineFailed,
   hasPracticeScrollLineReachedDangerLine,
@@ -120,6 +126,49 @@ describe("practiceScroll", () => {
     expect(getPracticeScrollDangerLinePx(560)).toBe(280);
     expect(getPracticeScrollDangerLinePx(0)).toBe(0);
     expect(getPracticeScrollDangerLinePx(Number.NaN)).toBe(0);
+  });
+
+  it("runs competitive scroll through versus, countdown, then playing", () => {
+    const startedAt = 6_000;
+
+    expect(
+      getCompetitiveScrollIntroState({
+        now: 1_000,
+        startedAt,
+      })
+    ).toEqual({
+      phase: "versus",
+      countdownValue: null,
+      msUntilStart: 5_000,
+    });
+    expect(
+      getCompetitiveScrollIntroState({
+        now: 3_001,
+        startedAt,
+      })
+    ).toMatchObject({
+      phase: "countdown",
+      countdownValue: 3,
+    });
+    expect(
+      getCompetitiveScrollIntroState({
+        now: 5_001,
+        startedAt,
+      })
+    ).toMatchObject({
+      phase: "countdown",
+      countdownValue: 1,
+    });
+    expect(
+      getCompetitiveScrollIntroState({
+        now: 6_000,
+        startedAt,
+      })
+    ).toEqual({
+      phase: "playing",
+      countdownValue: null,
+      msUntilStart: 0,
+    });
   });
 
   it("estimates wrapped lines with explicit line breaks and bounded indexes", () => {
@@ -371,9 +420,9 @@ describe("practiceScroll", () => {
         PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
     });
 
-    expect(travelBeforeLineCompletion).toBe(128);
-    expect(nextTravelAfterLineCompletion).toBeCloseTo(128.2112, 5);
-    expect(nextTravelAfterLineCompletion).toBeLessThan(129);
+    expect(travelBeforeLineCompletion).toBe(153.6);
+    expect(nextTravelAfterLineCompletion).toBeCloseTo(153.85344, 5);
+    expect(nextTravelAfterLineCompletion).toBeLessThan(154);
   });
 
   it("ignores invalid incremental scroll travel values", () => {
@@ -481,6 +530,87 @@ describe("practiceScroll", () => {
     });
   });
 
+  it("keeps competitive scroll progress monotonic for delayed or deleted input updates", () => {
+    expect(
+      normalizeCompetitiveScrollProgress({
+        currentIndex: 3,
+        errors: 1,
+        now: 2_000,
+        previousProgress: {
+          currentIndex: 7,
+          typedWords: 2,
+          failed: false,
+          completed: false,
+          startedAt: 1_000,
+          errors: 2,
+        },
+        text: "uno dos tres",
+      })
+    ).toEqual({
+      currentIndex: 7,
+      typedWords: 2,
+      failed: false,
+      completed: false,
+      startedAt: 1_000,
+      finishedAt: undefined,
+      errors: 2,
+    });
+  });
+
+  it("preserves finished competitive scroll state against stale updates", () => {
+    expect(
+      normalizeCompetitiveScrollProgress({
+        currentIndex: 2,
+        errors: 0,
+        failed: false,
+        now: 3_000,
+        previousProgress: {
+          currentIndex: 7,
+          typedWords: 2,
+          failed: false,
+          completed: true,
+          startedAt: 1_000,
+          finishedAt: 2_000,
+          errors: 1,
+        },
+        text: "uno dos",
+      })
+    ).toMatchObject({
+      currentIndex: 7,
+      typedWords: 2,
+      failed: false,
+      completed: true,
+      finishedAt: 2_000,
+      errors: 1,
+    });
+
+    expect(
+      normalizeCompetitiveScrollProgress({
+        currentIndex: 7,
+        errors: 0,
+        failed: false,
+        now: 3_000,
+        previousProgress: {
+          currentIndex: 4,
+          typedWords: 1,
+          failed: true,
+          completed: false,
+          startedAt: 1_000,
+          finishedAt: 2_000,
+          errors: 1,
+        },
+        text: "uno dos",
+      })
+    ).toMatchObject({
+      currentIndex: 7,
+      typedWords: 2,
+      failed: true,
+      completed: false,
+      finishedAt: 2_000,
+      errors: 1,
+    });
+  });
+
   it("decides the competitive scroll winner from completion or failure", () => {
     expect(
       getCompetitiveScrollWinner({
@@ -578,6 +708,162 @@ describe("practiceScroll", () => {
     ).toBe(20);
   });
 
+  it("ramps bot line miss probability from a player-word grace window", () => {
+    expect(getCompetitiveScrollBotWpmBucket(40)).toBe(50);
+    expect(getCompetitiveScrollBotWpmBucket(58)).toBe(50);
+    expect(getCompetitiveScrollBotWpmBucket(78)).toBe(70);
+    expect(
+      getCompetitiveScrollBotDifficultyTargets({
+        playerWpm: 40,
+      })
+    ).toEqual({
+      wpmBucket: 50,
+      graceWords: 21,
+      earlyRampWords: 32,
+      lateRampWords: 43,
+      maxLossWords: 50,
+    });
+    expect(
+      getCompetitiveScrollBotDifficultyTargets({
+        playerWpm: 78,
+      })
+    ).toEqual({
+      wpmBucket: 70,
+      graceWords: 30,
+      earlyRampWords: 45,
+      lateRampWords: 60,
+      maxLossWords: 70,
+    });
+    expect(
+      getCompetitiveScrollBotDifficultyTargets({
+        playerWpm: 95,
+      })
+    ).toEqual({
+      wpmBucket: 90,
+      graceWords: 39,
+      earlyRampWords: 58,
+      lateRampWords: 77,
+      maxLossWords: 90,
+    });
+
+    expect(
+      getCompetitiveScrollBotLineMissProbability({
+        playerCompletedWords: 30,
+        playerWpm: 78,
+      })
+    ).toBe(0);
+    expect(
+      getCompetitiveScrollBotLineMissProbability({
+        playerCompletedWords: 45,
+        playerWpm: 78,
+      })
+    ).toBeCloseTo(0.05, 5);
+    expect(
+      getCompetitiveScrollBotLineMissProbability({
+        playerCompletedWords: 60,
+        playerWpm: 78,
+      })
+    ).toBeCloseTo(0.18, 5);
+    expect(
+      getCompetitiveScrollBotLineMissProbability({
+        playerCompletedWords: 70,
+        playerWpm: 78,
+      })
+    ).toBe(1);
+    expect(
+      getCompetitiveScrollBotLineMissProbability({
+        playerCompletedWords: 50,
+        playerWpm: 40,
+      })
+    ).toBe(1);
+  });
+
+  it("derives bot line success probability from player completed words", () => {
+    expect(
+      getCompetitiveScrollBotLineSuccessProbability({
+        playerCompletedWords: 30,
+        playerWpm: 78,
+      })
+    ).toBe(1);
+    expect(
+      getCompetitiveScrollBotLineSuccessProbability({
+        playerCompletedWords: 60,
+        playerWpm: 78,
+      })
+    ).toBeCloseTo(0.82, 5);
+    expect(
+      getCompetitiveScrollBotLineSuccessProbability({
+        playerCompletedWords: 70,
+        playerWpm: 78,
+      })
+    ).toBe(0);
+    expect(
+      getCompetitiveScrollBotLineSuccessProbability({
+        playerCompletedWords: 50,
+        playerWpm: 40,
+      })
+    ).toBe(0);
+  });
+
+  it("rolls bot line misses only after the player reaches the grace window", () => {
+    const text = "uno dos tres cuatro cinco seis";
+    const lines = getPracticeScrollWordLines(text);
+
+    expect(
+      hasCompetitiveScrollBotMissedLine({
+        currentIndex: lines[0].endIndex,
+        playerCompletedWords: 29,
+        playerWpm: 78,
+        previousIndex: 0,
+        random: () => 0.999999,
+        text,
+        lines,
+      })
+    ).toBe(false);
+
+    expect(
+      hasCompetitiveScrollBotMissedLine({
+        currentIndex: lines[1].endIndex,
+        playerCompletedWords: 60,
+        playerWpm: 78,
+        previousIndex: lines[0].endIndex,
+        random: () => 0.819,
+        text,
+        lines,
+      })
+    ).toBe(false);
+
+    expect(
+      hasCompetitiveScrollBotMissedLine({
+        currentIndex: lines[1].endIndex,
+        playerCompletedWords: 60,
+        playerWpm: 78,
+        previousIndex: lines[0].endIndex,
+        random: () => 0.821,
+        text,
+        lines,
+      })
+    ).toBe(true);
+  });
+
+  it("checks every newly completed bot line after delayed ticks", () => {
+    const text = "uno dos tres cuatro cinco seis";
+    const lines = getPracticeScrollWordLines(text);
+    const randomValues = [0.999999];
+
+    expect(
+      hasCompetitiveScrollBotMissedLine({
+        currentIndex: text.length,
+        playerCompletedWords: 50,
+        playerWpm: 40,
+        previousIndex: 0,
+        random: () => randomValues.shift() ?? 0,
+        text,
+        lines,
+      })
+    ).toBe(true);
+  });
+
   it("calculates competitive scroll travel from persisted start time", () => {
     expect(
       getCompetitiveScrollTravelPx({
@@ -587,7 +873,7 @@ describe("practiceScroll", () => {
         speedIncrementPxPerSecond: PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
         startedAt: 1_000,
       })
-    ).toBe(43.2);
+    ).toBe(51.84);
     expect(
       getCompetitiveScrollTravelPx({
         baseSpeedPxPerSecond: PRACTICE_SCROLL_SPEED_PX_PER_SECOND,
@@ -597,7 +883,7 @@ describe("practiceScroll", () => {
         speedIncrementPxPerSecond: PRACTICE_SCROLL_SPEED_INCREMENT_PX_PER_SECOND,
         startedAt: 1_000,
       })
-    ).toBe(14.4);
+    ).toBe(17.28);
     expect(
       getCompetitiveScrollTravelPx({
         baseSpeedPxPerSecond: PRACTICE_SCROLL_SPEED_PX_PER_SECOND,

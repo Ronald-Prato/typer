@@ -38,7 +38,7 @@ describe("MatchProgressView", () => {
     expect(screen.getByText("VICTORIA")).toBeInTheDocument();
   });
 
-  it("renders confetti when visual mode is restored", () => {
+  it("keeps confetti disabled when stored settings try to restore visual mode", () => {
     window.localStorage.setItem("typewars.low-performance-mode", "false");
 
     render(
@@ -53,7 +53,6 @@ describe("MatchProgressView", () => {
       />
     );
 
-    expect(screen.getByTestId("confetti")).toBeInTheDocument();
+    expect(screen.queryByTestId("confetti")).not.toBeInTheDocument();
   });
 });
-

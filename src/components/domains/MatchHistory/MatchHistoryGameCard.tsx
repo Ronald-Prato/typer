@@ -1,8 +1,9 @@
 "use client";
 
 import { motion } from "@/motion";
-import { CircleX, Coins, Swords, Trophy } from "lucide-react";
+import { CircleX, Swords, Trophy } from "lucide-react";
 import { UserAvatarImage } from "@/components/Avatar";
+import { TypocoinToken } from "@/components/Currency";
 import { Text } from "@/components/Typography";
 import {
   AccordionContent,
@@ -11,15 +12,15 @@ import {
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import {
-  calculateHistoryAverageMetrics,
-  formatHistoryAccuracy,
-  formatHistoryTime,
-  formatHistoryWpm,
+  getHistoryPrimaryStats,
+  getHistoryStageStats,
   getHistoryOpponent,
-  historyStageLabels,
   type HistoryGame,
-  type HistoryMetric,
 } from "@/domain/historyPresentation";
+import {
+  TYPOCOIN_REWARD_FOR_1V1_WIN,
+  formatTypocoinLabel,
+} from "@/domain/currency";
 
 interface MatchHistoryGameCardProps {
   game: HistoryGame;
@@ -37,9 +38,10 @@ export function MatchHistoryGameCard({
   formatDate,
 }: MatchHistoryGameCardProps) {
   const isWinner = game.winner === userId;
-  const avgMetrics = calculateHistoryAverageMetrics(game.progress, userId);
   const opponent = getHistoryOpponent(game);
-  const stageMetrics = game.progress?.[userId];
+  const primaryStats = getHistoryPrimaryStats(game, userId);
+  const stageStats = getHistoryStageStats(game, userId);
+  const [heroStat, ...supportingStats] = primaryStats;
 
   return (
     <motion.div
@@ -61,8 +63,8 @@ export function MatchHistoryGameCard({
         )}
       >
         <AccordionTrigger className="px-4 py-4 transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--tw-home-panel)_72%,transparent)]">
-          <div className="flex w-full min-w-0 flex-col gap-3 pr-4 md:grid md:grid-cols-[minmax(15rem,1.4fr)_repeat(4,minmax(5rem,0.6fr))_minmax(6rem,0.5fr)] md:items-center md:gap-4">
-            <div className="flex min-w-0 items-center gap-4">
+          <div className="flex w-full min-w-0 flex-col gap-4 pr-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 items-start gap-4">
               <div
                 className={cn(
                   "flex size-11 shrink-0 items-center justify-center rounded-md border",
@@ -112,113 +114,110 @@ export function MatchHistoryGameCard({
                 <Text variant="caption" className="mt-1 text-[var(--tw-home-muted)]">
                   {formatDate(game.createdAt ?? game._creationTime)}
                 </Text>
-                <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-1 md:hidden">
-                  <Text variant="caption" className="text-[var(--tw-home-muted)]">
-                    Tiempo {formatHistoryTime(avgMetrics.timeMs)}
-                  </Text>
-                  <Text variant="caption" className="text-[var(--tw-home-muted)]">
-                    Errores {avgMetrics.errors}
-                  </Text>
-                  <Text variant="caption" className="text-[var(--tw-home-muted)]">
-                    Precisión {formatHistoryAccuracy(avgMetrics.accuracy)}
-                  </Text>
-                  <Text variant="caption" className="text-[var(--tw-home-muted)]">
-                    WPM {formatHistoryWpm(avgMetrics.wpm)}
-                  </Text>
-                </div>
               </div>
             </div>
 
-            {[
-              { label: "Tiempo", value: formatHistoryTime(avgMetrics.timeMs) },
-              { label: "Errores", value: avgMetrics.errors },
-              {
-                label: "Precisión",
-                value: formatHistoryAccuracy(avgMetrics.accuracy),
-              },
-              { label: "WPM", value: formatHistoryWpm(avgMetrics.wpm) },
-            ].map((metric) => (
-              <div
-                key={metric.label}
-                className="hidden flex-col items-start md:flex"
-              >
-                <Text variant="caption" className="text-[var(--tw-home-muted)]">
-                  {metric.label}
-                </Text>
-                <Text
-                  variant="body2"
-                  className="font-semibold text-[var(--tw-home-fg)]"
-                >
-                  {metric.value}
-                </Text>
-              </div>
-            ))}
+            <div className="flex min-w-0 flex-1 flex-col gap-3 lg:max-w-3xl lg:items-end">
+              <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:justify-end">
+                {heroStat ? (
+                  <div className="flex items-baseline gap-2 rounded-md border border-orange-500/25 bg-orange-500/10 px-3 py-2 text-orange-600 dark:text-orange-200">
+                    <Text variant="h6" className="font-bold">
+                      {heroStat.value}
+                    </Text>
+                    <Text variant="caption" className="font-semibold uppercase">
+                      {heroStat.label}
+                    </Text>
+                  </div>
+                ) : null}
 
-            <div className="hidden items-center justify-end gap-2 md:flex">
-              <Coins
-                className={cn(
-                  "size-4",
-                  isWinner
-                    ? "text-amber-500 dark:text-amber-300"
-                    : "text-[var(--tw-home-muted)]"
-                )}
-              />
-              <Text
-                variant="body2"
-                className={cn(
-                  "font-bold",
-                  isWinner
-                    ? "text-amber-700 dark:text-amber-200"
-                    : "text-[var(--tw-home-muted)]"
-                )}
-              >
-                {isWinner ? "+10 oro" : "0 oro"}
-              </Text>
+                <div className="flex items-center gap-2 sm:justify-end">
+                  <TypocoinToken
+                    size="md"
+                    className={cn(
+                      "size-5",
+                      isWinner ? "opacity-100" : "opacity-50 grayscale"
+                    )}
+                  />
+                  <Text
+                    variant="body2"
+                    className={cn(
+                      "font-bold",
+                      isWinner
+                        ? "text-cyan-800 dark:text-cyan-100"
+                        : "text-[var(--tw-home-muted)]"
+                    )}
+                  >
+                    {formatTypocoinLabel(
+                      isWinner ? TYPOCOIN_REWARD_FOR_1V1_WIN : 0,
+                      { signed: isWinner }
+                    )}
+                  </Text>
+                </div>
+              </div>
+
+              <div className="flex w-full flex-wrap gap-2 lg:justify-end">
+                {supportingStats.map((metric) => (
+                  <div
+                    key={metric.label}
+                    className="rounded-md border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] px-3 py-1.5"
+                  >
+                    <Text
+                      variant="caption"
+                      className="block text-[var(--tw-home-muted)]"
+                    >
+                      {metric.label}
+                    </Text>
+                    <Text
+                      variant="body2"
+                      className="font-semibold text-[var(--tw-home-fg)]"
+                    >
+                      {metric.value}
+                    </Text>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </AccordionTrigger>
 
         <AccordionContent className="px-4 pb-4">
-          <div className="grid gap-3 border-t border-[var(--tw-home-border)] pt-4 md:grid-cols-4">
-            {historyStageLabels.map((stage) => {
-              const metrics = stageMetrics?.[stage.key] as
-                | HistoryMetric
-                | undefined;
-
-              return (
-                <div
-                  key={stage.label}
-                  className="rounded-lg border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] p-3"
-                >
-                  <Text variant="caption" className="text-[var(--tw-home-muted)]">
-                    {stage.label}
+          <div className="grid gap-3 border-t border-[var(--tw-home-border)] pt-4 md:grid-cols-2 xl:grid-cols-4">
+            {stageStats.map((stage) => (
+              <div
+                key={stage.label}
+                className="rounded-lg border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] p-3"
+              >
+                <Text variant="caption" className="text-[var(--tw-home-muted)]">
+                  {stage.label}
+                </Text>
+                {stage.stats.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {stage.stats.map((metric) => (
+                      <div
+                        key={`${stage.label}-${metric.label}`}
+                        className={cn(
+                          "rounded-md px-2 py-1",
+                          metric.emphasis
+                            ? "bg-orange-500/10 text-orange-600 dark:text-orange-200"
+                            : "bg-[var(--tw-home-panel-strong)] text-[var(--tw-home-fg)]"
+                        )}
+                      >
+                        <Text variant="caption" className="font-semibold">
+                          {metric.value} {metric.label}
+                        </Text>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Text
+                    variant="caption"
+                    className="mt-3 block text-[var(--tw-home-muted)]"
+                  >
+                    Sin datos
                   </Text>
-                  {metrics ? (
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <Text variant="caption" className="text-[var(--tw-home-fg)]">
-                        {formatHistoryTime(metrics.timeMs)}
-                      </Text>
-                      <Text variant="caption" className="text-[var(--tw-home-fg)]">
-                        {metrics.errors} err
-                      </Text>
-                      <Text variant="caption" className="text-[var(--tw-home-fg)]">
-                        {formatHistoryAccuracy(metrics.accuracy)}
-                      </Text>
-                      <Text variant="caption" className="text-[var(--tw-home-fg)]">
-                        {formatHistoryWpm(metrics.wpm)} WPM
-                      </Text>
-                    </div>
-                  ) : (
-                    <Text
-                      variant="caption"
-                      className="mt-3 block text-[var(--tw-home-muted)]"
-                    >
-                      Sin datos
-                    </Text>
-                  )}
-                </div>
-              );
-            })}
+                )}
+              </div>
+            ))}
           </div>
         </AccordionContent>
       </AccordionItem>

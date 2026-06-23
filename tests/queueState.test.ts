@@ -5,6 +5,7 @@ import {
   buildBotProfile,
   canCreateBotMatchForUser,
   canCreateMatchForUser,
+  getNearbyBotIntroWpm,
   hasQueuedHumanOpponent,
   type QueueableUser,
   MIN_BOT_MATCH_WAIT_MS,
@@ -161,12 +162,21 @@ describe("queueState", () => {
         nickname: "Type Bot",
         avatarSeed: "seed",
         avatarUrl: "https://example.com/avatar.svg",
+        highestPracticeWpm: 71,
       })
     ).toEqual({
       userId: "bot",
       nickname: "Type Bot",
       avatarSeed: "seed",
       avatarUrl: "https://example.com/avatar.svg",
+      highestPracticeWpm: 71,
     });
+  });
+
+  it("keeps bot intro WPM close to the user's WPM without showing zero", () => {
+    expect(getNearbyBotIntroWpm({ userWpm: 72, random: () => 0 })).toBe(64);
+    expect(getNearbyBotIntroWpm({ userWpm: 72, random: () => 0.999 })).toBe(80);
+    expect(getNearbyBotIntroWpm({ userWpm: 0, random: () => 0 })).toBe(37);
+    expect(getNearbyBotIntroWpm({ userWpm: null, random: () => 0.5 })).toBe(45);
   });
 });

@@ -1,4 +1,5 @@
 export * from "./Avatar";
+export * from "./Currency";
 export * from "./MatchMakingComponent";
 export * from "./Modal";
 export * from "./overlays";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "../../../../convex/_generated/api";
@@ -12,6 +12,14 @@ import {
   type MatchStageStep,
   type RawTypingMetrics,
 } from "@/domain/matchFlow";
+import {
+  COMPETITIVE_SCROLL_COUNTDOWN_MS,
+  COMPETITIVE_SCROLL_VERSUS_INTRO_MS,
+  getCompetitiveScrollIntroState,
+} from "@/domain/practiceScroll";
+
+const CLASSIC_MATCH_START_DELAY_MS =
+  COMPETITIVE_SCROLL_VERSUS_INTRO_MS + COMPETITIVE_SCROLL_COUNTDOWN_MS;
 
 export function useMatchStageFlow() {
   const router = useRouter();
@@ -20,20 +28,37 @@ export function useMatchStageFlow() {
   const [canContinue, setCanContinue] = useState(false);
   const [currentStepMetrics, setCurrentStepMetrics] =
     useState<RawTypingMetrics | null>(null);
+  const [introNow, setIntroNow] = useState(() => Date.now());
+  const [classicStartedAt, setClassicStartedAt] = useState<
+    number | undefined
+  >();
 
   const ownUser = useCurrentUser();
   const gameData = useQuery(api.game.getGameData);
   const setStepDone = useMutation(api.game.setStepDone);
   const finishGame = useMutation(api.game.finishGame);
 
+  const game = gameData?.game;
+  const gameId = game?._id;
+  const gameMode = game?.mode;
+  const gameWinner = game?.winner;
   const ownProgress = ownUser
-    ? gameData?.game?.progress?.[ownUser._id]
+    ? game?.progress?.[ownUser._id]
     : undefined;
-  const isGameFinished = Boolean(gameData?.game?.winner);
+  const isGameFinished = Boolean(gameWinner);
+  const introState = useMemo(
+    () =>
+      getCompetitiveScrollIntroState({
+        now: introNow,
+        startedAt: classicStartedAt,
+      }),
+    [classicStartedAt, introNow]
+  );
+  const isIntroPlaying = introState.phase === "playing";
 
-  const gameWords = gameData?.game?.words;
-  const gameLettersAndSymbols = gameData?.game?.lettersAndSymbols;
-  const gameHolds = gameData?.game?.holds;
+  const gameWords = game?.words;
+  const gameLettersAndSymbols = game?.lettersAndSymbols;
+  const gameHolds = game?.holds;
 
   const memoWords = useMemo(() => gameWords || [], [gameWords]);
 
@@ -61,6 +86,27 @@ export function useMatchStageFlow() {
     setStep(deriveStepFromProgress(ownProgress));
   }, [ownProgress]);
 
+  useEffect(() => {
+    if (!gameId || gameMode === "scroll" || gameWinner) {
+      setClassicStartedAt(undefined);
+      return;
+    }
+
+    setClassicStartedAt((currentStartedAt) =>
+      currentStartedAt ?? Date.now() + CLASSIC_MATCH_START_DELAY_MS
+    );
+  }, [gameId, gameMode, gameWinner]);
+
+  useEffect(() => {
+    if (!game || isGameFinished || isIntroPlaying) return;
+
+    const intervalId = window.setInterval(() => {
+      setIntroNow(Date.now());
+    }, 100);
+
+    return () => window.clearInterval(intervalId);
+  }, [game, isGameFinished, isIntroPlaying]);
+
   const handleNextStep = useCallback(() => {
     if (!currentStepMetrics) return;
 
@@ -68,7 +114,7 @@ export function useMatchStageFlow() {
       step,
       metrics: currentStepMetrics,
       content: {
-        phrase: gameData?.game?.phrase || "",
+        phrase: game?.phrase || "",
         words: memoWords,
         lettersAndSymbols: memoLettersAndSymbols,
         holds: memoHolds,
@@ -84,7 +130,7 @@ export function useMatchStageFlow() {
     setCurrentStepMetrics(null);
   }, [
     currentStepMetrics,
-    gameData?.game?.phrase,
+    game?.phrase,
     memoHolds,
     memoLettersAndSymbols,
     memoWords,
@@ -117,7 +163,9 @@ export function useMatchStageFlow() {
     handleRacerCompleted,
     handleRacerHoldSuccess,
     isGameFinished,
+    isIntroPlaying,
     isPending,
+    introState,
     memoHolds,
     memoLettersAndSymbols,
     memoWords,

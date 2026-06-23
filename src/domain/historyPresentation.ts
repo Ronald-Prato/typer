@@ -1,8 +1,26 @@
+import {
+  calculateAccuracy,
+  calculateWPM,
+  getCharacterCount,
+  getCharacterCountFromHolds,
+  getCharacterCountFromWords,
+} from "@/utils/metrics";
+
 export interface HistoryMetric {
   errors: number;
   timeMs: number;
   accuracy?: number;
   wpm?: number;
+}
+
+export interface HistoryScrollProgress {
+  currentIndex: number;
+  typedWords: number;
+  failed: boolean;
+  completed: boolean;
+  startedAt: number;
+  finishedAt?: number;
+  errors: number;
 }
 
 export interface HistoryProgress {
@@ -15,9 +33,11 @@ export interface HistoryProgress {
 export interface HistoryGame {
   _id: string;
   _creationTime: number;
+  mode?: "classic" | "scroll";
   userId: string;
   players: string[];
   phrase: string;
+  scrollText?: string;
   words: string[];
   holds: Array<{ word: string; number: number }>;
   lettersAndSymbols: string[];
@@ -28,6 +48,8 @@ export interface HistoryGame {
   opponentSnapshot?: HistoryOpponentSnapshot;
   language: "en" | "es";
   progress?: Record<string, HistoryProgress>;
+  scrollStartedAt?: number;
+  scrollProgress?: Record<string, HistoryScrollProgress>;
   createdAt: number;
 }
 
@@ -36,9 +58,12 @@ export interface HistoryOpponentSnapshot {
   nickname: string;
   avatarSeed?: string;
   avatarUrl?: string;
+  highestPracticeWpm?: number;
 }
 
 export type HistoryFilter = "all" | "wins" | "losses" | "1v1" | "bot";
+
+export const MATCH_HISTORY_PAGE_SIZE = 5;
 
 export const historyFilters: Array<{ key: HistoryFilter; label: string }> = [
   { key: "all", label: "Todas" },
@@ -64,6 +89,17 @@ export const historyStageLabels: Array<{
   { key: "holdsMetrics", label: "Holds" },
 ];
 
+export interface HistoryDisplayStat {
+  label: string;
+  value: string | number;
+  emphasis?: boolean;
+}
+
+export interface HistoryStageDisplay {
+  label: string;
+  stats: HistoryDisplayStat[];
+}
+
 export function getCompletedHistoryMetrics(
   progress: HistoryGame["progress"],
   userId: string
@@ -80,12 +116,23 @@ export function getCompletedHistoryMetrics(
 }
 
 export function calculateHistoryAverageMetrics(
-  progress: HistoryGame["progress"],
+  gameOrProgress: HistoryGame | HistoryGame["progress"],
   userId: string
 ) {
-  const allMetrics = getCompletedHistoryMetrics(progress, userId);
+  if (isHistoryGame(gameOrProgress)) {
+    return calculateMetricsAverage(
+      getCompletedHistoryMetricsForGame(gameOrProgress, userId)
+    );
+  }
+
+  return calculateMetricsAverage(
+    getCompletedHistoryMetrics(gameOrProgress, userId)
+  );
+}
+
+function calculateMetricsAverage(allMetrics: HistoryMetric[]) {
   if (allMetrics.length === 0) {
-    return { timeMs: 0, errors: 0, accuracy: 0, wpm: 0 };
+    return { timeMs: 0, errors: 0, accuracy: undefined, wpm: undefined };
   }
 
   const timeMs = allMetrics.reduce((sum, metric) => sum + metric.timeMs, 0);
@@ -100,6 +147,28 @@ export function calculateHistoryAverageMetrics(
   );
 
   return { timeMs, errors, accuracy, wpm };
+}
+
+function calculateScrollHistoryMetrics(
+  game: HistoryGame,
+  userId: string
+): HistoryMetric | null {
+  if (game.mode !== "scroll") return null;
+
+  const progress = game.scrollProgress?.[userId];
+  if (!progress) return null;
+
+  const finishedAt = progress.finishedAt ?? game.createdAt;
+  const timeMs = Math.max(0, finishedAt - progress.startedAt);
+  const typedCharacters = Math.max(0, Math.floor(progress.currentIndex));
+  const attemptedCharacters = typedCharacters + Math.max(0, progress.errors);
+
+  return {
+    timeMs,
+    errors: progress.errors,
+    accuracy: calculateAccuracy(attemptedCharacters, progress.errors),
+    wpm: calculateWPM(typedCharacters, timeMs),
+  };
 }
 
 export function filterHistoryGames(
@@ -135,7 +204,7 @@ export function summarizeHistoryPage(
 
   const wins = games.filter((game) => game.winner === (userId ?? game.userId)).length;
   const allMetrics = games.flatMap((game) =>
-    getCompletedHistoryMetrics(game.progress, userId ?? game.userId)
+    getCompletedHistoryMetricsForGame(game, userId ?? game.userId)
   );
 
   const averageWpm =
@@ -163,6 +232,159 @@ export function summarizeHistoryPage(
   };
 }
 
+export function getHistoryPageCount(totalItems: number, pageSize: number) {
+  const safePageSize = Math.max(1, Math.floor(pageSize));
+  const safeTotalItems = Math.max(0, Math.floor(totalItems));
+
+  return Math.max(1, Math.ceil(safeTotalItems / safePageSize));
+}
+
+export function clampHistoryPage({
+  page,
+  pageCount,
+}: {
+  page: number;
+  pageCount: number;
+}) {
+  const safePageCount = Math.max(1, Math.floor(pageCount));
+  const safePage = Number.isFinite(page) ? Math.floor(page) : 1;
+
+  return Math.min(safePageCount, Math.max(1, safePage));
+}
+
+export function getHistoryPageItems<TItem>({
+  items,
+  page,
+  pageSize,
+}: {
+  items: TItem[];
+  page: number;
+  pageSize: number;
+}) {
+  const pageCount = getHistoryPageCount(items.length, pageSize);
+  const currentPage = clampHistoryPage({ page, pageCount });
+  const startIndex = (currentPage - 1) * Math.max(1, Math.floor(pageSize));
+
+  return items.slice(startIndex, startIndex + Math.max(1, Math.floor(pageSize)));
+}
+
+export function getHistoryPaginationPages({
+  currentPage,
+  hasMore,
+  loadedItems,
+  pageSize,
+}: {
+  currentPage: number;
+  hasMore: boolean;
+  loadedItems: number;
+  pageSize: number;
+}) {
+  const loadedPageCount = getHistoryPageCount(loadedItems, pageSize);
+  const knownPageCount = hasMore ? loadedPageCount + 1 : loadedPageCount;
+  const pageCount = Math.max(1, knownPageCount);
+  const safeCurrentPage = clampHistoryPage({ page: currentPage, pageCount });
+
+  if (pageCount <= 7) {
+    return Array.from({ length: pageCount }, (_, index) => index + 1);
+  }
+
+  const pages = new Set([
+    1,
+    pageCount,
+    safeCurrentPage - 1,
+    safeCurrentPage,
+    safeCurrentPage + 1,
+  ]);
+
+  return Array.from(pages)
+    .filter((page) => page >= 1 && page <= pageCount)
+    .sort((a, b) => a - b);
+}
+
+export function isHistoryPageLoaded({
+  loadedItems,
+  page,
+  pageSize,
+}: {
+  loadedItems: number;
+  page: number;
+  pageSize: number;
+}) {
+  const safePageSize = Math.max(1, Math.floor(pageSize));
+  const safePage = Math.max(1, Math.floor(page));
+
+  return loadedItems > (safePage - 1) * safePageSize;
+}
+
+export function getHistoryPrimaryStats(
+  game: HistoryGame,
+  userId: string
+): HistoryDisplayStat[] {
+  const metrics = calculateHistoryAverageMetrics(game, userId);
+
+  if (game.mode === "scroll") {
+    const progress = game.scrollProgress?.[userId];
+
+    return [
+      { label: "WPM", value: formatHistoryWpm(metrics.wpm), emphasis: true },
+      { label: "Palabras", value: progress?.typedWords ?? 0 },
+      { label: "Errores", value: metrics.errors },
+      { label: "Estado", value: getScrollHistoryStatus(progress) },
+    ];
+  }
+
+  return [
+    { label: "WPM", value: formatHistoryWpm(metrics.wpm), emphasis: true },
+    { label: "Tiempo", value: formatHistoryTime(metrics.timeMs) },
+    { label: "Errores", value: metrics.errors },
+    { label: "Precisión", value: formatHistoryAccuracy(metrics.accuracy) },
+  ];
+}
+
+export function getHistoryStageStats(
+  game: HistoryGame,
+  userId: string
+): HistoryStageDisplay[] {
+  if (game.mode === "scroll") {
+    const metrics = calculateHistoryAverageMetrics(game, userId);
+
+    return [
+      {
+        label: "Scroll",
+        stats: [
+          { label: "WPM", value: formatHistoryWpm(metrics.wpm), emphasis: true },
+          { label: "Tiempo", value: formatHistoryTime(metrics.timeMs) },
+          { label: "Precisión", value: formatHistoryAccuracy(metrics.accuracy) },
+          { label: "Errores", value: metrics.errors },
+        ],
+      },
+    ];
+  }
+
+  return historyStageLabels.map((stage) => {
+    const metrics = getHistoryStageMetric(game, userId, stage.key);
+
+    return {
+      label: stage.label,
+      stats: metrics
+        ? [
+            {
+              label: "WPM",
+              value: formatHistoryWpm(metrics.wpm),
+              emphasis: true,
+            },
+            { label: "Tiempo", value: formatHistoryTime(metrics.timeMs) },
+            { label: "Errores", value: metrics.errors },
+            {
+              label: "Precisión",
+              value: formatHistoryAccuracy(metrics.accuracy),
+            },
+          ]
+        : [],
+    };
+  });
+}
+
 export function getHistoryOpponent(
   game: HistoryGame
 ): HistoryOpponentSnapshot | undefined {
@@ -174,11 +396,71 @@ export function formatHistoryTime(timeMs: number) {
 }
 
 export function formatHistoryWpm(wpm?: number) {
-  if (!wpm) return "N/A";
+  if (wpm === undefined) return "N/A";
   return `${Math.round(wpm)}`;
 }
 
 export function formatHistoryAccuracy(accuracy?: number) {
-  if (!accuracy) return "N/A";
+  if (accuracy === undefined) return "N/A";
   return `${Math.round(accuracy)}%`;
+}
+
+function getCompletedHistoryMetricsForGame(
+  game: HistoryGame,
+  userId: string
+): HistoryMetric[] {
+  const scrollMetrics = calculateScrollHistoryMetrics(game, userId);
+  if (scrollMetrics) return [scrollMetrics];
+
+  return historyStageLabels
+    .map((stage) => getHistoryStageMetric(game, userId, stage.key))
+    .filter((metric): metric is HistoryMetric => Boolean(metric));
+}
+
+function getHistoryStageMetric(
+  game: HistoryGame,
+  userId: string,
+  stage: (typeof historyStageLabels)[number]["key"]
+): HistoryMetric | undefined {
+  const metrics = game.progress?.[userId]?.[stage];
+  if (!metrics) return undefined;
+
+  const characterCount = getHistoryStageCharacterCount(game, stage);
+
+  return {
+    ...metrics,
+    accuracy:
+      metrics.accuracy ?? calculateAccuracy(characterCount, metrics.errors),
+    wpm: metrics.wpm ?? calculateWPM(characterCount, metrics.timeMs),
+  };
+}
+
+function getHistoryStageCharacterCount(
+  game: HistoryGame,
+  stage: (typeof historyStageLabels)[number]["key"]
+) {
+  if (stage === "phraseMetrics") return getCharacterCount(game.phrase);
+  if (stage === "wordsMetrics") return getCharacterCountFromWords(game.words);
+  if (stage === "lettersAndSymbolsMetrics") {
+    return getCharacterCountFromWords(game.lettersAndSymbols);
+  }
+
+  return getCharacterCountFromHolds(game.holds);
+}
+
+function getScrollHistoryStatus(progress?: HistoryScrollProgress) {
+  if (!progress) return "Sin datos";
+  if (progress.completed) return "Completado";
+  if (progress.failed) return "Falló";
+  return "Rival terminó";
+}
+
+function isHistoryGame(
+  gameOrProgress: HistoryGame | HistoryGame["progress"]
+): gameOrProgress is HistoryGame {
+  return (
+    Boolean(gameOrProgress) &&
+    typeof gameOrProgress === "object" &&
+    "_id" in gameOrProgress
+  );
 }
