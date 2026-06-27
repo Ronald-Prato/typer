@@ -1,13 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-import {
-  motion,
-  AnimatePresence,
-  motionTransitions,
-  useReducedMotion,
-} from "@/motion";
+import { useEffect } from "react";
+import { motion, AnimatePresence } from "@/motion";
 import {
   ArrowPathIcon,
   ArrowUturnLeftIcon,
@@ -25,8 +20,7 @@ import {
   formatPracticeTime,
   summarizePracticeResults,
 } from "@/domain/practiceResults";
-import { TypocoinToken } from "@/components/Currency";
-import { formatTypocoinAmount, formatTypocoinLabel } from "@/domain/currency";
+import { TypocoinRewardHero } from "./TypocoinRewardHero";
 
 interface RoundData {
   phrase: string;
@@ -47,6 +41,8 @@ interface ResultsOverlayProps {
   heroSuffix?: string;
   heroLabel?: string;
   heroIcon?: ReactNode;
+  showHeroIcon?: boolean;
+  showHeroLabel?: boolean;
   stats?: Array<{
     icon: ReactNode;
     label: string;
@@ -74,15 +70,6 @@ const CONFETTI_PIECES = [
   { left: "73%", x: 48, rotate: -18, color: "bg-yellow-400", delay: 0.06 },
   { left: "86%", x: 76, rotate: 32, color: "bg-orange-400", delay: 0.12 },
 ];
-const TYPOCOIN_REWARD_APPEAR_DELAY_MS = 300;
-const TYPOCOIN_REWARD_APPEAR_DURATION_MS = 180;
-const TYPOCOIN_REWARD_APPEAR_DELAY_SECONDS =
-  TYPOCOIN_REWARD_APPEAR_DELAY_MS / 1000;
-const TYPOCOIN_REWARD_ROLL_START_DELAY_MS =
-  TYPOCOIN_REWARD_APPEAR_DELAY_MS + TYPOCOIN_REWARD_APPEAR_DURATION_MS;
-const TYPOCOIN_REWARD_ROLL_STEP_MS = 45;
-const TYPOCOIN_REWARD_ROLL_MAX_STEPS = 10;
-
 function isRestartShortcut(event: KeyboardEvent, shortcut?: string) {
   if (!shortcut || event.metaKey || event.ctrlKey || event.altKey) {
     return false;
@@ -112,6 +99,8 @@ export function ResultsOverlay({
   heroSuffix,
   heroLabel,
   heroIcon,
+  showHeroIcon = true,
+  showHeroLabel = true,
   stats,
   tipTitle = "Tip de práctica",
   tip,
@@ -125,7 +114,6 @@ export function ResultsOverlay({
   typocoinRewardAmount,
 }: ResultsOverlayProps) {
   const { isLowPerformanceMode } = useLowPerformanceMode();
-  const shouldReduceRewardMotion = useReducedMotion();
   const summary = summarizePracticeResults(roundsData);
   const resultStats =
     stats ??
@@ -157,14 +145,9 @@ export function ResultsOverlay({
   const resolvedLevelProgress = levelProgress ?? summary.levelProgress;
   const hasTypocoinReward =
     typeof typocoinRewardAmount === "number" && typocoinRewardAmount > 0;
-  const typocoinRewardLabel =
-    hasTypocoinReward
-      ? formatTypocoinLabel(typocoinRewardAmount, { signed: true })
-      : undefined;
-  const typocoinRewardValue =
-    hasTypocoinReward
-      ? formatTypocoinAmount(typocoinRewardAmount, { signed: true })
-      : undefined;
+  const shouldShowTipPanel = showTipPanel && !hasTypocoinReward;
+  const shouldShowHeroIcon = showHeroIcon && !hasTypocoinReward;
+  const shouldShowHeroLabel = showHeroLabel && !hasTypocoinReward;
 
   useEffect(() => {
     if (!isVisible) return;
@@ -292,66 +275,55 @@ export function ResultsOverlay({
               >
                 {description ?? "Buen ritmo. Estos son tus resultados."}
               </Text>
-              {typocoinRewardLabel && (
-                <motion.div
-                  aria-label={typocoinRewardLabel}
-                  initial={
-                    shouldReduceRewardMotion
-                      ? false
-                      : { opacity: 0, y: 8, scale: 0.96 }
-                  }
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={
-                    shouldReduceRewardMotion
-                      ? motionTransitions.fast
-                      : {
-                          ...motionTransitions.base,
-                          delay: TYPOCOIN_REWARD_APPEAR_DELAY_SECONDS,
-                        }
-                  }
-                  className="mt-5 inline-flex items-center gap-3 text-cyan-950 drop-shadow-[0_10px_24px_rgba(8,145,178,0.2)] dark:text-cyan-50"
-                  role="status"
-                >
-                  <TypocoinToken size="lg" />
-                  <AnimatedTypocoinRewardAmount
-                    amount={typocoinRewardAmount}
-                    fallbackValue={typocoinRewardValue}
-                    startDelayMs={TYPOCOIN_REWARD_ROLL_START_DELAY_MS}
-                  />
-                </motion.div>
-              )}
-
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.18, duration: 0.28 }}
-                className="my-7 flex flex-col items-center"
+                className={cn(
+                  "flex flex-col items-center",
+                  hasTypocoinReward ? "mb-0 mt-8" : "my-7"
+                )}
               >
-                <span className="mb-1 text-emerald-500">
-                  {heroIcon ?? <BoltIcon className="size-8" />}
-                </span>
+                {shouldShowHeroIcon && (
+                  <span className="mb-1 text-emerald-500">
+                    {heroIcon ?? <BoltIcon className="size-8" />}
+                  </span>
+                )}
                 <div className="flex items-end gap-2">
                   <span className="text-7xl font-black leading-none text-emerald-500">
                     {resolvedHeroValue}
                   </span>
-                  <span className="pb-2 text-xl font-black text-emerald-600 dark:text-emerald-400">
+                  <span
+                    className={cn(
+                      "font-black text-emerald-600 dark:text-emerald-400",
+                      hasTypocoinReward ? "pb-1 text-lg" : "pb-2 text-xl"
+                    )}
+                  >
                     {resolvedHeroSuffix}
                   </span>
                 </div>
-                <Text
-                  variant="caption"
-                  className="mt-2 font-bold uppercase text-[var(--tw-home-muted)]"
-                >
-                  {resolvedHeroLabel}
-                </Text>
+                {shouldShowHeroLabel && (
+                  <Text
+                    variant="caption"
+                    className="mt-2 font-bold uppercase text-[var(--tw-home-muted)]"
+                  >
+                    {resolvedHeroLabel}
+                  </Text>
+                )}
               </motion.div>
+              {hasTypocoinReward && (
+                <TypocoinRewardHero amount={typocoinRewardAmount} />
+              )}
             </div>
 
             <motion.div
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.28, duration: 0.26 }}
-              className="relative z-10 grid gap-3 sm:grid-cols-3"
+              className={cn(
+                "relative z-10 grid gap-3 sm:grid-cols-3",
+                hasTypocoinReward && "mt-7"
+              )}
             >
               {resultStats.map((stat) => (
                 <ResultStat
@@ -360,11 +332,12 @@ export function ResultsOverlay({
                   label={stat.label}
                   value={stat.value}
                   tone={stat.tone}
+                  compact={hasTypocoinReward}
                 />
               ))}
             </motion.div>
 
-            {showTipPanel && (
+            {shouldShowTipPanel && (
               <motion.div
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -447,87 +420,18 @@ export function ResultsOverlay({
   );
 }
 
-function AnimatedTypocoinRewardAmount({
-  amount,
-  fallbackValue,
-  startDelayMs,
-}: {
-  amount?: number;
-  fallbackValue?: string;
-  startDelayMs: number;
-}) {
-  const shouldReduceMotion = useReducedMotion();
-  const finalAmount = amount ?? 0;
-  const [displayAmount, setDisplayAmount] = useState(
-    shouldReduceMotion ? finalAmount : 0
-  );
-  const displayValue =
-    displayAmount === 0
-      ? "+0"
-      : formatTypocoinAmount(displayAmount, { signed: true });
-
-  useEffect(() => {
-    if (shouldReduceMotion || finalAmount <= 0) {
-      setDisplayAmount(finalAmount);
-      return;
-    }
-
-    setDisplayAmount(0);
-
-    const increment = Math.max(
-      1,
-      Math.ceil(finalAmount / TYPOCOIN_REWARD_ROLL_MAX_STEPS)
-    );
-    let intervalId: number | undefined;
-    const timeoutId = window.setTimeout(() => {
-      intervalId = window.setInterval(() => {
-        setDisplayAmount((currentAmount) => {
-          const nextAmount = Math.min(finalAmount, currentAmount + increment);
-
-          if (nextAmount >= finalAmount && intervalId !== undefined) {
-            window.clearInterval(intervalId);
-          }
-
-          return nextAmount;
-        });
-      }, TYPOCOIN_REWARD_ROLL_STEP_MS);
-    }, startDelayMs);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      if (intervalId !== undefined) {
-        window.clearInterval(intervalId);
-      }
-    };
-  }, [finalAmount, shouldReduceMotion, startDelayMs]);
-
-  return (
-    <span className="relative inline-flex min-w-[3ch] justify-end overflow-hidden text-3xl font-black leading-none tabular-nums">
-      <motion.span
-        key={displayValue}
-        initial={shouldReduceMotion ? false : { opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={shouldReduceMotion ? undefined : { opacity: 0, y: -18 }}
-        transition={motionTransitions.fast}
-      >
-        {fallbackValue && displayAmount === finalAmount
-          ? fallbackValue
-          : displayValue}
-      </motion.span>
-    </span>
-  );
-}
-
 function ResultStat({
   icon,
   label,
   value,
   tone,
+  compact,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
   tone: "blue" | "violet" | "rose" | "emerald";
+  compact?: boolean;
 }) {
   const toneClass = {
     blue: "text-blue-500 bg-blue-500/10 border-blue-500/20",
@@ -537,7 +441,12 @@ function ResultStat({
   }[tone];
 
   return (
-    <div className="rounded-2xl border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.26)]">
+    <div
+      className={cn(
+        "rounded-2xl border border-[var(--tw-home-border)] bg-[var(--tw-home-panel)] text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.26)]",
+        compact ? "p-3" : "p-4"
+      )}
+    >
       <div className="flex items-center gap-2">
         <span
           className={`flex size-8 items-center justify-center rounded-lg border ${toneClass}`}
@@ -548,7 +457,10 @@ function ResultStat({
           {label}
         </Text>
       </div>
-      <Text variant="h5" className="mt-3 font-black text-[var(--tw-home-fg)]">
+      <Text
+        variant={compact ? "body1" : "h5"}
+        className="mt-3 font-black text-[var(--tw-home-fg)]"
+      >
         {value}
       </Text>
     </div>

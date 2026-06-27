@@ -1,0 +1,1 @@
+export { BattleTestView } from "./BattleTestView";

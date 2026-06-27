@@ -3,8 +3,8 @@
 import { motion } from "@/motion";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { Text } from "../Typography";
+import { TypingText } from "../TypingText";
 import { useRacerWords } from "@/hooks/useRacerWords";
-import { useLowPerformanceMode } from "@/hooks";
 
 interface RacerWordsProps {
   words: string[];
@@ -41,53 +41,6 @@ export function RacerWords({
     allWordsCompleted,
     isComplete,
   } = useRacerWords({ words, onCompleted });
-  const { isLowPerformanceMode } = useLowPerformanceMode();
-
-  const renderText = () => {
-    const textVariant = getTextVariant();
-
-    return currentWord.split("").map((char, index) => {
-      let colorClass = "";
-      let displayChar = char;
-
-      if (index < userInput.length) {
-        // User has typed this character
-        if (userInput[index] === char) {
-          // Correct character - gradient with 3D effect
-          colorClass =
-            "font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent drop-shadow-lg shadow-orange-500/50";
-        } else {
-          // Incorrect character - show what user typed in gray-200 with clay effect
-          colorClass =
-            "text-gray-200 font-bold drop-shadow-md shadow-gray-400/30";
-          displayChar = userInput[index];
-          // Make spaces visible when they're incorrect
-          if (displayChar === " ") {
-            displayChar = "␣"; // Use a visible space symbol
-          }
-        }
-      } else if (index === userInput.length) {
-        // Current character to type - cursor with improved visibility
-        colorClass = isLowPerformanceMode
-          ? "text-gray-300 bg-gray-600/70 drop-shadow-lg shadow-gray-400/60 backdrop-blur-sm"
-          : "text-gray-300 bg-gray-600/70 animate-pulse drop-shadow-lg shadow-gray-400/60 backdrop-blur-sm";
-      } else {
-        // Not yet typed - sunken clay effect
-        colorClass = "text-gray-500 drop-shadow-sm shadow-gray-600/20";
-      }
-
-      return (
-        <Text
-          key={index}
-          variant={textVariant as "h4" | "h5" | "h6"}
-          className={`font-mono inline ${isLowPerformanceMode ? "" : "transform transition-all duration-200 hover:scale-105"} ${colorClass}`}
-        >
-          {displayChar}
-        </Text>
-      );
-    });
-  };
-
   return (
     <div
       className={`flex flex-col items-center justify-center space-y-8 ${className}`}
@@ -166,7 +119,11 @@ export function RacerWords({
               </motion.div>
             </motion.div>
           ) : currentWord ? (
-            renderText()
+            <TypingText
+              targetText={currentWord}
+              userInput={userInput}
+              variant={getTextVariant()}
+            />
           ) : (
             <Text variant="body1" className="text-gray-500">
               Cargando palabras...

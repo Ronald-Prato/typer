@@ -39,6 +39,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLowPerformanceMode } from "@/hooks";
 import { useGlobalShortcut } from "@/hooks/useGlobalShortcut";
 import { usePendingMatchExitGuard } from "@/hooks/usePendingMatchExitGuard";
+import { syncTypingInputValue } from "@/hooks/syncTypingInputValue";
 import {
   m,
   motionTransitions,
@@ -369,6 +370,7 @@ export function CompetitiveScrollGame() {
       setInput(nextState.input);
       setErrors(nextErrors);
       setMistake(nextState.mistake);
+      return nextState.input;
     },
     [
       errors,
@@ -393,11 +395,13 @@ export function CompetitiveScrollGame() {
       isFinished ||
       nextInput.length > targetText.length
     ) {
+      syncTypingInputValue(event.currentTarget, input);
       return;
     }
 
     setPendingDeadKey(null);
-    applyScrollInput(nextInput);
+    const acceptedInput = applyScrollInput(nextInput);
+    syncTypingInputValue(event.currentTarget, acceptedInput);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -412,7 +416,7 @@ export function CompetitiveScrollGame() {
     }
 
     const deadKeyDisplay = getDeadKeyDisplay(event);
-    if (deadKeyDisplay) {
+    if (deadKeyDisplay && event.key !== "Dead") {
       setPendingDeadKey(deadKeyDisplay);
     }
   };

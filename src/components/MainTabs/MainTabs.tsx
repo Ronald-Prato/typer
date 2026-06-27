@@ -2,8 +2,9 @@
 
 import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useSearchParams, useRouter } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { BarChart3, Dumbbell, Home as HomeIcon } from "lucide-react";
+import { TypocoinToken } from "@/components/Currency";
 
 const TABS = [
   { key: "home", label: "INICIO", shortcut: "1", href: "/home", icon: HomeIcon },
@@ -21,22 +22,34 @@ const TABS = [
     href: "/home?tab=history",
     icon: BarChart3,
   },
+  {
+    key: "shop",
+    label: "TIENDA",
+    shortcut: "4",
+    href: "/shop",
+    icon: null,
+  },
 ] as const;
 
 type MainTabKey = (typeof TABS)[number]["key"];
 
 type MainTabsVariant = "vertical" | "horizontal";
 
-function getMainTabKey(tab: string | null): MainTabKey {
+function getMainTabKey(tab: string | null, pathname: string): MainTabKey {
+  if (pathname === "/shop") {
+    return "shop";
+  }
+
   return TABS.some((item) => item.key === tab) ? (tab as MainTabKey) : "home";
 }
 
 function MainTabsContent({ variant = "vertical" }: { variant?: MainTabsVariant }) {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const router = useRouter();
 
   // Get current tab from URL or default to "home"
-  const currentTabFromURL = getMainTabKey(searchParams.get("tab"));
+  const currentTabFromURL = getMainTabKey(searchParams.get("tab"), pathname);
   const [activeTab, setActiveTab] = useState(currentTabFromURL);
 
   useEffect(() => {
@@ -72,6 +85,8 @@ function MainTabsContent({ variant = "vertical" }: { variant?: MainTabsVariant }
         handleTabChange("practice");
       } else if (event.key === "3") {
         handleTabChange("history");
+      } else if (event.key === "4") {
+        handleTabChange("shop");
       }
     };
 
@@ -111,15 +126,25 @@ function MainTabsContent({ variant = "vertical" }: { variant?: MainTabsVariant }
             onClick={() => handleTabChange(tab.key)}
             type="button"
           >
-            <Icon
-              className={cn(
-                "stroke-[1.8] transition-colors",
-                isHorizontal ? "size-5" : "size-10",
-                isActive
-                  ? "text-orange-500 drop-shadow-[0_0_14px_rgba(249,115,22,0.55)]"
-                  : "text-blue-400/90 group-hover:text-blue-500"
-              )}
-            />
+            {Icon ? (
+              <Icon
+                className={cn(
+                  "stroke-[1.8] transition-colors",
+                  isHorizontal ? "size-5" : "size-10",
+                  isActive
+                    ? "text-orange-500 drop-shadow-[0_0_14px_rgba(249,115,22,0.55)]"
+                    : "text-blue-400/90 group-hover:text-blue-500"
+                )}
+              />
+            ) : (
+              <TypocoinToken
+                className={cn(
+                  "transition-transform group-hover:scale-105",
+                  isActive && "drop-shadow-[0_0_14px_rgba(249,115,22,0.55)]"
+                )}
+                size={isHorizontal ? 22 : 40}
+              />
+            )}
             <span
               className={cn(
                 "font-extrabold tracking-wide",

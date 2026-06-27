@@ -74,10 +74,10 @@ function HomePageContent() {
   }
 
   return (
-    <div className="h-full text-white relative flex flex-col items-center">
+    <div className="relative flex h-full min-h-0 flex-col items-center overflow-hidden text-white">
       {currentTab === "history" ? (
         // Show MatchHistory when tab=history
-        <div className="w-full">
+        <div className="h-full min-h-0 w-full">
           <MatchHistory />
         </div>
       ) : currentTab === "practice" ? (

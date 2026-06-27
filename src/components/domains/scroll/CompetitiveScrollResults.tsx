@@ -46,12 +46,14 @@ export function CompetitiveScrollResults({
       heroSuffix="palabras"
       heroLabel="Texto escrito"
       heroIcon={<DocumentTextIcon className="size-8" />}
+      showHeroIcon={isWinner}
+      showHeroLabel={isWinner}
       closeLabel="Continuar"
       typocoinRewardAmount={isWinner ? TYPOCOIN_REWARD_FOR_1V1_WIN : undefined}
       shortcutDelayMs={!isWinner ? 500 : 0}
       tipTitle="Lectura de la partida"
       tip={`${completedWords} palabras equivalen a ${getAverageBookPagesForWords(completedWords)} páginas promedio de libro. Tu rival llegó a ${opponentTypedWords} palabras.`}
-      showTipPanel
+      showTipPanel={isWinner}
       levelLabel={isWinner ? "Victoria" : "Derrota"}
       levelProgress={typedPercent}
       stats={[

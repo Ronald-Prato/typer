@@ -7,6 +7,7 @@ import {
   getTypingTextVariant,
   type TypingSequenceState,
 } from "@/domain/typingEngine";
+import { syncTypingInputValue } from "./syncTypingInputValue";
 import { useTypingInputSession } from "./useTypingInputSession";
 
 interface UseRacerWordsProps {
@@ -104,12 +105,13 @@ export function useRacerWords({
 
     // Don't allow changes if all words are completed
     if (allWordsCompleted) {
+      syncTypingInputValue(e.currentTarget, userInput);
       return;
     }
 
-    setSequenceState((state) =>
-      applyTypingSequenceInput(state, value, Date.now())
-    );
+    const nextState = applyTypingSequenceInput(sequenceState, value, Date.now());
+    setSequenceState(nextState);
+    syncTypingInputValue(e.currentTarget, nextState.current.input);
   };
 
   const getTextVariant = (): "h4" | "h5" | "h6" => {

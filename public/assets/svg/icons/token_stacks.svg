@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200" viewBox="0 0 1600 1200">
+  <defs>
+    <radialGradient id="coinFace" cx="32%" cy="20%" r="80%">
+      <stop offset="0%" stop-color="#b9e8ff"/>
+      <stop offset="35%" stop-color="#58c8df"/>
+      <stop offset="72%" stop-color="#25dc62"/>
+      <stop offset="100%" stop-color="#14b94d"/>
+    </radialGradient>
+    <linearGradient id="sideGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0087ee"/>
+      <stop offset="0.45" stop-color="#00b9c7"/>
+      <stop offset="1" stop-color="#13c83e"/>
+    </linearGradient>
+    <linearGradient id="edgeGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0aa4ff"/>
+      <stop offset="0.55" stop-color="#1dd6b3"/>
+      <stop offset="1" stop-color="#20d740"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="22" stdDeviation="18" flood-color="#000" flood-opacity="0.22"/>
+    </filter>
+    <filter id="smallShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#003b43" flood-opacity="0.35"/>
+    </filter>
+    <symbol id="star" viewBox="0 0 220 220">
+      <path d="M110 6 C135 76 144 85 214 110 C144 135 135 144 110 214 C85 144 76 135 6 110 C76 85 85 76 110 6 Z" fill="#dcfff5" stroke="#ffffff" stroke-width="10"/>
+      <path d="M110 40 C130 88 138 96 186 110 C138 124 130 132 110 180 C90 132 82 124 34 110 C82 96 90 88 110 40 Z" fill="#ccfff0" stroke="#ffffff" stroke-width="5" opacity=".75"/>
+    </symbol>
+    <symbol id="topCoin" viewBox="0 0 420 250">
+      <ellipse cx="210" cy="125" rx="190" ry="106" fill="url(#coinFace)"/>
+      <ellipse cx="210" cy="125" rx="203" ry="116" fill="none" stroke="url(#edgeGrad)" stroke-width="22"/>
+      <ellipse cx="210" cy="125" rx="171" ry="92" fill="none" stroke="#006ea8" stroke-width="10" opacity=".42"/>
+      <path d="M74 87 C115 38 190 21 270 34" fill="none" stroke="#e8f7ff" stroke-width="11" stroke-linecap="round" opacity=".85"/>
+      <path d="M312 186 C348 165 371 139 382 106" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" opacity=".86"/>
+      <path d="M70 158 C142 221 284 224 359 161" fill="none" stroke="#b8ffd1" stroke-width="18" opacity=".22"/>
+      <use href="#star" x="116" y="45" width="188" height="160" filter="url(#smallShadow)"/>
+    </symbol>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <ellipse cx="800" cy="905" rx="590" ry="95" fill="#000" opacity=".08"/>
+
+  <!-- back center stack -->
+  <g transform="translate(660 205)" filter="url(#shadow)">
+    <g>
+      <rect x="0" y="104" width="420" height="365" fill="url(#sideGrad)"/>
+      <ellipse cx="210" cy="469" rx="210" ry="73" fill="#06a95c"/>
+      <g stroke="#045a67" stroke-width="4" opacity=".55">
+        <path d="M0 156 Q210 224 420 156"/><path d="M0 205 Q210 273 420 205"/><path d="M0 254 Q210 322 420 254"/><path d="M0 303 Q210 371 420 303"/><path d="M0 352 Q210 420 420 352"/><path d="M0 401 Q210 469 420 401"/>
+      </g>
+      <use href="#topCoin" width="420" height="250"/>
+    </g>
+  </g>
+
+  <!-- left stack -->
+  <g transform="translate(315 400)" filter="url(#shadow)">
+    <rect x="0" y="104" width="420" height="255" fill="url(#sideGrad)"/>
+    <ellipse cx="210" cy="359" rx="210" ry="73" fill="#08b35c"/>
+    <g stroke="#045a67" stroke-width="4" opacity=".55">
+      <path d="M0 156 Q210 224 420 156"/><path d="M0 205 Q210 273 420 205"/><path d="M0 254 Q210 322 420 254"/><path d="M0 303 Q210 371 420 303"/>
+    </g>
+    <use href="#topCoin" width="420" height="250"/>
+  </g>
+
+  <!-- right stack -->
+  <g transform="translate(950 455)" filter="url(#shadow)">
+    <rect x="0" y="104" width="420" height="285" fill="url(#sideGrad)"/>
+    <ellipse cx="210" cy="389" rx="210" ry="73" fill="#08b35c"/>
+    <g stroke="#045a67" stroke-width="4" opacity=".55">
+      <path d="M0 156 Q210 224 420 156"/><path d="M0 205 Q210 273 420 205"/><path d="M0 254 Q210 322 420 254"/><path d="M0 303 Q210 371 420 303"/><path d="M0 352 Q210 420 420 352"/>
+    </g>
+    <use href="#topCoin" width="420" height="250"/>
+  </g>
+
+  <!-- front leaning coin -->
+  <g transform="translate(535 590) rotate(-12 210 125)" filter="url(#shadow)">
+    <ellipse cx="210" cy="125" rx="210" ry="122" fill="url(#edgeGrad)"/>
+    <ellipse cx="210" cy="125" rx="188" ry="104" fill="url(#coinFace)"/>
+    <ellipse cx="210" cy="125" rx="162" ry="84" fill="none" stroke="#006ea8" stroke-width="9" opacity=".35"/>
+    <path d="M72 85 C128 28 239 19 320 55" fill="none" stroke="#f1fbff" stroke-width="12" stroke-linecap="round" opacity=".82"/>
+    <path d="M312 188 C350 168 374 137 384 105" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" opacity=".88"/>
+    <use href="#star" x="112" y="34" width="196" height="178" filter="url(#smallShadow)"/>
+  </g>
+</svg>

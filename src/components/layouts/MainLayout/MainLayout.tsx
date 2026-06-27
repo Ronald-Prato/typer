@@ -75,9 +75,11 @@ function MainLayoutContent({
     (pathname === "/home" && searchParams.get("tab") === "practice");
   const isClassicSurface = pathname === "/1v1";
   const isScrollSurface = pathname === "/scroll";
+  const isShopSurface = pathname === "/shop";
   const isDedicatedGameSurface = pathname === "/1v1" || pathname === "/scroll";
   const isHomeGameSurface = isClassicSurface || isScrollSurface;
-  const isHomeSystemSurface = isPracticeSurface || isHomeGameSurface;
+  const isHomeSystemSurface =
+    isPracticeSurface || isHomeGameSurface || isShopSurface;
   const isGameChromeHidden =
     isDedicatedGameSurface || isEmbeddedGameChromeHidden;
   const shouldShowHomeHeaderControls = !isGameChromeHidden;
@@ -185,7 +187,7 @@ function MainLayoutContent({
     return () => window.clearInterval(interval);
   }, [dbUser?.queuedAt, isInQueue]);
 
-  if (pathname === "/home") {
+  if (pathname === "/home" || isShopSurface) {
     return (
       <MainLayoutChromeContext.Provider value={layoutChromeContextValue}>
         <HomeBackgroundDashProvider>
@@ -251,7 +253,12 @@ function MainLayoutContent({
                   isGameChromeHidden ? "pt-0" : "pt-24"
                 )}
               >
-                <div className="h-full min-h-0 w-full max-w-[72rem]">
+                <div
+                  className={cn(
+                    "h-full min-h-0 w-full",
+                    isShopSurface ? "max-w-[92rem]" : "max-w-[72rem]"
+                  )}
+                >
                   {children}
                 </div>
               </div>

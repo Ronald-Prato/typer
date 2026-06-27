@@ -4,7 +4,9 @@ import { motion } from "@/motion";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { Text } from "../Typography";
+import { TypingText } from "../TypingText";
 import { useLowPerformanceMode } from "@/hooks";
+import { syncTypingInputValue } from "@/hooks/syncTypingInputValue";
 import {
   applyHoldInput,
   createHoldTypingState,
@@ -135,10 +137,15 @@ export function RacerHold({
 
   // Handle input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isComplete) return;
+    if (isComplete) {
+      syncTypingInputValue(e.currentTarget, userInput);
+      return;
+    }
 
     const value = e.target.value;
-    setHoldState((state) => applyHoldInput(state, value, Date.now()));
+    const nextState = applyHoldInput(holdState, value, Date.now());
+    setHoldState(nextState);
+    syncTypingInputValue(e.currentTarget, nextState.input);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -157,48 +164,6 @@ export function RacerHold({
     if (inputRef.current && !isComplete) {
       inputRef.current.focus();
     }
-  };
-
-  const renderCurrentWord = () => {
-    if (!currentWord || !currentWord.word) return null;
-
-    return currentWord.word.split("").map((char, index) => {
-      let colorClass = "";
-      let displayChar = char;
-
-      if (index < userInput.length) {
-        // User has typed this character
-        if (userInput[index] === char) {
-          // Correct character - orange-red gradient arcade style
-          colorClass =
-            "font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent drop-shadow-lg shadow-orange-500/50";
-        } else {
-          // Incorrect character - white arcade style
-          colorClass = isLowPerformanceMode
-            ? "text-white font-bold drop-shadow-md shadow-white/50"
-            : "text-white font-bold drop-shadow-md shadow-white/50 animate-pulse";
-          displayChar = userInput[index];
-        }
-      } else if (index === userInput.length && isKeyPressed) {
-        // Current character to type - orange cursor
-        colorClass = isLowPerformanceMode
-          ? "text-orange-500 bg-orange-500/20 drop-shadow-lg shadow-orange-500/60"
-          : "text-orange-500 bg-orange-500/20 animate-ping drop-shadow-lg shadow-orange-500/60";
-      } else {
-        // Not yet typed - dim arcade style
-        colorClass = "text-gray-500 drop-shadow-sm";
-      }
-
-      return (
-        <Text
-          key={index}
-          variant="h4"
-          className={`font-mono inline ${isLowPerformanceMode ? "" : "transform transition-all duration-200"} ${colorClass}`}
-        >
-          {displayChar}
-        </Text>
-      );
-    });
   };
 
   if (isComplete) {
@@ -275,42 +240,50 @@ export function RacerHold({
         transition={{ duration: 0.6, ease: "backOut" }}
         className="relative"
       >
-        {/* Arcade Box */}
-        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl border-4 border-gray-600 p-4 shadow-2xl w-fit min-w-[200px] h-fit">
-          {/* Neon Border Effect */}
+        <div
+          data-testid="racer-hold-card"
+          className="relative h-fit w-fit min-w-[200px] rounded-2xl border border-[#575279]/12 bg-white/76 p-4 shadow-[0_18px_52px_rgba(87,82,121,0.16),inset_0_1px_0_rgba(255,255,255,0.78)] backdrop-blur-xl backdrop-saturate-150"
+        >
           <div
-            className={`absolute inset-0 rounded-2xl border-2 border-orange-500/30 shadow-[0_0_20px_rgba(249,115,22,0.3)] ${
+            className={`pointer-events-none absolute inset-0 rounded-2xl border border-orange-500/30 shadow-[0_0_20px_rgba(249,115,22,0.18)] ${
               isLowPerformanceMode ? "" : "animate-pulse"
             }`}
           />
 
-          {/* Number Display */}
-          <div className="flex items-center gap-2">
+          <div className="relative flex items-center gap-2">
             <motion.div
               animate={{
                 scale: isKeyPressed ? 1.1 : 1,
-                opacity: isKeyPressed ? 1 : 0.5,
+                opacity: isKeyPressed ? 1 : 0.72,
                 boxShadow: isKeyPressed
                   ? "0 0 30px rgba(249, 115, 22, 0.5)"
-                  : "0 0 10px rgba(249, 115, 22, 0.1)",
+                  : "0 0 10px rgba(249, 115, 22, 0.08)",
               }}
               transition={{ duration: 0.1 }}
               className={`rounded-sm px-4 flex items-center justify-center font-bold text-md border transition-all duration-200 ${
                 isKeyPressed
                   ? "bg-orange-500 text-white border-orange-400"
-                  : "bg-gray-800 border-gray-100 opacity-50"
+                  : "border-[#575279]/16 bg-white/58 text-[#575279]/62"
               }`}
             >
               {currentWord.number}
             </motion.div>
-            <Text variant="caption" className="text-gray-400 opacity-50">
+            <Text
+              variant="caption"
+              className="font-bold text-[#575279]/58 opacity-80"
+            >
               MANTÉN
             </Text>
           </div>
 
-          {/* Word Display */}
-          <div className="text-left mt-2 flex items-center justify-start">
-            <div className="leading-relaxed">{renderCurrentWord()}</div>
+          <div className="relative mt-2 flex items-center justify-start text-left">
+            <div className="leading-relaxed">
+              <TypingText
+                targetText={currentWord.word}
+                userInput={userInput}
+                variant="h4"
+              />
+            </div>
           </div>
 
           {/* Status Indicator */}

@@ -9,6 +9,7 @@ import {
   type TypingState,
 } from "@/domain/typingEngine";
 import { calculateAccuracy } from "@/utils/metrics";
+import { syncTypingInputValue } from "./syncTypingInputValue";
 import { useTypingInputSession } from "./useTypingInputSession";
 
 interface UseRacerProps {
@@ -100,13 +101,16 @@ export function useRacer({
 
     // Don't allow changes if phrase is completed
     if (hasCompleted) {
+      syncTypingInputValue(e.currentTarget, userInput);
       return;
     }
 
     setPendingDeadKey(null);
 
     // Only allow typing if we haven't exceeded the target text length
-    setTypingState((state) => applyTypingInput(state, value, Date.now()));
+    const nextState = applyTypingInput(typingState, value, Date.now());
+    setTypingState(nextState);
+    syncTypingInputValue(e.currentTarget, nextState.input);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -117,7 +121,7 @@ export function useRacer({
     }
 
     const deadKeyDisplay = getDeadKeyDisplay(event);
-    if (deadKeyDisplay) {
+    if (deadKeyDisplay && event.key !== "Dead") {
       setPendingDeadKey(deadKeyDisplay);
     }
   };

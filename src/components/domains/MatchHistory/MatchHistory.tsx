@@ -146,7 +146,7 @@ export const MatchHistory = () => {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-6 py-8">
+    <div className="mx-auto h-full min-h-0 w-full max-w-7xl overflow-y-auto px-6 py-8">
       <MatchHistoryHeader
         activeFilter={activeFilter}
         isFirstLoad={isFirstLoad}

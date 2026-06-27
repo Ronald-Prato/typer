@@ -14,6 +14,7 @@ import { RacerWords } from "@/components/RacerWords";
 import { ResultsOverlay } from "@/components/overlays/ResultsOverlay";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/Typography";
+import { TYPOCOIN_REWARD_FOR_1V1_WIN } from "@/domain/currency";
 import { formatTypingTime } from "@/domain/typingEngine";
 import { MatchProgress } from "./MatchProgress";
 import {
@@ -145,6 +146,8 @@ export function FinishedMatchView({
         }
         heroIcon={<BoltIcon className="size-8" />}
         heroLabel="Velocidad promedio"
+        showHeroIcon={isWinner}
+        showHeroLabel={isWinner}
         heroSuffix="WPM"
         heroValue={String(summary.averageWpm)}
         isVisible
@@ -153,7 +156,7 @@ export function FinishedMatchView({
         onClose={onFinishGame}
         roundsData={[]}
         shortcutDelayMs={!isWinner ? 500 : 0}
-        showTipPanel
+        showTipPanel={isWinner}
         stats={[
           {
             icon: <ClockIcon className="size-5" />,
@@ -177,6 +180,7 @@ export function FinishedMatchView({
         tip={`${summary.completedStages} de ${summary.stageCount} etapas registradas. Presiona Enter para continuar.`}
         tipTitle="Resumen de la partida"
         title={isWinner ? "Victoria" : "Derrota"}
+        typocoinRewardAmount={isWinner ? TYPOCOIN_REWARD_FOR_1V1_WIN : undefined}
       />
     </div>
   );

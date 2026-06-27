@@ -32,6 +32,7 @@ import {
   type TypingMistake,
 } from "@/domain/typingEngine";
 import { cn } from "@/lib/utils";
+import { syncTypingInputValue } from "@/hooks/syncTypingInputValue";
 import { m, motionTransitions, popIn } from "@/motion";
 import { useLowPerformanceMode } from "@/hooks";
 import {
@@ -264,6 +265,7 @@ export function PracticeScrollGame({
       setInput(nextState.input);
       setErrors(nextErrors);
       setMistake(nextState.mistake);
+      return nextState.input;
     },
     [errors, hasStartedTyping, input, mistake, startedAt, targetText]
   );
@@ -272,11 +274,13 @@ export function PracticeScrollGame({
     const nextInput = event.target.value;
 
     if (isFinished || nextInput.length > targetText.length) {
+      syncTypingInputValue(event.currentTarget, input);
       return;
     }
 
     setPendingDeadKey(null);
-    applyScrollInput(nextInput);
+    const acceptedInput = applyScrollInput(nextInput);
+    syncTypingInputValue(event.currentTarget, acceptedInput);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -290,7 +294,7 @@ export function PracticeScrollGame({
     }
 
     const deadKeyDisplay = getDeadKeyDisplay(event);
-    if (deadKeyDisplay) {
+    if (deadKeyDisplay && event.key !== "Dead") {
       setPendingDeadKey(deadKeyDisplay);
     }
   };

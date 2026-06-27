@@ -109,7 +109,28 @@ describe("ResultsOverlay", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders an optional typocoin reward with only the token and signed amount visible", () => {
+  it("can hide loss-specific hero chrome and the tip panel", () => {
+    render(
+      <ResultsOverlay
+        isVisible
+        roundsData={roundData}
+        onClose={vi.fn()}
+        heroIcon={<span data-testid="hero-icon" />}
+        heroLabel="Texto escrito"
+        showHeroIcon={false}
+        showHeroLabel={false}
+        showTipPanel={false}
+        title="Derrota"
+      />
+    );
+
+    expect(screen.queryByTestId("hero-icon")).not.toBeInTheDocument();
+    expect(screen.queryByText("Texto escrito")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tip de práctica")).not.toBeInTheDocument();
+    expect(screen.queryByText("Nivel actual")).not.toBeInTheDocument();
+  });
+
+  it("renders an optional typocoin reward as the primary victory moment", () => {
     vi.useFakeTimers();
 
     try {
@@ -118,19 +139,21 @@ describe("ResultsOverlay", () => {
           isVisible
           roundsData={roundData}
           onClose={vi.fn()}
+          heroLabel="Texto escrito"
           typocoinRewardAmount={10}
         />
       );
 
-      expect(screen.queryByText("Ganaste")).not.toBeInTheDocument();
       expect(screen.queryByText("typocoins")).not.toBeInTheDocument();
+      expect(screen.queryByText("ganados")).not.toBeInTheDocument();
+      expect(screen.queryByText("Texto escrito")).not.toBeInTheDocument();
+      expect(screen.queryByText("Tip de práctica")).not.toBeInTheDocument();
+      expect(screen.queryByText("Nivel actual")).not.toBeInTheDocument();
       expect(screen.getByText("+0")).toBeInTheDocument();
       const rewardStatus = screen.getByRole("status", {
         name: "+10 typocoins",
       });
       expect(rewardStatus).toBeInTheDocument();
-      expect(rewardStatus).not.toHaveClass("rounded-full");
-      expect(rewardStatus).not.toHaveClass("border");
 
       act(() => {
         vi.advanceTimersByTime(479);
